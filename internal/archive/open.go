@@ -25,7 +25,9 @@ func ExtractZip(r io.Reader, destDir string) error {
 	return ExtractFS(destDir, z)
 }
 
-// ExtractTar unpacks an uncompressed tar via [tarfs.Open] into destDir.
+// ExtractTar unpacks a tar via [tarfs.Open] into destDir.
+// Compressed wrappers (.gz, .xz, .zst, …) are chosen by name or magic
+// in the process-wide [github.com/lewtec/lewkit/x/compression] registry.
 func ExtractTar(r io.Reader, destDir string) error {
 	t, err := tarfs.Open(r)
 	if err != nil {

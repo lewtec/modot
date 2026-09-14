@@ -20,6 +20,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/lucasew/workspaced/internal/archive"
 	"github.com/lucasew/workspaced/internal/modfile"
 )
 
@@ -192,7 +193,7 @@ func ScoreArtifact(a Artifact, osName, arch, binaryHint string) int {
 	}
 
 	// Mild preference for common CLI archive formats.
-	if strings.HasSuffix(base, ".tar.gz") || strings.HasSuffix(base, ".tgz") || strings.HasSuffix(base, ".zip") || strings.HasSuffix(base, ".tar.xz") {
+	if archive.IsTarName(base) || archive.IsZipName(base) || archive.IsSquashFSName(base) {
 		score += 10
 	}
 

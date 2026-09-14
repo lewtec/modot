@@ -2,8 +2,6 @@ package install
 
 import (
 	"archive/tar"
-	"bytes"
-	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -20,7 +18,6 @@ import (
 	"github.com/lucasew/workspaced/internal/constants"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/pkg/driver"
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/fetchurl"
 	"github.com/lucasew/workspaced/pkg/driver/httpclient"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -126,52 +123,19 @@ func DownloadFirst(ctx context.Context, urls []string, dest string, opts Downloa
 
 func Extract(ctx context.Context, src, dest string) error {
 	switch {
-	case strings.HasSuffix(src, ".zip"):
+	case archive.IsZipName(src):
 		return unzip(ctx, src, dest)
-	case strings.HasSuffix(src, ".tar.gz"), strings.HasSuffix(src, ".tgz"):
-		return untargz(ctx, src, dest)
-	case strings.HasSuffix(src, ".tar"):
-		return untarFile(ctx, src, dest)
-	case strings.HasSuffix(src, ".tar.xz"), strings.HasSuffix(src, ".txz"):
-		return untarxz(ctx, src, dest)
-	case strings.HasSuffix(src, ".sfs"), strings.HasSuffix(src, ".squashfs"):
+	case archive.IsSquashFSName(src):
 		return extractSquashFS(ctx, src, dest)
+	case archive.IsTarName(src):
+		return extractTar(ctx, src, dest)
 	default:
 		return installBinary(ctx, src, dest)
 	}
 }
 
 func StripTopLevelDir(destPath string) error {
-	entries, err := os.ReadDir(destPath)
-	if err != nil {
-		return err
-	}
-	if len(entries) != 1 || !entries[0].IsDir() {
-		return nil
-	}
-
-	singleDir := filepath.Join(destPath, entries[0].Name())
-	tempDir := destPath + ".strip-tmp"
-	if err := os.Rename(singleDir, tempDir); err != nil {
-		return err
-	}
-
-	tempEntries, err := os.ReadDir(tempDir)
-	if err != nil {
-		if restoreErr := os.Rename(tempDir, singleDir); restoreErr != nil {
-			return fmt.Errorf("%w; restore failed: %w", err, restoreErr)
-		}
-		return err
-	}
-
-	for _, entry := range tempEntries {
-		oldPath := filepath.Join(tempDir, entry.Name())
-		newPath := filepath.Join(destPath, entry.Name())
-		if err := os.Rename(oldPath, newPath); err != nil {
-			return err
-		}
-	}
-	return os.Remove(tempDir)
+	return archive.StripTopLevelDir(destPath)
 }
 
 func MoveContents(srcDir, destDir string) error {
@@ -372,26 +336,7 @@ func unzip(ctx context.Context, src, dest string) error {
 	return archive.ExtractZip(f, dest)
 }
 
-func untargz(ctx context.Context, src, dest string) error {
-	f, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer logging.Close(ctx, f)
-	gz, err := gzip.NewReader(f)
-	if err != nil {
-		return err
-	}
-	defer logging.Close(ctx, gz)
-	// x/fs/tar needs ReaderAt and has no gzip wrapper yet.
-	raw, err := io.ReadAll(gz)
-	if err != nil {
-		return err
-	}
-	return archive.ExtractTar(bytes.NewReader(raw), dest)
-}
-
-func untarFile(ctx context.Context, src, dest string) error {
+func extractTar(ctx context.Context, src, dest string) error {
 	f, err := os.Open(src)
 	if err != nil {
 		return err
@@ -445,16 +390,4 @@ func untar(ctx context.Context, reader *tar.Reader, dest string) error {
 			}
 		}
 	}
-}
-
-func untarxz(ctx context.Context, src, dest string) error {
-	if err := os.MkdirAll(dest, 0o755); err != nil {
-		return err
-	}
-
-	cmd := execdriver.MustRun(ctx, "tar", "-xf", src, "-C", dest)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("tar xf failed: %w", err)
-	}
-	return nil
 }
