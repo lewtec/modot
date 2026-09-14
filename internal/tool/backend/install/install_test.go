@@ -193,3 +193,23 @@ func TestUntarRemovesPartialOnCopyError(t *testing.T) {
 		t.Fatalf("partial file still present after error: stat=%v extract=%v", statErr, err)
 	}
 }
+
+func TestExtractISOInvalidVolume(t *testing.T) {
+	src := filepath.Join(t.TempDir(), "vol.iso")
+	if err := os.WriteFile(src, make([]byte, 4096), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Extract(t.Context(), src, t.TempDir()); err == nil {
+		t.Fatal("expected invalid udf volume")
+	}
+}
+
+func TestExtractWIMInvalidImage(t *testing.T) {
+	src := filepath.Join(t.TempDir(), "install.wim")
+	if err := os.WriteFile(src, make([]byte, 256), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Extract(t.Context(), src, t.TempDir()); err == nil {
+		t.Fatal("expected invalid wim")
+	}
+}

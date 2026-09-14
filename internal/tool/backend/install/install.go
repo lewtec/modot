@@ -132,6 +132,10 @@ func Extract(ctx context.Context, src, dest string) error {
 		return untargz(ctx, src, dest)
 	case strings.HasSuffix(src, ".tar.xz"), strings.HasSuffix(src, ".txz"):
 		return untarxz(ctx, src, dest)
+	case strings.HasSuffix(src, ".iso"):
+		return extractUDF(ctx, src, dest)
+	case strings.HasSuffix(src, ".wim"):
+		return extractWIM(ctx, src, dest)
 	default:
 		return installBinary(ctx, src, dest)
 	}
@@ -357,6 +361,24 @@ func NormalizeInstalledBinaries(destDir string) error {
 		}
 	}
 	return nil
+}
+
+func extractUDF(ctx context.Context, src, dest string) error {
+	f, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer logging.Close(ctx, f)
+	return archive.ExtractUDF(f, dest)
+}
+
+func extractWIM(ctx context.Context, src, dest string) error {
+	f, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer logging.Close(ctx, f)
+	return archive.ExtractWIM(f, dest, 1)
 }
 
 func unzip(ctx context.Context, src, dest string) error {

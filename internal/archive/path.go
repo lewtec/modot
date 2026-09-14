@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	xpath "github.com/lewtec/lewkit/x/path"
 )
 
 // ErrIllegalPath is returned when a member name or resolved path would escape
@@ -36,11 +38,11 @@ func JoinWithin(destDir, name string) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("%w: empty name", ErrIllegalPath)
 	}
-	// filepath.Join discards prior segments after an absolute element on some OSes.
-	if filepath.IsAbs(name) {
+	p := xpath.New(name)
+	if p.IsAbs() || !p.Valid() || p.String() == "." {
 		return "", fmt.Errorf("%w: %s", ErrIllegalPath, name)
 	}
-	target := filepath.Join(destDir, name)
+	target := filepath.Join(destDir, filepath.FromSlash(p.String()))
 	if !PathWithinDest(destDir, target) {
 		return "", fmt.Errorf("%w: %s", ErrIllegalPath, name)
 	}
