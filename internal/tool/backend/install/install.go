@@ -2,7 +2,7 @@ package install
 
 import (
 	"archive/tar"
-	"bytes"
+	"archive/zip"
 	"compress/gzip"
 	"context"
 	"errors"
@@ -130,12 +130,8 @@ func Extract(ctx context.Context, src, dest string) error {
 		return unzip(ctx, src, dest)
 	case strings.HasSuffix(src, ".tar.gz"), strings.HasSuffix(src, ".tgz"):
 		return untargz(ctx, src, dest)
-	case strings.HasSuffix(src, ".tar"):
-		return untarFile(ctx, src, dest)
 	case strings.HasSuffix(src, ".tar.xz"), strings.HasSuffix(src, ".txz"):
 		return untarxz(ctx, src, dest)
-	case strings.HasSuffix(src, ".sfs"), strings.HasSuffix(src, ".squashfs"):
-		return extractSquashFS(ctx, src, dest)
 	default:
 		return installBinary(ctx, src, dest)
 	}
@@ -364,49 +360,58 @@ func NormalizeInstalledBinaries(destDir string) error {
 }
 
 func unzip(ctx context.Context, src, dest string) error {
-	f, err := os.Open(src)
+	reader, err := zip.OpenReader(src)
 	if err != nil {
 		return err
 	}
-	defer logging.Close(ctx, f)
-	return archive.ExtractZip(f, dest)
+	defer logging.Close(ctx, reader)
+
+	for _, file := range reader.File {
+		target, err := archive.JoinWithin(dest, file.Name)
+		if err != nil {
+			return err
+		}
+
+		if file.FileInfo().IsDir() {
+			if err := os.MkdirAll(target, 0o755); err != nil {
+				return err
+			}
+			continue
+		}
+
+		rc, err := file.Open()
+		if err != nil {
+			return err
+		}
+		writeErr := archive.WriteMember(target, file.Mode(), rc)
+		closeErr := rc.Close()
+		if writeErr != nil {
+			return writeErr
+		}
+		if closeErr != nil {
+			if rmErr := os.Remove(target); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+				logging.ReportError(ctx, rmErr, "path", target)
+			}
+			return closeErr
+		}
+	}
+	return nil
 }
 
 func untargz(ctx context.Context, src, dest string) error {
-	f, err := os.Open(src)
+	file, err := os.Open(src)
 	if err != nil {
 		return err
 	}
-	defer logging.Close(ctx, f)
-	gz, err := gzip.NewReader(f)
-	if err != nil {
-		return err
-	}
-	defer logging.Close(ctx, gz)
-	// x/fs/tar needs ReaderAt and has no gzip wrapper yet.
-	raw, err := io.ReadAll(gz)
-	if err != nil {
-		return err
-	}
-	return archive.ExtractTar(bytes.NewReader(raw), dest)
-}
+	defer logging.Close(ctx, file)
 
-func untarFile(ctx context.Context, src, dest string) error {
-	f, err := os.Open(src)
+	gzipReader, err := gzip.NewReader(file)
 	if err != nil {
 		return err
 	}
-	defer logging.Close(ctx, f)
-	return archive.ExtractTar(f, dest)
-}
+	defer logging.Close(ctx, gzipReader)
 
-func extractSquashFS(ctx context.Context, src, dest string) error {
-	f, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer logging.Close(ctx, f)
-	return archive.ExtractSquashFS(f, dest)
+	return untar(ctx, tar.NewReader(gzipReader), dest)
 }
 
 func untar(ctx context.Context, reader *tar.Reader, dest string) error {

@@ -14,7 +14,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
-	github.com/lewtec/lewkit v0.0.0-20260914175025-168dc409759d
+	github.com/lewtec/lewkit v0.0.0-20260914171211-da642f655099
 	github.com/mattn/go-runewidth v0.0.23
 	github.com/owenrumney/go-sarif/v2 v2.3.3
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
@@ -29,7 +29,6 @@ require (
 	cel.dev/expr v0.25.2 // indirect
 	filippo.io/edwards25519 v1.1.1 // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
-	github.com/anchore/go-lzo v0.1.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
@@ -46,7 +45,6 @@ require (
 	github.com/cubicdaiya/gonp v1.0.4 // indirect
 	github.com/dave/jennifer v1.7.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/diskfs/go-diskfs v1.9.4 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emicklei/proto v1.14.3 // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
@@ -63,7 +61,6 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
-	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/ktr0731/go-ansisgr v0.1.0 // indirect
 	github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
@@ -76,13 +73,11 @@ require (
 	github.com/ncruces/julianday v1.0.0 // indirect
 	github.com/nsf/termbox-go v1.1.1 // indirect
 	github.com/pganalyze/pg_query_go/v6 v6.2.2 // indirect
-	github.com/pierrec/lz4/v4 v4.1.26 // indirect
 	github.com/pingcap/errors v0.11.5-0.20250523034308-74f78ae071ee // indirect
 	github.com/pingcap/failpoint v0.0.0-20240528011301-b51a646c7c86 // indirect
 	github.com/pingcap/log v1.1.0 // indirect
 	github.com/pingcap/tidb/pkg/parser v0.0.0-20260418072757-ce92298d1124 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pkg/xattr v0.4.12 // indirect
 	github.com/protocolbuffers/txtpbfmt v0.0.0-20260420112717-c39628bde8b5 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
@@ -93,7 +88,6 @@ require (
 	github.com/sqlc-dev/sqlc v1.31.1 // indirect
 	github.com/stretchr/testify v1.12.1 // indirect
 	github.com/tetratelabs/wazero v1.12.0 // indirect
-	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/wasilibs/go-pgquery v0.0.0-20250409022910-10ac41983c07 // indirect
 	github.com/wasilibs/wazero-helpers v0.0.0-20240620070341-3dff1577cd52 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
