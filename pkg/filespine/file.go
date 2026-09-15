@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"cuelang.org/go/cue"
-	xpath "github.com/lewtec/lewkit/x/path"
+	lewpath "github.com/lewtec/lewkit/x/path"
 )
 
 const (
@@ -60,7 +60,7 @@ func validPath(p string) error {
 	if p == "" || strings.HasPrefix(p, "~") || !fs.ValidPath(p) {
 		return fmt.Errorf("%w: %q", ErrInvalidPath, p)
 	}
-	name := xpath.New(p)
+	name := lewpath.New(p)
 	if !name.Valid() || name.IsAbs() || name.String() == "." {
 		return fmt.Errorf("%w: %q", ErrInvalidPath, p)
 	}

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	xpath "github.com/lewtec/lewkit/x/path"
+	lewpath "github.com/lewtec/lewkit/x/path"
 )
 
 // FS is the encoded dest. Open returns the combined file.
@@ -45,7 +45,7 @@ func (f *FS) Open(name string) (fs.File, error) {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: err}
 	}
 	return &memFile{name: name, r: bytes.NewReader(data), info: fileInfo{
-		name: xpath.New(name).Name(),
+		name: lewpath.New(name).Name(),
 		size: int64(len(data)),
 		mode: decl.Mode,
 	}}, nil
@@ -136,7 +136,7 @@ type dirFile struct {
 }
 
 func (d *dirFile) Stat() (fs.FileInfo, error) {
-	return fileInfo{name: xpath.New(d.name).Name(), mode: fs.ModeDir | 0o755}, nil
+	return fileInfo{name: lewpath.New(d.name).Name(), mode: fs.ModeDir | 0o755}, nil
 }
 func (d *dirFile) Read([]byte) (int, error) {
 	return 0, &fs.PathError{Op: "read", Path: d.name, Err: errIsDir}

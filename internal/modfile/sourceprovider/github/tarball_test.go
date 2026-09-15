@@ -13,19 +13,19 @@ import (
 
 	lewfs "github.com/lewtec/lewkit/x/fs"
 	tarfs "github.com/lewtec/lewkit/x/fs/tar"
-	xpath "github.com/lewtec/lewkit/x/path"
-	xtest "github.com/lewtec/lewkit/x/test"
+	lewpath "github.com/lewtec/lewkit/x/path"
+	lewtest "github.com/lewtec/lewkit/x/test"
 
 	"github.com/lucasew/workspaced/internal/archive"
 )
 
 func copyTar(t *testing.T, r io.Reader, dest string) error {
 	t.Helper()
-	root, err := xpath.Open(dest)
+	root, err := lewpath.Open(dest)
 	if err != nil {
 		return err
 	}
-	xtest.CloseOnCleanup(t, root)
+	lewtest.CloseOnCleanup(t, root)
 	tfs, err := tarfs.Open(r)
 	if err != nil {
 		return err

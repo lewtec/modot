@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	xpath "github.com/lewtec/lewkit/x/path"
+	lewpath "github.com/lewtec/lewkit/x/path"
 )
 
 // StaticDir walks Root and emits ref slots for non-template files.
@@ -26,17 +26,17 @@ func (d StaticDir) Name() string {
 
 func (d StaticDir) Provide(ctx context.Context) (Patch, error) {
 	_ = ctx
-	root, err := xpath.Open(d.Root)
+	root, err := lewpath.Open(d.Root)
 	if err != nil {
 		return Patch{}, err
 	}
 	defer root.Close()
 	var slots []Contribution
-	err = xpath.New(".").WalkDir(root, func(name string, info fs.DirEntry, err error) error {
+	err = lewpath.New(".").WalkDir(root, func(name string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		p := xpath.New(name)
+		p := lewpath.New(name)
 		if info.IsDir() {
 			if strings.HasSuffix(p.Name(), ".d.tmpl") {
 				return fs.SkipDir
@@ -74,7 +74,7 @@ func (d StaticDir) Provide(ctx context.Context) (Patch, error) {
 
 // IsTemplatePath is true for .tmpl files and .d.tmpl fragments.
 func IsTemplatePath(rel string) bool {
-	p := xpath.New(filepath.ToSlash(rel))
+	p := lewpath.New(filepath.ToSlash(rel))
 	s := p.String()
 	if strings.Contains(s, ".d.tmpl/") || strings.HasSuffix(s, ".d.tmpl") {
 		return true

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	xpath "github.com/lewtec/lewkit/x/path"
+	lewpath "github.com/lewtec/lewkit/x/path"
 )
 
 // ErrIllegalPath is returned when a member name or resolved path would escape
@@ -38,7 +38,7 @@ func JoinWithin(destDir, name string) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("%w: empty name", ErrIllegalPath)
 	}
-	p := xpath.New(name)
+	p := lewpath.New(name)
 	if p.IsAbs() || !p.Valid() || p.String() == "." {
 		return "", fmt.Errorf("%w: %s", ErrIllegalPath, name)
 	}

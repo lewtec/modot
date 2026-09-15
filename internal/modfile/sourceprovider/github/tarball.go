@@ -10,7 +10,7 @@ import (
 
 	lewfs "github.com/lewtec/lewkit/x/fs"
 	tarfs "github.com/lewtec/lewkit/x/fs/tar"
-	xpath "github.com/lewtec/lewkit/x/path"
+	lewpath "github.com/lewtec/lewkit/x/path"
 
 	"github.com/lucasew/workspaced/internal/archive"
 	"github.com/lucasew/workspaced/internal/githubutil"
@@ -67,7 +67,7 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 
 	h := sha256.New()
 	body := io.TeeReader(resp.Body, h)
-	root, err := xpath.Open(destDir)
+	root, err := lewpath.Open(destDir)
 	if err != nil {
 		return "", err
 	}

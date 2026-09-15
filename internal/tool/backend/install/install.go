@@ -17,7 +17,7 @@ import (
 	"github.com/lewtec/lewkit/x/fs/squashfs"
 	tarfs "github.com/lewtec/lewkit/x/fs/tar"
 	zipfs "github.com/lewtec/lewkit/x/fs/zip"
-	xpath "github.com/lewtec/lewkit/x/path"
+	lewpath "github.com/lewtec/lewkit/x/path"
 
 	"github.com/lucasew/workspaced/internal/archive"
 	"github.com/lucasew/workspaced/internal/atomicfile"
@@ -128,43 +128,34 @@ func DownloadFirst(ctx context.Context, urls []string, dest string, opts Downloa
 }
 
 func Extract(ctx context.Context, src, dest string) error {
-	if !archive.IsZipName(src) && !archive.IsTarName(src) && !archive.IsSquashFSName(src) {
-		return installBinary(ctx, src, dest)
-	}
 	f, err := os.Open(src)
 	if err != nil {
 		return err
 	}
 	defer logging.Close(ctx, f)
+
+	var files lewfs.Files
+	if z, err := zipfs.Open(f); err == nil {
+		files = lewfs.Walk(z, nil)
+	} else if img, err := squashfs.Open(f); err == nil {
+		files = lewfs.Walk(img, nil)
+	} else if tfs, err := tarfs.Open(f); err == nil {
+		files = lewfs.Walk(tfs, nil)
+	} else if errors.Is(err, fs.ErrInvalid) {
+		return err
+	} else {
+		return installBinary(ctx, src, dest)
+	}
+
 	if err := os.MkdirAll(dest, 0o755); err != nil {
 		return err
 	}
-	root, err := xpath.Open(dest)
+	root, err := lewpath.Open(dest)
 	if err != nil {
 		return err
 	}
 	defer logging.Close(ctx, root)
-
-	switch {
-	case archive.IsZipName(src):
-		z, err := zipfs.Open(f)
-		if err != nil {
-			return err
-		}
-		return lewfs.Copy(ctx, root, lewfs.Walk(z, nil))
-	case archive.IsSquashFSName(src):
-		img, err := squashfs.Open(f)
-		if err != nil {
-			return err
-		}
-		return lewfs.Copy(ctx, root, lewfs.Walk(img, nil))
-	default:
-		tfs, err := tarfs.Open(f)
-		if err != nil {
-			return err
-		}
-		return lewfs.Copy(ctx, root, lewfs.Walk(tfs, nil))
-	}
+	return lewfs.Copy(ctx, root, files)
 }
 
 func MoveContents(srcDir, destDir string) error {

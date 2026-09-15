@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	xtest "github.com/lewtec/lewkit/x/test"
+	lewtest "github.com/lewtec/lewkit/x/test"
 	"github.com/lucasew/workspaced/internal/backup"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
@@ -53,7 +53,7 @@ func TestArchiveAction_RunValidation(t *testing.T) {
 }
 
 func TestArchiveAction_WritesFinalOnlyOnSuccess(t *testing.T) {
-	xtest.Need(t, "tar")
+	lewtest.Need(t, "tar")
 
 	ctx := logging.NewWriterContext(t.Output())
 	inDir := t.TempDir()
@@ -83,7 +83,7 @@ func TestArchiveAction_WritesFinalOnlyOnSuccess(t *testing.T) {
 }
 
 func TestArchiveAction_FailureKeepsExistingOutput(t *testing.T) {
-	xtest.Need(t, "tar")
+	lewtest.Need(t, "tar")
 
 	ctx := logging.NewWriterContext(t.Output())
 	outDir := t.TempDir()
