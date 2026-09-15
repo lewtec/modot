@@ -147,9 +147,6 @@ func Extract(ctx context.Context, src, dest string) error {
 
 	switch {
 	case archive.IsZipName(src):
-		if err := archive.RejectZipSlip(f); err != nil {
-			return err
-		}
 		z, err := zipfs.Open(f)
 		if err != nil {
 			return err

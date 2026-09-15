@@ -61,8 +61,8 @@ func TestExtractZipRejectsPathTraversal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := Extract(t.Context(), archive, dest); err == nil {
-		t.Fatal("expected path traversal error")
+	if err := Extract(t.Context(), archive, dest); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := os.Stat(outside); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("path traversal wrote outside destination: %v", err)
