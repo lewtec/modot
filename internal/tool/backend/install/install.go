@@ -333,7 +333,7 @@ func unzip(ctx context.Context, src, dest string) error {
 		return err
 	}
 	defer logging.Close(ctx, f)
-	return archive.ExtractZip(f, dest)
+	return archive.ExtractZip(ctx, f, dest)
 }
 
 func extractTar(ctx context.Context, src, dest string) error {
@@ -342,7 +342,7 @@ func extractTar(ctx context.Context, src, dest string) error {
 		return err
 	}
 	defer logging.Close(ctx, f)
-	return archive.ExtractTar(f, dest)
+	return archive.ExtractTar(ctx, f, dest)
 }
 
 func extractSquashFS(ctx context.Context, src, dest string) error {
@@ -351,7 +351,7 @@ func extractSquashFS(ctx context.Context, src, dest string) error {
 		return err
 	}
 	defer logging.Close(ctx, f)
-	return archive.ExtractSquashFS(f, dest)
+	return archive.ExtractSquashFS(ctx, f, dest)
 }
 
 func untar(ctx context.Context, reader *tar.Reader, dest string) error {

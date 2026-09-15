@@ -14,7 +14,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
-	github.com/lewtec/lewkit v0.0.0-20260914215536-479265618311
+	github.com/lewtec/lewkit v0.0.0-20260915145126-79a811a14719
 	github.com/mattn/go-runewidth v0.0.23
 	github.com/owenrumney/go-sarif/v2 v2.3.3
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
@@ -53,6 +53,7 @@ require (
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/gdamore/encoding v1.0.1 // indirect
 	github.com/gdamore/tcell/v2 v2.6.0 // indirect
+	github.com/getsentry/sentry-go v0.49.0 // indirect
 	github.com/go-sql-driver/mysql v1.9.3 // indirect
 	github.com/golang-migrate/migrate/v4 v4.20.1 // indirect
 	github.com/google/cel-go v0.28.0 // indirect

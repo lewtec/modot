@@ -40,7 +40,7 @@ func TestExtractTarGzStripsPrefix(t *testing.T) {
 	}
 
 	dest := t.TempDir()
-	if err := extractTarGz(bytes.NewReader(gz.Bytes()), dest); err != nil {
+	if err := extractTarGz(t.Context(), bytes.NewReader(gz.Bytes()), dest); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dest, "subdir", "file.txt"))
@@ -83,7 +83,7 @@ func TestExtractTarGzRejectsPathTraversal(t *testing.T) {
 	}
 
 	dest := t.TempDir()
-	if err := extractTarGz(bytes.NewReader(gz.Bytes()), dest); err == nil {
+	if err := extractTarGz(t.Context(), bytes.NewReader(gz.Bytes()), dest); err == nil {
 		t.Fatal("expected illegal path")
 	}
 	if _, err := os.Stat(filepath.Join(filepath.Dir(dest), "outside.txt")); !errors.Is(err, fs.ErrNotExist) {

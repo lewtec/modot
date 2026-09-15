@@ -6,11 +6,10 @@ import (
 	"testing"
 	"testing/fstest"
 
-	xpath "github.com/lewtec/lewkit/x/path"
-	xtest "github.com/lewtec/lewkit/x/test"
+	lewfs "github.com/lewtec/lewkit/x/fs"
 )
 
-func TestCopyFSWritesTree(t *testing.T) {
+func TestCopyToWritesTree(t *testing.T) {
 	t.Parallel()
 	src := fstest.MapFS{
 		"a.txt":     {Data: []byte("hello")},
@@ -18,12 +17,7 @@ func TestCopyFSWritesTree(t *testing.T) {
 		"dir/b.txt": {Data: []byte("nested")},
 	}
 	dest := t.TempDir()
-	root, err := xpath.Open(dest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	xtest.CloseOnCleanup(t, root)
-	if err := CopyFS(root, src); err != nil {
+	if err := CopyTo(t.Context(), dest, lewfs.Walk(src, nil)); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dest, "a.txt"))

@@ -79,8 +79,12 @@ github.com/gdamore/encoding v1.0.1 h1:YzKZckdBL6jVt2Gc+5p82qhrGiqMdG/eNs6Wy0u3Uh
 github.com/gdamore/encoding v1.0.1/go.mod h1:0Z0cMFinngz9kS1QfMjCP8TY7em3bZYeeklsSDPivEo=
 github.com/gdamore/tcell/v2 v2.6.0 h1:OKbluoP9VYmJwZwq/iLb4BxwKcwGthaa1YNBJIyCySg=
 github.com/gdamore/tcell/v2 v2.6.0/go.mod h1:be9omFATkdr0D9qewWW3d+MEvl5dha+Etb5y65J2H8Y=
+github.com/getsentry/sentry-go v0.49.0 h1:Ehejknu1l023Ub7QoRBVLAI7g3Jnhqku4oWx4B4Sh5s=
+github.com/getsentry/sentry-go v0.49.0/go.mod h1:nuMJAoCfe1u0Bts2ocyNI+TW8HT84vRMqwA5Qq/SKUI=
 github.com/git-pkgs/gitignore v1.2.0 h1:7vdR8/SvF31dvXqIdC1bKgCvyySefXuN8aY3xJLuFaM=
 github.com/git-pkgs/gitignore v1.2.0/go.mod h1:Lr0XwhbvP071rZF/zIIhkY1gEhFDoWHH91lngwLpeUg=
+github.com/go-errors/errors v1.4.2 h1:J6MZopCL4uSllY1OfXM374weqZFFItUbrImctkmUxIA=
+github.com/go-errors/errors v1.4.2/go.mod h1:sIVyrIiJhuEF+Pj9Ebtd6P/rEYROXFi3BopGUQ5a5Og=
 github.com/go-logr/logr v1.4.3 h1:CjnDlHq8ikf6E492q6eKboGOC0T8CDaOvkHCIg8idEI=
 github.com/go-logr/logr v1.4.3/go.mod h1:9T104GzyrTigFIr8wt5mBrctHMim0Nb2HLGrmQ40KvY=
 github.com/go-logr/stdr v1.2.2 h1:hSWxHoqTgW2S2qGc0LTAI563KZ5YKYRhT3MFKZMbjag=
@@ -147,8 +151,8 @@ github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
 github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3 h1:zcMi8R8vP0WrrXlFMNUBpDy/ydo3sTnCcUPowq1XmSc=
 github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3/go.mod h1:RSub3ourNF8Hf+swvw49Catm3s7HVf4hzdFxDUnEzdA=
-github.com/lewtec/lewkit v0.0.0-20260914215536-479265618311 h1:bCI/FoRDWWU7nWsTymIqRDCJ5f3P0rprGznE/K1xG6w=
-github.com/lewtec/lewkit v0.0.0-20260914215536-479265618311/go.mod h1:SgA5LYP0TVm+aU9PYolKSDBGM9UREWHuWZ8jtZMarUM=
+github.com/lewtec/lewkit v0.0.0-20260915145126-79a811a14719 h1:y2/gTvSXKrwrhh5SUAuev+PHUV+KKE6scqgHbSOdGDo=
+github.com/lewtec/lewkit v0.0.0-20260915145126-79a811a14719/go.mod h1:t4nKW5dxWmf/TFnYUvhERhRuPmPxF7mVmMItgeh9wco=
 github.com/lib/pq v1.12.3 h1:tTWxr2YLKwIvK90ZXEw8GP7UFHtcbTtty8zsI+YjrfQ=
 github.com/lib/pq v1.12.3/go.mod h1:/p+8NSbOcwzAEI7wiMXFlgydTwcgTr3OSKMsD2BitpA=
 github.com/lucasb-eyer/go-colorful v1.2.0/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=

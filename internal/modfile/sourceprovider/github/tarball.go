@@ -62,7 +62,7 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 	}
 
 	h := sha256.New()
-	if err := extractTarGz(io.TeeReader(resp.Body, h), destDir); err != nil {
+	if err := extractTarGz(ctx, io.TeeReader(resp.Body, h), destDir); err != nil {
 		return "", err
 	}
 	got := hex.EncodeToString(h.Sum(nil))
@@ -72,8 +72,8 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 	return got, nil
 }
 
-func extractTarGz(r io.Reader, destDir string) error {
-	if err := archive.ExtractTar(r, destDir); err != nil {
+func extractTarGz(ctx context.Context, r io.Reader, destDir string) error {
+	if err := archive.ExtractTar(ctx, r, destDir); err != nil {
 		return err
 	}
 	return archive.StripTopLevelDir(destDir)
