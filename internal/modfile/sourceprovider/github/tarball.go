@@ -8,6 +8,10 @@ import (
 	"io"
 	"net/http"
 
+	lewfs "github.com/lewtec/lewkit/x/fs"
+	tarfs "github.com/lewtec/lewkit/x/fs/tar"
+	xpath "github.com/lewtec/lewkit/x/path"
+
 	"github.com/lucasew/workspaced/internal/archive"
 	"github.com/lucasew/workspaced/internal/githubutil"
 	"github.com/lucasew/workspaced/pkg/driver"
@@ -62,7 +66,20 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 	}
 
 	h := sha256.New()
-	if err := extractTarGz(ctx, io.TeeReader(resp.Body, h), destDir); err != nil {
+	body := io.TeeReader(resp.Body, h)
+	root, err := xpath.Open(destDir)
+	if err != nil {
+		return "", err
+	}
+	defer logging.Close(ctx, root)
+	tfs, err := tarfs.Open(body)
+	if err != nil {
+		return "", err
+	}
+	if err := lewfs.Copy(ctx, root, lewfs.Walk(tfs, nil)); err != nil {
+		return "", err
+	}
+	if err := archive.StripTopLevelDir(destDir); err != nil {
 		return "", err
 	}
 	got := hex.EncodeToString(h.Sum(nil))
@@ -70,11 +87,4 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 		return "", fmt.Errorf("hash mismatch: expected %s, got %s", expectedHash, got)
 	}
 	return got, nil
-}
-
-func extractTarGz(ctx context.Context, r io.Reader, destDir string) error {
-	if err := archive.ExtractTar(ctx, r, destDir); err != nil {
-		return err
-	}
-	return archive.StripTopLevelDir(destDir)
 }

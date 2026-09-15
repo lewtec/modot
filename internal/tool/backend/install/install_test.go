@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/lucasew/workspaced/internal/archive"
 )
 
 func TestStripTopLevelDir(t *testing.T) {
@@ -22,7 +24,7 @@ func TestStripTopLevelDir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := StripTopLevelDir(root); err != nil {
+	if err := archive.StripTopLevelDir(root); err != nil {
 		t.Fatal(err)
 	}
 

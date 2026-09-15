@@ -5,11 +5,36 @@ import (
 	"bytes"
 	"compress/gzip"
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
+
+	lewfs "github.com/lewtec/lewkit/x/fs"
+	tarfs "github.com/lewtec/lewkit/x/fs/tar"
+	xpath "github.com/lewtec/lewkit/x/path"
+	xtest "github.com/lewtec/lewkit/x/test"
+
+	"github.com/lucasew/workspaced/internal/archive"
 )
+
+func copyTar(t *testing.T, r io.Reader, dest string) error {
+	t.Helper()
+	root, err := xpath.Open(dest)
+	if err != nil {
+		return err
+	}
+	xtest.CloseOnCleanup(t, root)
+	tfs, err := tarfs.Open(r)
+	if err != nil {
+		return err
+	}
+	if err := lewfs.Copy(t.Context(), root, lewfs.Walk(tfs, nil)); err != nil {
+		return err
+	}
+	return archive.StripTopLevelDir(dest)
+}
 
 func TestExtractTarGzStripsPrefix(t *testing.T) {
 	t.Parallel()
@@ -40,7 +65,7 @@ func TestExtractTarGzStripsPrefix(t *testing.T) {
 	}
 
 	dest := t.TempDir()
-	if err := extractTarGz(t.Context(), bytes.NewReader(gz.Bytes()), dest); err != nil {
+	if err := copyTar(t, bytes.NewReader(gz.Bytes()), dest); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dest, "subdir", "file.txt"))
@@ -83,7 +108,7 @@ func TestExtractTarGzRejectsPathTraversal(t *testing.T) {
 	}
 
 	dest := t.TempDir()
-	if err := extractTarGz(t.Context(), bytes.NewReader(gz.Bytes()), dest); err == nil {
+	if err := copyTar(t, bytes.NewReader(gz.Bytes()), dest); err == nil {
 		t.Fatal("expected illegal path")
 	}
 	if _, err := os.Stat(filepath.Join(filepath.Dir(dest), "outside.txt")); !errors.Is(err, fs.ErrNotExist) {

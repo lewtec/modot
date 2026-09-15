@@ -13,6 +13,12 @@ import (
 	"runtime"
 	"strings"
 
+	lewfs "github.com/lewtec/lewkit/x/fs"
+	"github.com/lewtec/lewkit/x/fs/squashfs"
+	tarfs "github.com/lewtec/lewkit/x/fs/tar"
+	zipfs "github.com/lewtec/lewkit/x/fs/zip"
+	xpath "github.com/lewtec/lewkit/x/path"
+
 	"github.com/lucasew/workspaced/internal/archive"
 	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/constants"
@@ -63,7 +69,7 @@ func InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir str
 	if err := Extract(ctx, downloadPath, extractDir); err != nil {
 		return fmt.Errorf("extract %s: %w", filepath.Base(artifact.URL), err)
 	}
-	if err := StripTopLevelDir(extractDir); err != nil {
+	if err := archive.StripTopLevelDir(extractDir); err != nil {
 		return err
 	}
 	if err := MoveContents(extractDir, destDir); err != nil {
@@ -122,20 +128,46 @@ func DownloadFirst(ctx context.Context, urls []string, dest string, opts Downloa
 }
 
 func Extract(ctx context.Context, src, dest string) error {
-	switch {
-	case archive.IsZipName(src):
-		return unzip(ctx, src, dest)
-	case archive.IsSquashFSName(src):
-		return extractSquashFS(ctx, src, dest)
-	case archive.IsTarName(src):
-		return extractTar(ctx, src, dest)
-	default:
+	if !archive.IsZipName(src) && !archive.IsTarName(src) && !archive.IsSquashFSName(src) {
 		return installBinary(ctx, src, dest)
 	}
-}
+	f, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer logging.Close(ctx, f)
+	if err := os.MkdirAll(dest, 0o755); err != nil {
+		return err
+	}
+	root, err := xpath.Open(dest)
+	if err != nil {
+		return err
+	}
+	defer logging.Close(ctx, root)
 
-func StripTopLevelDir(destPath string) error {
-	return archive.StripTopLevelDir(destPath)
+	switch {
+	case archive.IsZipName(src):
+		if err := archive.RejectZipSlip(f); err != nil {
+			return err
+		}
+		z, err := zipfs.Open(f)
+		if err != nil {
+			return err
+		}
+		return lewfs.Copy(ctx, root, lewfs.Walk(z, nil))
+	case archive.IsSquashFSName(src):
+		img, err := squashfs.Open(f)
+		if err != nil {
+			return err
+		}
+		return lewfs.Copy(ctx, root, lewfs.Walk(img, nil))
+	default:
+		tfs, err := tarfs.Open(f)
+		if err != nil {
+			return err
+		}
+		return lewfs.Copy(ctx, root, lewfs.Walk(tfs, nil))
+	}
 }
 
 func MoveContents(srcDir, destDir string) error {
@@ -325,33 +357,6 @@ func NormalizeInstalledBinaries(destDir string) error {
 		}
 	}
 	return nil
-}
-
-func unzip(ctx context.Context, src, dest string) error {
-	f, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer logging.Close(ctx, f)
-	return archive.ExtractZip(ctx, f, dest)
-}
-
-func extractTar(ctx context.Context, src, dest string) error {
-	f, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer logging.Close(ctx, f)
-	return archive.ExtractTar(ctx, f, dest)
-}
-
-func extractSquashFS(ctx context.Context, src, dest string) error {
-	f, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer logging.Close(ctx, f)
-	return archive.ExtractSquashFS(ctx, f, dest)
 }
 
 func untar(ctx context.Context, reader *tar.Reader, dest string) error {
