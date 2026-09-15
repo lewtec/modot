@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"io/fs"
 	"maps"
-	"path"
 	"slices"
 	"strings"
 
 	"cuelang.org/go/cue"
+	lewpath "github.com/lewtec/lewkit/x/path"
 )
 
 const (
@@ -57,10 +57,11 @@ type File struct {
 
 func validPath(p string) error {
 	p = strings.TrimSpace(p)
-	if p == "" || p == "." || !fs.ValidPath(p) {
+	if p == "" || strings.HasPrefix(p, "~") || !fs.ValidPath(p) {
 		return fmt.Errorf("%w: %q", ErrInvalidPath, p)
 	}
-	if path.IsAbs(p) || strings.HasPrefix(p, "~") {
+	name := lewpath.New(p)
+	if !name.Valid() || name.IsAbs() || name.String() == "." {
 		return fmt.Errorf("%w: %q", ErrInvalidPath, p)
 	}
 	return nil

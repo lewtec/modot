@@ -192,7 +192,8 @@ func ScoreArtifact(a Artifact, osName, arch, binaryHint string) int {
 	}
 
 	// Mild preference for common CLI archive formats.
-	if strings.HasSuffix(base, ".tar.gz") || strings.HasSuffix(base, ".tgz") || strings.HasSuffix(base, ".zip") || strings.HasSuffix(base, ".tar.xz") {
+	if strings.HasSuffix(base, ".tar.gz") || strings.HasSuffix(base, ".tgz") ||
+		strings.HasSuffix(base, ".zip") || strings.HasSuffix(base, ".tar.xz") {
 		score += 10
 	}
 

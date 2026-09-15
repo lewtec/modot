@@ -1,9 +1,10 @@
 package version
 
 import (
-	"runtime"
 	"runtime/debug"
 	"strings"
+
+	"github.com/lewtec/lewkit/x/release"
 )
 
 var version = "dev"
@@ -38,31 +39,9 @@ func BuildID() string {
 	return "dev"
 }
 
-// Platform returns GOOS-GOARCH[-microarch] for this binary.
-// Microarch comes from the build setting for the active GOARCH
-// (GOAMD64, GOARM, GOARM64, GO386, …), e.g. "linux-amd64-v1", "linux-arm-7".
+// Platform is [release.Platform]: GOOS-GOARCH[-microarch].
 func Platform() string {
-	p := runtime.GOOS + "-" + runtime.GOARCH
-	if m := microarch(); m != "" {
-		return p + "-" + m
-	}
-	return p
-}
-
-// microarch returns the GO$GOARCH microarchitecture level recorded at build time.
-func microarch() string {
-	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		return ""
-	}
-	for _, s := range info.Settings {
-		switch s.Key {
-		case "GOAMD64", "GOARM", "GOARM64", "GO386",
-			"GOMIPS", "GOMIPS64", "GOPPC64", "GORISCV64", "GOWASM":
-			return s.Value
-		}
-	}
-	return ""
+	return release.Platform()
 }
 
 // GetBuildID returns a build identifier combining version and commit hash.

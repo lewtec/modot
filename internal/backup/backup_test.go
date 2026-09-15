@@ -3,11 +3,11 @@ package backup_test
 import (
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	lewtest "github.com/lewtec/lewkit/x/test"
 	"github.com/lucasew/workspaced/internal/backup"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
@@ -53,9 +53,7 @@ func TestArchiveAction_RunValidation(t *testing.T) {
 }
 
 func TestArchiveAction_WritesFinalOnlyOnSuccess(t *testing.T) {
-	if _, err := exec.LookPath("tar"); err != nil {
-		t.Skip("tar not available")
-	}
+	lewtest.Need(t, "tar")
 
 	ctx := logging.NewWriterContext(t.Output())
 	inDir := t.TempDir()
@@ -85,9 +83,7 @@ func TestArchiveAction_WritesFinalOnlyOnSuccess(t *testing.T) {
 }
 
 func TestArchiveAction_FailureKeepsExistingOutput(t *testing.T) {
-	if _, err := exec.LookPath("tar"); err != nil {
-		t.Skip("tar not available")
-	}
+	lewtest.Need(t, "tar")
 
 	ctx := logging.NewWriterContext(t.Output())
 	outDir := t.TempDir()

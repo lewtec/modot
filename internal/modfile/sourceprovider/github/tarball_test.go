@@ -3,62 +3,46 @@ package github
 import (
 	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
 
+	lewfs "github.com/lewtec/lewkit/x/fs"
+	tarfs "github.com/lewtec/lewkit/x/fs/tar"
+	lewpath "github.com/lewtec/lewkit/x/path"
+	lewtest "github.com/lewtec/lewkit/x/test"
+
 	"github.com/lucasew/workspaced/internal/archive"
 )
 
-func TestExtractTarEntryRemovesPartialOnCopyError(t *testing.T) {
-	t.Parallel()
-
-	var full bytes.Buffer
-	tw := tar.NewWriter(&full)
-	content := bytes.Repeat([]byte("x"), 2048)
-	if err := tw.WriteHeader(&tar.Header{
-		Name: "file.txt",
-		Mode: 0o644,
-		Size: int64(len(content)),
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := tw.Write(content); err != nil {
-		t.Fatal(err)
-	}
-	if err := tw.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	// Full 512-byte header plus a short body so io.Copy hits UnexpectedEOF.
-	partial := full.Bytes()[:512+64]
-	tr := tar.NewReader(bytes.NewReader(partial))
-	hdr, err := tr.Next()
+func copyTar(t *testing.T, r io.Reader, dest string) error {
+	t.Helper()
+	root, err := lewpath.Open(dest)
 	if err != nil {
-		t.Fatalf("Next: %v", err)
+		return err
 	}
-
-	dir := t.TempDir()
-	target := filepath.Join(dir, "file.txt")
-	err = extractTarEntry(t.Context(), tr, hdr, dir, target)
-	if err == nil {
-		t.Fatal("expected copy error from truncated tar body")
+	lewtest.CloseOnCleanup(t, root)
+	tfs, err := tarfs.Open(r)
+	if err != nil {
+		return err
 	}
-	if _, statErr := os.Stat(target); !errors.Is(statErr, fs.ErrNotExist) {
-		t.Fatalf("partial file still present after error: stat=%v extract=%v", statErr, err)
+	if err := lewfs.Copy(t.Context(), root, lewfs.Walk(tfs, nil)); err != nil {
+		return err
 	}
+	return archive.StripTopLevelDir(dest)
 }
 
-func TestExtractTarEntryWritesRegularFile(t *testing.T) {
+func TestExtractTarGzStripsPrefix(t *testing.T) {
 	t.Parallel()
-
-	var buf bytes.Buffer
-	tw := tar.NewWriter(&buf)
+	var raw bytes.Buffer
+	tw := tar.NewWriter(&raw)
 	content := []byte("hello module")
 	if err := tw.WriteHeader(&tar.Header{
-		Name: "file.txt",
+		Name: "repo-sha/subdir/file.txt",
 		Mode: 0o644,
 		Size: int64(len(content)),
 	}); err != nil {
@@ -71,117 +55,63 @@ func TestExtractTarEntryWritesRegularFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tr := tar.NewReader(&buf)
-	hdr, err := tr.Next()
-	if err != nil {
-		t.Fatalf("Next: %v", err)
-	}
-	dir := t.TempDir()
-	target := filepath.Join(dir, "file.txt")
-	if err := extractTarEntry(t.Context(), tr, hdr, dir, target); err != nil {
+	var gz bytes.Buffer
+	zw := gzip.NewWriter(&gz)
+	if _, err := zw.Write(raw.Bytes()); err != nil {
 		t.Fatal(err)
 	}
-	got, err := os.ReadFile(target)
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	dest := t.TempDir()
+	if err := copyTar(t, bytes.NewReader(gz.Bytes()), dest); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dest, "subdir", "file.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(got, content) {
 		t.Fatalf("got %q, want %q", got, content)
 	}
+	if _, err := os.Stat(filepath.Join(dest, "repo-sha")); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatal("expected top-level prefix to be stripped")
+	}
 }
 
-func TestMapTarEntryTargetRejectsPathTraversal(t *testing.T) {
+func TestExtractTarGzRejectsPathTraversal(t *testing.T) {
 	t.Parallel()
+	var raw bytes.Buffer
+	tw := tar.NewWriter(&raw)
+	if err := tw.WriteHeader(&tar.Header{
+		Name: "repo-sha/../../outside.txt",
+		Mode: 0o644,
+		Size: 3,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tw.Write([]byte("bad")); err != nil {
+		t.Fatal(err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	var gz bytes.Buffer
+	zw := gzip.NewWriter(&gz)
+	if _, err := zw.Write(raw.Bytes()); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	dest := t.TempDir()
-	cases := []string{
-		"repo-sha/../../outside.txt",
-		"repo-sha/foo/../../../outside.txt",
-		"./repo-sha/../escape",
+	if err := copyTar(t, bytes.NewReader(gz.Bytes()), dest); err == nil {
+		t.Fatal("expected illegal path")
 	}
-	for _, name := range cases {
-		_, skip, err := mapTarEntryTarget(name, dest)
-		if err == nil {
-			t.Fatalf("name %q: expected illegal path error, skip=%v", name, skip)
-		}
-		if !errors.Is(err, archive.ErrIllegalPath) {
-			t.Fatalf("name %q: got %v, want archive.ErrIllegalPath", name, err)
-		}
-	}
-}
-
-func TestMapTarEntryTargetAllowsSafeNested(t *testing.T) {
-	t.Parallel()
-
-	dest := t.TempDir()
-	target, skip, err := mapTarEntryTarget("repo-sha/subdir/file.txt", dest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if skip {
-		t.Fatal("expected map, not skip")
-	}
-	want := filepath.Join(dest, "subdir", "file.txt")
-	if target != want {
-		t.Fatalf("target=%q want=%q", target, want)
-	}
-	if !archive.PathWithinDest(dest, target) {
-		t.Fatalf("mapped target not within dest: %q", target)
-	}
-}
-
-func TestMapTarEntryTargetSkipsPrefixOnly(t *testing.T) {
-	t.Parallel()
-
-	_, skip, err := mapTarEntryTarget("repo-sha", t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !skip {
-		t.Fatal("expected skip for prefix-only entry")
-	}
-}
-
-func TestExtractTarEntryRejectsEscapingSymlink(t *testing.T) {
-	t.Parallel()
-
-	dir := t.TempDir()
-	target := filepath.Join(dir, "link")
-	hdr := &tar.Header{
-		Typeflag: tar.TypeSymlink,
-		Name:     "repo-sha/link",
-		Linkname: "../../outside",
-	}
-	err := extractTarEntry(t.Context(), nil, hdr, dir, target)
-	if err == nil {
-		t.Fatal("expected illegal symlink target error")
-	}
-	if !errors.Is(err, archive.ErrIllegalPath) {
-		t.Fatalf("got %v, want archive.ErrIllegalPath", err)
-	}
-	if _, statErr := os.Lstat(target); !errors.Is(statErr, fs.ErrNotExist) {
-		t.Fatalf("symlink should not exist: %v", statErr)
-	}
-}
-
-func TestExtractTarEntryAllowsInDestSymlink(t *testing.T) {
-	t.Parallel()
-
-	dir := t.TempDir()
-	target := filepath.Join(dir, "link")
-	hdr := &tar.Header{
-		Typeflag: tar.TypeSymlink,
-		Name:     "repo-sha/link",
-		Linkname: "sibling.txt",
-	}
-	if err := extractTarEntry(t.Context(), nil, hdr, dir, target); err != nil {
-		t.Fatal(err)
-	}
-	got, err := os.Readlink(target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != "sibling.txt" {
-		t.Fatalf("linkname=%q", got)
+	if _, err := os.Stat(filepath.Join(filepath.Dir(dest), "outside.txt")); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatal("path traversal wrote outside dest")
 	}
 }

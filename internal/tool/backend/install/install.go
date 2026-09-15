@@ -2,8 +2,6 @@ package install
 
 import (
 	"archive/tar"
-	"archive/zip"
-	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -15,12 +13,17 @@ import (
 	"runtime"
 	"strings"
 
+	lewfs "github.com/lewtec/lewkit/x/fs"
+	"github.com/lewtec/lewkit/x/fs/squashfs"
+	tarfs "github.com/lewtec/lewkit/x/fs/tar"
+	zipfs "github.com/lewtec/lewkit/x/fs/zip"
+	lewpath "github.com/lewtec/lewkit/x/path"
+
 	"github.com/lucasew/workspaced/internal/archive"
 	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/constants"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/pkg/driver"
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/fetchurl"
 	"github.com/lucasew/workspaced/pkg/driver/httpclient"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -66,7 +69,7 @@ func InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir str
 	if err := Extract(ctx, downloadPath, extractDir); err != nil {
 		return fmt.Errorf("extract %s: %w", filepath.Base(artifact.URL), err)
 	}
-	if err := StripTopLevelDir(extractDir); err != nil {
+	if err := archive.StripTopLevelDir(extractDir); err != nil {
 		return err
 	}
 	if err := MoveContents(extractDir, destDir); err != nil {
@@ -125,49 +128,34 @@ func DownloadFirst(ctx context.Context, urls []string, dest string, opts Downloa
 }
 
 func Extract(ctx context.Context, src, dest string) error {
-	switch {
-	case strings.HasSuffix(src, ".zip"):
-		return unzip(ctx, src, dest)
-	case strings.HasSuffix(src, ".tar.gz"), strings.HasSuffix(src, ".tgz"):
-		return untargz(ctx, src, dest)
-	case strings.HasSuffix(src, ".tar.xz"), strings.HasSuffix(src, ".txz"):
-		return untarxz(ctx, src, dest)
-	default:
+	f, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer logging.Close(ctx, f)
+
+	var files lewfs.Files
+	if z, err := zipfs.Open(f); err == nil {
+		files = lewfs.Walk(z, nil)
+	} else if img, err := squashfs.Open(f); err == nil {
+		files = lewfs.Walk(img, nil)
+	} else if tfs, err := tarfs.Open(f); err == nil {
+		files = lewfs.Walk(tfs, nil)
+	} else if errors.Is(err, fs.ErrInvalid) {
+		return err
+	} else {
 		return installBinary(ctx, src, dest)
 	}
-}
 
-func StripTopLevelDir(destPath string) error {
-	entries, err := os.ReadDir(destPath)
+	if err := os.MkdirAll(dest, 0o755); err != nil {
+		return err
+	}
+	root, err := lewpath.Open(dest)
 	if err != nil {
 		return err
 	}
-	if len(entries) != 1 || !entries[0].IsDir() {
-		return nil
-	}
-
-	singleDir := filepath.Join(destPath, entries[0].Name())
-	tempDir := destPath + ".strip-tmp"
-	if err := os.Rename(singleDir, tempDir); err != nil {
-		return err
-	}
-
-	tempEntries, err := os.ReadDir(tempDir)
-	if err != nil {
-		if restoreErr := os.Rename(tempDir, singleDir); restoreErr != nil {
-			return fmt.Errorf("%w; restore failed: %w", err, restoreErr)
-		}
-		return err
-	}
-
-	for _, entry := range tempEntries {
-		oldPath := filepath.Join(tempDir, entry.Name())
-		newPath := filepath.Join(destPath, entry.Name())
-		if err := os.Rename(oldPath, newPath); err != nil {
-			return err
-		}
-	}
-	return os.Remove(tempDir)
+	defer logging.Close(ctx, root)
+	return lewfs.Copy(ctx, root, files)
 }
 
 func MoveContents(srcDir, destDir string) error {
@@ -359,61 +347,6 @@ func NormalizeInstalledBinaries(destDir string) error {
 	return nil
 }
 
-func unzip(ctx context.Context, src, dest string) error {
-	reader, err := zip.OpenReader(src)
-	if err != nil {
-		return err
-	}
-	defer logging.Close(ctx, reader)
-
-	for _, file := range reader.File {
-		target, err := archive.JoinWithin(dest, file.Name)
-		if err != nil {
-			return err
-		}
-
-		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(target, 0o755); err != nil {
-				return err
-			}
-			continue
-		}
-
-		rc, err := file.Open()
-		if err != nil {
-			return err
-		}
-		writeErr := archive.WriteMember(target, file.Mode(), rc)
-		closeErr := rc.Close()
-		if writeErr != nil {
-			return writeErr
-		}
-		if closeErr != nil {
-			if rmErr := os.Remove(target); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
-				logging.ReportError(ctx, rmErr, "path", target)
-			}
-			return closeErr
-		}
-	}
-	return nil
-}
-
-func untargz(ctx context.Context, src, dest string) error {
-	file, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer logging.Close(ctx, file)
-
-	gzipReader, err := gzip.NewReader(file)
-	if err != nil {
-		return err
-	}
-	defer logging.Close(ctx, gzipReader)
-
-	return untar(ctx, tar.NewReader(gzipReader), dest)
-}
-
 func untar(ctx context.Context, reader *tar.Reader, dest string) error {
 	for {
 		header, err := reader.Next()
@@ -450,16 +383,4 @@ func untar(ctx context.Context, reader *tar.Reader, dest string) error {
 			}
 		}
 	}
-}
-
-func untarxz(ctx context.Context, src, dest string) error {
-	if err := os.MkdirAll(dest, 0o755); err != nil {
-		return err
-	}
-
-	cmd := execdriver.MustRun(ctx, "tar", "-xf", src, "-C", dest)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("tar xf failed: %w", err)
-	}
-	return nil
 }

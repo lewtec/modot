@@ -3,10 +3,12 @@ package filespine
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
+
+	lewpath "github.com/lewtec/lewkit/x/path"
 )
 
 // StaticDir walks Root and emits ref slots for non-template files.
@@ -24,26 +26,32 @@ func (d StaticDir) Name() string {
 
 func (d StaticDir) Provide(ctx context.Context) (Patch, error) {
 	_ = ctx
+	root, err := lewpath.Open(d.Root)
+	if err != nil {
+		return Patch{}, err
+	}
+	defer root.Close()
 	var slots []Contribution
-	err := filepath.Walk(d.Root, func(p string, info os.FileInfo, err error) error {
+	err = lewpath.New(".").WalkDir(root, func(name string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
+		p := lewpath.New(name)
 		if info.IsDir() {
-			if strings.HasSuffix(info.Name(), ".d.tmpl") {
-				return filepath.SkipDir
+			if strings.HasSuffix(p.Name(), ".d.tmpl") {
+				return fs.SkipDir
 			}
 			return nil
 		}
-		rel, err := filepath.Rel(d.Root, p)
+		rel := p.String()
+		if rel == "." || IsTemplatePath(rel) {
+			return nil
+		}
+		st, err := info.Info()
 		if err != nil {
 			return err
 		}
-		rel = filepath.ToSlash(rel)
-		if IsTemplatePath(rel) {
-			return nil
-		}
-		mode := info.Mode()
+		mode := st.Mode()
 		if mode == 0 {
 			mode = 0o644
 		}
@@ -51,10 +59,10 @@ func (d StaticDir) Provide(ctx context.Context) (Patch, error) {
 			Path:    rel,
 			Type:    TypeRef,
 			Key:     "src",
-			Slot:    Slot{Kind: KindRef, Ref: p},
+			Slot:    Slot{Kind: KindRef, Ref: filepath.Join(d.Root, filepath.FromSlash(rel))},
 			Mode:    mode.Perm(),
 			Info:    fmt.Sprintf("static:%s", rel),
-			Symlink: info.Mode()&os.ModeSymlink != 0,
+			Symlink: mode&os.ModeSymlink != 0,
 		})
 		return nil
 	})
@@ -66,12 +74,15 @@ func (d StaticDir) Provide(ctx context.Context) (Patch, error) {
 
 // IsTemplatePath is true for .tmpl files and .d.tmpl fragments.
 func IsTemplatePath(rel string) bool {
-	rel = filepath.ToSlash(rel)
-	if strings.Contains(rel, ".d.tmpl/") || strings.HasSuffix(rel, ".d.tmpl") {
+	p := lewpath.New(filepath.ToSlash(rel))
+	s := p.String()
+	if strings.Contains(s, ".d.tmpl/") || strings.HasSuffix(s, ".d.tmpl") {
 		return true
 	}
-	base := path.Base(rel)
-	parts := strings.Split(base, ".")
-	return (len(parts) >= 2 && parts[len(parts)-1] == "tmpl") ||
-		(len(parts) >= 3 && parts[len(parts)-2] == "tmpl")
+	for _, suf := range p.Suffixes() {
+		if suf == ".tmpl" {
+			return true
+		}
+	}
+	return false
 }

@@ -1,18 +1,16 @@
 package github
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"net/http"
-	"os"
-	"path/filepath"
+
+	lewfs "github.com/lewtec/lewkit/x/fs"
+	tarfs "github.com/lewtec/lewkit/x/fs/tar"
+	lewpath "github.com/lewtec/lewkit/x/path"
 
 	"github.com/lucasew/workspaced/internal/archive"
 	"github.com/lucasew/workspaced/internal/githubutil"
@@ -68,7 +66,20 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 	}
 
 	h := sha256.New()
-	if err := extractTarGz(ctx, io.TeeReader(resp.Body, h), destDir); err != nil {
+	body := io.TeeReader(resp.Body, h)
+	root, err := lewpath.Open(destDir)
+	if err != nil {
+		return "", err
+	}
+	defer logging.Close(ctx, root)
+	tfs, err := tarfs.Open(body)
+	if err != nil {
+		return "", err
+	}
+	if err := lewfs.Copy(ctx, root, lewfs.Walk(tfs, nil)); err != nil {
+		return "", err
+	}
+	if err := archive.StripTopLevelDir(destDir); err != nil {
 		return "", err
 	}
 	got := hex.EncodeToString(h.Sum(nil))
@@ -76,97 +87,4 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 		return "", fmt.Errorf("hash mismatch: expected %s, got %s", expectedHash, got)
 	}
 	return got, nil
-}
-
-func extractTarGz(ctx context.Context, r io.Reader, destDir string) error {
-	gzr, err := gzip.NewReader(r)
-	if err != nil {
-		return err
-	}
-	defer logging.Close(ctx, gzr)
-
-	tr := tar.NewReader(gzr)
-	for {
-		hdr, err := tr.Next()
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-
-		target, skip, err := mapTarEntryTarget(hdr.Name, destDir)
-		if err != nil {
-			return err
-		}
-		if skip {
-			continue
-		}
-		if err := extractTarEntry(ctx, tr, hdr, destDir, target); err != nil {
-			return err
-		}
-	}
-}
-
-// mapTarEntryTarget strips the GitHub archive top-level prefix (repo-sha/) and
-// joins the remainder under destDir. Entries that would escape destDir (zip/tar
-// slip) return an error; prefix-only or malformed names are skipped.
-func mapTarEntryTarget(name string, destDir string) (target string, skip bool, err error) {
-	cleanName := name
-	if len(cleanName) >= 2 && cleanName[:2] == "./" {
-		cleanName = cleanName[2:]
-	}
-	parts := splitFirst(cleanName, '/')
-	if len(parts) < 2 {
-		return "", true, nil
-	}
-	rel := parts[1]
-	if rel == "" {
-		return "", true, nil
-	}
-	target, err = archive.JoinWithin(destDir, rel)
-	if err != nil {
-		return "", false, err
-	}
-	return target, false, nil
-}
-
-func splitFirst(s string, sep byte) []string {
-	for i := 0; i < len(s); i++ {
-		if s[i] == sep {
-			return []string{s[:i], s[i+1:]}
-		}
-	}
-	return []string{s}
-}
-
-func extractTarEntry(ctx context.Context, tr *tar.Reader, hdr *tar.Header, destDir, target string) error {
-	switch hdr.Typeflag {
-	case tar.TypeDir:
-		return os.MkdirAll(target, 0o755)
-	case tar.TypeReg:
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			return err
-		}
-		resolvedTarget, err := archive.ResolveWithin(destDir, target)
-		if err != nil {
-			return err
-		}
-		return archive.WriteMember(resolvedTarget, os.FileMode(hdr.Mode), tr)
-	case tar.TypeSymlink:
-		if !archive.SymlinkTargetWithin(destDir, target, hdr.Linkname) {
-			return fmt.Errorf("%w: %s -> %s", archive.ErrIllegalPath, hdr.Name, hdr.Linkname)
-		}
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			return err
-		}
-		resolvedTarget, err := archive.ResolveWithin(destDir, target)
-		if err != nil {
-			return err
-		}
-		if err := os.Symlink(hdr.Linkname, resolvedTarget); err != nil && !errors.Is(err, fs.ErrExist) {
-			return err
-		}
-	}
-	return nil
 }
