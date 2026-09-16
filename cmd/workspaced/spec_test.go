@@ -27,6 +27,12 @@ func TestRootUsageHasProfileDir(t *testing.T) {
 	assert.NotContains(t, text, "--memprofile")
 }
 
+func TestSelfInstallForceSelected(t *testing.T) {
+	app := cmd.ParseOK[cmd.App[cli]](t, "self-install", "-f")
+	require.NotNil(t, app.Args.Selfinstall)
+	assert.True(t, app.Args.Selfinstall.Force.Value())
+}
+
 func TestLintFormatParse(t *testing.T) {
 	app := cmd.ParseOK[cmd.App[cli]](t, "codebase", "lint", "--format", "sarif")
 	require.NotNil(t, app.Args.Codebase)
