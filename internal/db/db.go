@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	xdb "github.com/lewtec/lewkit/x/db"
 	"github.com/lucasew/workspaced/internal/types"
@@ -35,25 +36,28 @@ type DB struct {
 	Queries Queries
 }
 
-// Open opens the user-data-dir workspaced.db.
+// Open parses ArgDefault and opens it. Same path as --database with no flag.
 func Open(ctx context.Context) (*DB, error) {
-	dataDir, err := envdriver.GetUserDataDir(ctx)
-	if err != nil {
+	var a Arg
+	if err := a.Parse(a.ArgDefault()); err != nil {
 		return nil, err
 	}
-	dbPath := filepath.Join(dataDir, "workspaced.db")
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
-		return nil, err
-	}
-	return OpenURL(ctx, dbPath)
+	return OpenArg(ctx, a)
 }
 
-// Arg is --database. Empty (the ArgDefault) opens the user-data-dir file.
+// Arg is --database. ArgDefault is ~/.local/share/workspaced/workspaced.db
+// (Termux home rewrite via ResolveHomeDir).
 type Arg struct {
 	DBArg
 }
 
-func (Arg) ArgDefault() string { return "" }
+func (Arg) ArgDefault() string {
+	home, err := envdriver.ResolveHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".local", "share", "workspaced", "workspaced.db")
+}
 
 // OpenURL opens a sqlite URL (bare path, file:, sqlite:, or :memory:)
 // and applies sqlite/migrations.
@@ -65,13 +69,16 @@ func OpenURL(ctx context.Context, url string) (*DB, error) {
 	return OpenArg(ctx, a)
 }
 
-// OpenArg opens a parsed Arg, or the user-data-dir store when the URL
-// is empty. Callers must Close the result. Do not take URL() and open
-// it again.
+// OpenArg opens a parsed Arg. Callers must Close the result.
 func OpenArg(ctx context.Context, a Arg) (*DB, error) {
 	c := a.Value()
-	if c == nil || c.URL() == "" {
-		return Open(ctx)
+	if c == nil {
+		return nil, fmt.Errorf("database url not set")
+	}
+	if u := c.URL(); u != "" && u != ":memory:" && !strings.Contains(u, "://") && !strings.HasPrefix(u, "file:") {
+		if err := os.MkdirAll(filepath.Dir(u), 0o755); err != nil {
+			return nil, err
+		}
 	}
 	if err := a.Open(ctx); err != nil {
 		return nil, fmt.Errorf("open database: %w", err)

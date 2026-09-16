@@ -12,7 +12,7 @@
 //	repeatable count    cmd.Count
 //	int / float         cmd.IntArg[T] / cmd.FloatArg[T]
 //	"--" then rest      cmd.Dash then []T
-//	database URL        db.Arg; OpenArg (never Value().URL() into another opener)
+//	database URL        db.Arg (ArgDefault is the user-data-dir file); OpenArg
 //	opaque token        cmd.StringArg
 //
 // Do not invent a second opener around DBArg. Off the CLI, db.Open / db.OpenArg.

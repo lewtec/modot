@@ -44,12 +44,13 @@ func TestOpenArgUsesParsedFlag(t *testing.T) {
 	require.NotNil(t, d)
 }
 
-func TestArgDefaultIsEmpty(t *testing.T) {
+func TestArgDefaultIsUserDataFile(t *testing.T) {
 	got := cmd.ParseOK[struct {
 		DB Arg `long:"database"`
 	}](t)
 	require.NotNil(t, got.DB.Value())
-	assert.Empty(t, got.DB.Value().URL())
+	assert.Equal(t, (Arg{}).ArgDefault(), got.DB.Value().URL())
+	assert.Contains(t, got.DB.Value().URL(), "workspaced.db")
 }
 
 func TestOpenURLRejectsUnknownScheme(t *testing.T) {
