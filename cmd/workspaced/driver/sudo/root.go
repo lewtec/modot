@@ -1,17 +1,14 @@
 package sudo
 
-import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
+import ()
 
-	"github.com/spf13/cobra"
-)
+type Command struct {
+	Add     *Add
+	Approve *Approve
+	List    *List
+	Reject  *Reject
+}
 
-var Registry cmdregistry.CommandRegistry
-
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "sudo",
-		Short: "Manage pending privileged commands",
-	}
-	return Registry.FillCommands(cmd)
+func (Command) Description() string {
+	return "Manage pending privileged commands"
 }

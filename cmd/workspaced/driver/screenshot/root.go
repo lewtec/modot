@@ -1,17 +1,15 @@
 package screenshot
 
-import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
+import ()
 
-	"github.com/spf13/cobra"
-)
+type Command struct {
+	All    *All
+	Full   *Full
+	Output *Output
+	Window *Window
+	Select *Select
+}
 
-var Registry cmdregistry.CommandRegistry
-
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "screenshot",
-		Short: "Screen capture management",
-	}
-	return Registry.FillCommands(cmd)
+func (Command) Description() string {
+	return "Screen capture management"
 }

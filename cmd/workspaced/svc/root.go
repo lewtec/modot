@@ -1,18 +1,14 @@
 package svc
 
-import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
+import ()
 
-	"github.com/spf13/cobra"
-)
+type Command struct {
+	Osmardetector *Osmardetector
+	ReniceHungry  *ReniceHungry `cmd:"renice-hungry"`
+	Screencaps    *Screencaps
+	Vncd          *Vncd
+}
 
-var Registry cmdregistry.CommandRegistry
-
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "svc",
-		Short: "Background services",
-	}
-
-	return Registry.FillCommands(cmd)
+func (Command) Description() string {
+	return "Background services"
 }

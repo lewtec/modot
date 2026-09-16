@@ -2,9 +2,6 @@ package nix
 
 import (
 	"errors"
-	"github.com/lucasew/workspaced/internal/cmdregistry"
-
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -12,12 +9,15 @@ var (
 	ErrNoBinaryFound = errors.New("no binary found")
 )
 
-var Registry cmdregistry.CommandRegistry
+type Command struct {
+	Build     *Build
+	Deploy    *Deploy
+	GcCleanup *GcCleanup `cmd:"gc-cleanup"`
+	Rbuild    *Rbuild
+	Rrun      *Rrun
+	RunCmd    *Run `cmd:"run"`
+}
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "nix",
-		Short: "Nix operations",
-	}
-	return Registry.FillCommands(cmd)
+func (Command) Description() string {
+	return "Nix operations"
 }

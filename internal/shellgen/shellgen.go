@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
-
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
@@ -18,20 +16,10 @@ import (
 // Generator is a function that generates shell code
 type Generator func(context.Context) (string, error)
 
-// rootCommand is set by SetRootCommand and used by generators that need it
-var rootCommand *cobra.Command
-
-// SetRootCommand sets the root command for generators that need it (e.g., completion)
-func SetRootCommand(cmd *cobra.Command) {
-	rootCommand = cmd
-}
-
-// generators maps order/name to generator functions
 var generators = map[string]Generator{
-	"05-flags":      func(ctx context.Context) (string, error) { return GenerateFlags(ctx) },
-	"06-daemon":     func(ctx context.Context) (string, error) { return GenerateDaemon() },
-	"10-completion": func(ctx context.Context) (string, error) { return GenerateCompletion() },
-	"20-history":    func(ctx context.Context) (string, error) { return GenerateHistory() },
+	"05-flags":   func(ctx context.Context) (string, error) { return GenerateFlags(ctx) },
+	"06-daemon":  func(ctx context.Context) (string, error) { return GenerateDaemon() },
+	"20-history": func(ctx context.Context) (string, error) { return GenerateHistory() },
 }
 
 // Generate executes all generators in parallel and returns ordered output.

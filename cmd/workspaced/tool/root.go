@@ -1,19 +1,16 @@
 package tool
 
-import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
-	_ "github.com/lucasew/workspaced/internal/tool/prelude"
+type Command struct {
+	List      *List
+	Install   *Install
+	Latest    *Latest
+	Versions  *Versions
+	Search    *Search
+	Which     *Which
+	With      *With
+	Artifacts *Artifacts
+}
 
-	"github.com/spf13/cobra"
-)
-
-var Registry cmdregistry.CommandRegistry
-
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "tool",
-		Short: "Manage development tools",
-	}
-	Registry.FillCommands(cmd)
-	return cmd
+func (Command) Description() string {
+	return "Manage development tools"
 }

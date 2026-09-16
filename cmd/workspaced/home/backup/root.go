@@ -1,17 +1,11 @@
 package backup
 
-import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
+import ()
 
-	"github.com/spf13/cobra"
-)
+type Command struct {
+	RunCmd *Run `cmd:"run"`
+}
 
-var Registry cmdregistry.CommandRegistry
-
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "backup",
-		Short: "Data backup and synchronization",
-	}
-	return Registry.FillCommands(cmd)
+func (Command) Description() string {
+	return "Data backup and synchronization"
 }

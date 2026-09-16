@@ -26,11 +26,11 @@ func copyTar(t *testing.T, r io.Reader, dest string) error {
 		return err
 	}
 	lewtest.CloseOnCleanup(t, root)
-	tfs, err := tarfs.Open(r)
+	tfs, err := tarfs.Open(t.Context(), r)
 	if err != nil {
 		return err
 	}
-	if err := lewfs.Copy(t.Context(), root, lewfs.Walk(tfs, nil)); err != nil {
+	if err := lewfs.Copy(t.Context(), root, lewfs.Walk(t.Context(), tfs, nil)); err != nil {
 		return err
 	}
 	return archive.StripTopLevelDir(dest)

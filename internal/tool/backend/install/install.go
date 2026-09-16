@@ -1,7 +1,6 @@
 package install
 
 import (
-	"archive/tar"
 	"context"
 	"errors"
 	"fmt"
@@ -135,12 +134,12 @@ func Extract(ctx context.Context, src, dest string) error {
 	defer logging.Close(ctx, f)
 
 	var files lewfs.Files
-	if z, err := zipfs.Open(f); err == nil {
-		files = lewfs.Walk(z, nil)
-	} else if img, err := squashfs.Open(f); err == nil {
-		files = lewfs.Walk(img, nil)
-	} else if tfs, err := tarfs.Open(f); err == nil {
-		files = lewfs.Walk(tfs, nil)
+	if z, err := zipfs.Open(ctx, f); err == nil {
+		files = lewfs.Walk(ctx, z, nil)
+	} else if img, err := squashfs.Open(ctx, f); err == nil {
+		files = lewfs.Walk(ctx, img, nil)
+	} else if tfs, err := tarfs.Open(ctx, f); err == nil {
+		files = lewfs.Walk(ctx, tfs, nil)
 	} else if errors.Is(err, fs.ErrInvalid) {
 		return err
 	} else {
@@ -345,42 +344,4 @@ func NormalizeInstalledBinaries(destDir string) error {
 		}
 	}
 	return nil
-}
-
-func untar(ctx context.Context, reader *tar.Reader, dest string) error {
-	for {
-		header, err := reader.Next()
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-
-		target, err := archive.JoinWithin(dest, header.Name)
-		if err != nil {
-			return err
-		}
-
-		switch header.Typeflag {
-		case tar.TypeDir:
-			if err := os.MkdirAll(target, 0o755); err != nil {
-				return err
-			}
-		case tar.TypeReg:
-			if err := archive.WriteMember(target, os.FileMode(header.Mode), reader); err != nil {
-				return err
-			}
-		case tar.TypeSymlink:
-			if !archive.SymlinkTargetWithin(dest, target, header.Linkname) {
-				return fmt.Errorf("illegal symlink target: %s -> %s", header.Name, header.Linkname)
-			}
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				return err
-			}
-			if err := os.Symlink(header.Linkname, target); err != nil && !errors.Is(err, fs.ErrExist) {
-				return err
-			}
-		}
-	}
 }

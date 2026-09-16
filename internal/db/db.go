@@ -11,7 +11,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/lewtec/lewkit/x/cmd"
 	xdb "github.com/lewtec/lewkit/x/db"
 	"github.com/lucasew/workspaced/internal/types"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
@@ -35,31 +37,75 @@ type DB struct {
 	Queries Queries
 }
 
-// Open opens the user-data-dir workspaced.db.
+// Open parses ArgDefault and opens it. Same path as --database with no flag.
 func Open(ctx context.Context) (*DB, error) {
-	dataDir, err := envdriver.GetUserDataDir(ctx)
+	var a Arg
+	if err := a.Parse(a.ArgDefault()); err != nil {
+		return nil, err
+	}
+	return OpenArg(ctx, a)
+}
+
+// Arg is --database. ArgDefault is ~/.local/share/workspaced/workspaced.db
+// (Termux home rewrite via ResolveHomeDir).
+type Arg struct {
+	DBArg
+}
+
+func (Arg) ArgDefault() string {
+	home, err := envdriver.ResolveHomeDir()
 	if err != nil {
-		return nil, err
+		return ""
 	}
-	dbPath := filepath.Join(dataDir, "workspaced.db")
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
-		return nil, err
-	}
-	return OpenURL(ctx, dbPath)
+	return filepath.Join(home, ".local", "share", "workspaced", "workspaced.db")
 }
 
 // OpenURL opens a sqlite URL (bare path, file:, sqlite:, or :memory:)
 // and applies sqlite/migrations.
 func OpenURL(ctx context.Context, url string) (*DB, error) {
-	var a DBArg
+	var a Arg
 	if err := a.Parse(url); err != nil {
 		return nil, err
 	}
-	if err := a.Open(ctx); err != nil {
+	return OpenArg(ctx, a)
+}
+
+// OpenFromCtx opens the --database Conn that x/cmd bound (ctx:"").
+// If a *DB is already on ctx (daemon), that store is returned instead.
+func OpenFromCtx(ctx context.Context) (*DB, error) {
+	if database, ok := FromContext(ctx); ok {
+		return database, nil
+	}
+	return openConn(ctx, cmd.Get[*xdb.Conn[Queries]](ctx, "database"))
+}
+
+func openConn(ctx context.Context, c *xdb.Conn[Queries]) (*DB, error) {
+	if c == nil {
+		return nil, fmt.Errorf("database url not set")
+	}
+	if u := c.URL(); u != "" && u != ":memory:" && !strings.Contains(u, "://") && !strings.HasPrefix(u, "file:") {
+		if err := os.MkdirAll(filepath.Dir(u), 0o755); err != nil {
+			return nil, err
+		}
+	}
+	if err := c.Open(ctx, FS, New(c.URL())); err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
+	return &DB{conn: c, Queries: c.Queries()}, nil
+}
+
+// OpenArg opens a parsed Arg. Callers must Close the result.
+func OpenArg(ctx context.Context, a Arg) (*DB, error) {
+	return openConn(ctx, a.Value())
+}
+
+// FromArg wraps an already-Open DBArg. Nil if the arg was never parsed.
+func FromArg(a DBArg) *DB {
 	conn := a.Value()
-	return &DB{conn: conn, Queries: conn.Queries()}, nil
+	if conn == nil {
+		return nil
+	}
+	return &DB{conn: conn, Queries: conn.Queries()}
 }
 
 func (d *DB) Close() error {

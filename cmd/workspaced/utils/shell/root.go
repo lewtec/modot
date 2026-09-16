@@ -1,16 +1,11 @@
 package shell
 
-import (
-	"github.com/spf13/cobra"
-)
+import ()
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "shell",
-		Short: "Shell integration commands",
-	}
+type Command struct {
+	Init *Init
+}
 
-	cmd.AddCommand(getInitCommand())
-
-	return cmd
+func (Command) Description() string {
+	return "Shell integration commands"
 }

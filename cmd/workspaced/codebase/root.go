@@ -1,19 +1,19 @@
 package codebase
 
 import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
-
-	"github.com/spf13/cobra"
+	pkg_config "github.com/lucasew/workspaced/cmd/workspaced/codebase/config"
 )
 
-var Registry cmdregistry.CommandRegistry
+type Command struct {
+	Config   *pkg_config.Command
+	Apply    *Apply
+	Plan     *Plan
+	Lint     *Lint
+	Format   *Format
+	Lsp      *Lsp
+	CIStatus *CIStatus `cmd:"ci-status"`
+}
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:                "codebase",
-		Short:              "Tools for analyzing and managing codebases",
-		DisableFlagParsing: true,
-		SilenceUsage:       true,
-	}
-	return Registry.FillCommands(cmd)
+func (Command) Description() string {
+	return "Tools for analyzing and managing codebases"
 }

@@ -1,17 +1,12 @@
 package demo
 
-import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
+import ()
 
-	"github.com/spf13/cobra"
-)
+type Command struct {
+	Debug    *Debug
+	Progress *Progress
+}
 
-var Registry cmdregistry.CommandRegistry
-
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "demo",
-		Short: "Demo commands",
-	}
-	return Registry.FillCommands(cmd)
+func (Command) Description() string {
+	return "Demo commands"
 }

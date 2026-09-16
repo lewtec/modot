@@ -4,22 +4,20 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/lewtec/lewkit/x/cmd"
+	lewtest "github.com/lewtec/lewkit/x/test"
 	"github.com/lucasew/workspaced/internal/types"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOpenURLMigratesAndQueries(t *testing.T) {
 	ctx := logging.NewWriterContext(t.Output())
 	path := filepath.Join(t.TempDir(), "workspaced.db")
 	d, err := OpenURL(ctx, path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := d.Close(); err != nil {
-			t.Errorf("close: %v", err)
-		}
-	})
+	require.NoError(t, err)
+	lewtest.CloseOnCleanup(t, d)
 
 	ev := types.HistoryEvent{
 		Command:   "workspaced home apply",
@@ -28,22 +26,35 @@ func TestOpenURLMigratesAndQueries(t *testing.T) {
 		ExitCode:  0,
 		Duration:  10,
 	}
-	if err := d.RecordHistory(ctx, ev); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, d.RecordHistory(ctx, ev))
 	got, err := d.SearchHistory(ctx, "", 10)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got) != 1 || got[0].Command != ev.Command {
-		t.Fatalf("got %#v", got)
-	}
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, ev.Command, got[0].Command)
+}
+
+func TestOpenArgUsesParsedFlag(t *testing.T) {
+	ctx := logging.NewWriterContext(t.Output())
+	path := filepath.Join(t.TempDir(), "flag.db")
+	var a Arg
+	require.NoError(t, a.Parse(path))
+	d, err := OpenArg(ctx, a)
+	require.NoError(t, err)
+	lewtest.CloseOnCleanup(t, d)
+	require.NotNil(t, d)
+}
+
+func TestArgDefaultIsUserDataFile(t *testing.T) {
+	got := cmd.ParseOK[struct {
+		DB Arg `long:"database"`
+	}](t)
+	require.NotNil(t, got.DB.Value())
+	assert.Equal(t, (Arg{}).ArgDefault(), got.DB.Value().URL())
+	assert.Contains(t, got.DB.Value().URL(), "workspaced.db")
 }
 
 func TestOpenURLRejectsUnknownScheme(t *testing.T) {
 	ctx := logging.NewWriterContext(t.Output())
 	_, err := OpenURL(ctx, "postgres://localhost/app")
-	if err == nil {
-		t.Fatal("expected error")
-	}
+	require.Error(t, err)
 }

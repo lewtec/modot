@@ -16,16 +16,19 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/spf13/cobra"
+	"github.com/lucasew/workspaced/internal/db"
 )
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "history",
-		Short: "History management",
-	}
-	Registry.FillCommands(cmd)
-	return cmd
+type Command struct {
+	Database db.Arg `long:"database" help:"sqlite URL" ctx:""`
+	Ingest   *Ingest
+	List     *List
+	Record   *Record
+	Search   *Search
+}
+
+func (Command) Description() string {
+	return "History management"
 }
 
 func ingestBash(ctx context.Context) ([]types.HistoryEvent, error) {

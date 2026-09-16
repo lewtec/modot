@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
 )
 
 type DetectedRoot struct {
@@ -84,6 +84,14 @@ func HandleRegistryCodegen(ctx context.Context, r DetectedRoot) error {
 	if len(children) == 0 {
 		return nil
 	}
+	if r.Package == "main" || commandDefinedInPackage(r.Dir) {
+		for _, c := range children {
+			if err := HandleRegistryCodegen(ctx, c); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 
 	f, err := os.Create(prelude)
 	if err != nil {
@@ -113,11 +121,18 @@ func HandleRegistryCodegen(ctx context.Context, r DetectedRoot) error {
 	if _, err := fmt.Fprintf(f, "\n"); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(f, "func init() {\n"); err != nil {
+	if _, err := fmt.Fprintf(f, "type Command struct {\n"); err != nil {
 		return err
 	}
 	for _, c := range children {
-		if _, err := fmt.Fprintf(f, "\tRegistry.FromGetter(pkg_%s.GetCommand)\n", c.Package); err != nil {
+		field := exportedName(c.Package)
+		if tag := cmdTag(c.Package); tag != "" {
+			if _, err := fmt.Fprintf(f, "\t%s *pkg_%s.Command `cmd:%q`\n", field, c.Package, tag); err != nil {
+				return err
+			}
+			continue
+		}
+		if _, err := fmt.Fprintf(f, "\t%s *pkg_%s.Command\n", field, c.Package); err != nil {
 			return err
 		}
 	}
@@ -132,23 +147,64 @@ func HandleRegistryCodegen(ctx context.Context, r DetectedRoot) error {
 	return nil
 }
 
-var cmd = &cobra.Command{
-	RunE: func(cmd *cobra.Command, args []string) error {
-		wd, err := os.Getwd()
+type autoRegistry struct{}
+
+func (autoRegistry) Description() string {
+	return "Generate cmd/workspaced prelude children structs"
+}
+
+func (autoRegistry) Run(ctx context.Context) error {
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	root, err := git.GetRoot(ctx, wd)
+	if err != nil {
+		return err
+	}
+	return HandleRegistryCodegen(ctx, DetectedRoot{
+		Dir:        path.Join(root, "cmd", "workspaced"),
+		Package:    "main",
+		ImportPath: "github.com/lucasew/workspaced/cmd/workspaced",
+	})
+}
+
+func commandDefinedInPackage(dir string) bool {
+	matches, err := filepath.Glob(filepath.Join(dir, "*.go"))
+	if err != nil {
+		return false
+	}
+	for _, f := range matches {
+		if filepath.Base(f) == "prelude.go" {
+			continue
+		}
+		data, err := os.ReadFile(f)
 		if err != nil {
-			return err
+			continue
 		}
-		root, err := git.GetRoot(cmd.Context(), wd)
-		if err != nil {
-			return err
+		if strings.Contains(string(data), "type Command struct") {
+			return true
 		}
-		var RootDetected = DetectedRoot{
-			Dir:        path.Join(root, "cmd", "workspaced"),
-			Package:    "main",
-			ImportPath: "github.com/lucasew/workspaced/cmd/workspaced",
-		}
-		return HandleRegistryCodegen(cmd.Context(), RootDetected)
-	},
+	}
+	return false
+}
+
+func exportedName(pkg string) string {
+	if pkg == "" {
+		return pkg
+	}
+	return strings.ToUpper(pkg[:1]) + pkg[1:]
+}
+
+func cmdTag(pkg string) string {
+	switch pkg {
+	case "selfinstall":
+		return "self-install"
+	case "selfupdate":
+		return "self-update"
+	default:
+		return ""
+	}
 }
 
 func main() {
@@ -156,9 +212,12 @@ func main() {
 		Level: slog.LevelInfo,
 	}))
 	rootCtx := logging.NewRootContext(rootLogger)
-
-	cmd.SetContext(rootCtx)
-	if err := cmd.ExecuteContext(rootCtx); err != nil {
+	app, err := cmd.Parse[autoRegistry](os.Args[1:]...)
+	if err != nil {
+		logging.ReportError(rootCtx, err, "context", "fatal error")
+		return
+	}
+	if err := app.Run(rootCtx); err != nil {
 		logging.ReportError(rootCtx, err, "context", "fatal error")
 	}
 }

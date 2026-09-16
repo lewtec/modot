@@ -1,17 +1,12 @@
 package camera
 
-import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
+import ()
 
-	"github.com/spf13/cobra"
-)
+type Command struct {
+	List    *List
+	Capture *Capture
+}
 
-var Registry cmdregistry.CommandRegistry
-
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "camera",
-		Short: "Camera capture management",
-	}
-	return Registry.FillCommands(cmd)
+func (Command) Description() string {
+	return "Camera capture management"
 }

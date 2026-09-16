@@ -12,70 +12,53 @@ import (
 	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/checks/lint"
 	"github.com/lucasew/workspaced/internal/checks/review"
+	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
 
+	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/owenrumney/go-sarif/v2/sarif"
-	"github.com/spf13/cobra"
 )
 
-func init() {
-	Registry.Register(func(c *cobra.Command) {
-		var format string
-		var doReview bool
+type Lint struct {
+	Format cmd.EnumArg[cmdarg.LintFormat] `short:"f" long:"format" help:"Output format (table, sarif)" default:"table"`
+	Review cmd.Flag                       `long:"review" help:"Post GitHub Actions annotations for findings on the relevant diff"`
+	path   cmd.WorkDirArg
+}
 
-		cmd := &cobra.Command{
-			Use:   "lint [path]",
-			Short: "Run linters on the specified path (defaults to current directory)",
-			Long: `Run CUE-configured linters (workspaced.lint.tools) and print findings.
+func (Lint) Description() string {
+	return "Run linters on the specified path (defaults to current directory)"
+}
 
-With --review, also emit GitHub Actions workflow-command annotations for findings
-on the relevant diff (base…HEAD, or last commit). Outside GitHub Actions this is
-a soft no-op (warning only). Exit code is non-zero only if a linter fails to run,
-not because findings exist.`,
-			RunE: func(cmd *cobra.Command, args []string) error {
-				path, err := os.Getwd()
-				if err != nil {
-					return err
-				}
-				if len(args) > 0 {
-					path = args[0]
-				}
-				path, err = filepath.Abs(path)
-				if err != nil {
-					return err
-				}
+func (c *Lint) Run(ctx context.Context) error {
+	path, err := filepath.Abs(c.path.Value())
+	if err != nil {
+		return err
+	}
 
-				ctx := cmd.Context()
-				g := taskgroup.MustFromContext(ctx)
-				var report *sarif.Report
-				g.Go("codebase:lint", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-					s.Update("running linters")
-					var err error
-					report, err = lint.RunAll(ctx, path)
-					return err
-				})
-				taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
-					if report == nil {
-						return nil
-					}
-					saveSarifToCI(ctx, report)
-					if doReview {
-						if err := review.AnnotateIfApplicable(ctx, report, review.AnnotateOptions{Root: path}); err != nil {
-							return err
-						}
-					}
-					return printReport(report, format)
-				})
-				return nil
-			},
-		}
-
-		cmd.Flags().StringVarP(&format, "format", "f", "table", "Output format (table, sarif)")
-		cmd.Flags().BoolVar(&doReview, "review", false, "Post GitHub Actions annotations for findings on the relevant diff")
-
-		c.AddCommand(cmd)
+	g := taskgroup.MustFromContext(ctx)
+	var report *sarif.Report
+	g.Go("codebase:lint", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+		s.Update("running linters")
+		var err error
+		report, err = lint.RunAll(ctx, path)
+		return err
 	})
+	format := c.Format.Value()
+	doReview := c.Review.Value()
+	taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
+		if report == nil {
+			return nil
+		}
+		saveSarifToCI(ctx, report)
+		if doReview {
+			if err := review.AnnotateIfApplicable(ctx, report, review.AnnotateOptions{Root: path}); err != nil {
+				return err
+			}
+		}
+		return printReport(report, format)
+	})
+	return nil
 }
 
 func saveSarifToCI(ctx context.Context, report *sarif.Report) {
@@ -96,16 +79,14 @@ func saveSarifToCI(ctx context.Context, report *sarif.Report) {
 	}
 }
 
-func printReport(report *sarif.Report, format string) error {
+func printReport(report *sarif.Report, format cmdarg.LintFormat) error {
 	switch format {
-	case "sarif":
+	case cmdarg.LintSARIF:
 		encoder := json.NewEncoder(os.Stdout)
 		encoder.SetIndent("", "  ")
 		return encoder.Encode(report)
-	case "table":
-		return printTable(report)
 	default:
-		return fmt.Errorf("unknown format: %s (supported: table, sarif)", format)
+		return printTable(report)
 	}
 }
 

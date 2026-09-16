@@ -1,18 +1,14 @@
 package experiments
 
 import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
-
-	"github.com/spf13/cobra"
+	pkg_demo "github.com/lucasew/workspaced/cmd/workspaced/experiments/demo"
 )
 
-var Registry cmdregistry.CommandRegistry
+type Command struct {
+	Demo *pkg_demo.Command
+	Cue  *Cue `cmd:"cue"`
+}
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "experiments",
-		Short: "Experimental features and prototypes",
-	}
-	Registry.FillCommands(cmd)
-	return cmd
+func (Command) Description() string {
+	return "Experimental features and prototypes"
 }

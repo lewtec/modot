@@ -6,7 +6,7 @@ import (
 	pkg_generate "github.com/lucasew/workspaced/cmd/workspaced/utils/palette/generate"
 )
 
-func init() {
-	Registry.FromGetter(pkg_drivers.GetCommand)
-	Registry.FromGetter(pkg_generate.GetCommand)
+type Command struct {
+	Drivers *pkg_drivers.Command
+	Generate *pkg_generate.Command
 }

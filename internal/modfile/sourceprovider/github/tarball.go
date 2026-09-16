@@ -72,11 +72,11 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 		return "", err
 	}
 	defer logging.Close(ctx, root)
-	tfs, err := tarfs.Open(body)
+	tfs, err := tarfs.Open(ctx, body)
 	if err != nil {
 		return "", err
 	}
-	if err := lewfs.Copy(ctx, root, lewfs.Walk(tfs, nil)); err != nil {
+	if err := lewfs.Copy(ctx, root, lewfs.Walk(ctx, tfs, nil)); err != nil {
 		return "", err
 	}
 	if err := archive.StripTopLevelDir(destDir); err != nil {
