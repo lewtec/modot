@@ -9,10 +9,8 @@ import (
 
 // cli is the workspaced command spec. Process flags live on cmd.App[cli].
 type cli struct {
-	DryRun     cmd.Flag      `short:"d" long:"dry-run" help:"Only show what would be done" ctx:"dry-run"`
-	NoCache    cmd.Flag      `long:"no-cache" help:"Ignore install/module/source/shell caches; re-fetch locked tools; treat deploy noops as updates (also WORKSPACED_NO_CACHE)" env:"WORKSPACED_NO_CACHE" ctx:"no-cache"`
-	CPUProfile cmd.StringArg `long:"cpuprofile" help:"Write CPU profile to file (or set WORKSPACED_CPUPROFILE)" env:"WORKSPACED_CPUPROFILE" default:""`
-	MemProfile cmd.StringArg `long:"memprofile" help:"Write heap profile to file at end (or set WORKSPACED_MEMPROFILE)" env:"WORKSPACED_MEMPROFILE" default:""`
+	DryRun  cmd.Flag `short:"d" long:"dry-run" help:"Only show what would be done" ctx:"dry-run"`
+	NoCache cmd.Flag `long:"no-cache" help:"Ignore install/module/source/shell caches; re-fetch locked tools; treat deploy noops as updates (also WORKSPACED_NO_CACHE)" env:"WORKSPACED_NO_CACHE" ctx:"no-cache"`
 
 	children `flatten:""`
 	Daemon   *pkg_daemon.Command
@@ -84,7 +82,7 @@ func optionTakesValue(a string) bool {
 	name := strings.TrimLeft(a, "-")
 	name, _, _ = strings.Cut(name, "=")
 	switch name {
-	case "cpuprofile", "memprofile", "profile-dir":
+	case "profile-dir":
 		return true
 	default:
 		return false

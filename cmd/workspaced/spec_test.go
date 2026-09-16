@@ -16,7 +16,15 @@ func TestHomeHelp(t *testing.T) {
 	})
 	assert.Contains(t, got, "Dotfiles and system state management")
 	assert.Contains(t, got, "apply")
-	assert.NotContains(t, got, "--cpuprofile")
+	assert.NotContains(t, got, "--profile-dir")
+}
+
+func TestRootUsageHasProfileDir(t *testing.T) {
+	text, err := cmd.Usage[cmd.App[cli]]("workspaced")
+	require.NoError(t, err)
+	assert.Contains(t, text, "--profile-dir")
+	assert.NotContains(t, text, "--cpuprofile")
+	assert.NotContains(t, text, "--memprofile")
 }
 
 func TestLintFormatParse(t *testing.T) {

@@ -9,10 +9,6 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"runtime"
-	"runtime/pprof"
-	"sync"
-	"time"
 
 	cueerrors "cuelang.org/go/cue/errors"
 	pkg_daemon "github.com/lucasew/workspaced/cmd/workspaced/daemon"
@@ -82,7 +78,9 @@ func run(ctx context.Context) error {
 		_, err := fmt.Fprintln(os.Stdout, version.VersionString())
 		return err
 	}
-	ctx, stop, session, err := setup(ctx, app)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	ctx, session, err := setup(ctx, app)
 	if err != nil {
 		return err
 	}
@@ -94,11 +92,7 @@ func run(ctx context.Context) error {
 			logging.GetLogger(ctx).Error("task group error", "err", sessErr)
 		}
 	}
-	if stop != nil {
-		if stopErr := stop(); stopErr != nil && runErr == nil && sessErr == nil {
-			return stopErr
-		}
-	}
+	cancel()
 	if sessErr != nil {
 		return sessErr
 	}
@@ -113,7 +107,7 @@ func executeCLI(ctx context.Context, args []string) error {
 	return app.Run(ctx)
 }
 
-func setup(ctx context.Context, app cmd.App[cli]) (context.Context, func() error, *taskgroup.Session, error) {
+func setup(ctx context.Context, app cmd.App[cli]) (context.Context, *taskgroup.Session, error) {
 	if !logging.ContextHasLogger(ctx) {
 		ctx = logging.ContextWithLogger(ctx, logging.GetLogger(ctx))
 	}
@@ -136,76 +130,5 @@ func setup(ctx context.Context, app cmd.App[cli]) (context.Context, func() error
 	if verbose {
 		slog.SetLogLoggerLevel(slog.LevelDebug)
 	}
-
-	cpuPath := app.Args.CPUProfile.Value()
-	memPath := app.Args.MemProfile.Value()
-	stop, err := startProfiling(ctx, cpuPath, memPath)
-	if err != nil {
-		if closeErr := session.Close(); closeErr != nil {
-			logging.GetLogger(ctx).Error("task group error", "err", closeErr)
-		}
-		return ctx, nil, nil, err
-	}
-	if cpuPath != "" || memPath != "" {
-		logging.GetLogger(ctx).Info("profiling started", "cpu", cpuPath, "mem", memPath)
-	}
-	return ctx, func() error {
-		err := stop()
-		if err == nil && (cpuPath != "" || memPath != "") {
-			logging.GetLogger(ctx).Info("profiling finished")
-		}
-		return err
-	}, session, nil
-}
-
-func startProfiling(ctx context.Context, cpuProfilePath, memProfilePath string) (func() error, error) {
-	var cpuFile *os.File
-	profilingEnabled := cpuProfilePath != "" || memProfilePath != ""
-	var minDurationWG sync.WaitGroup
-	if profilingEnabled {
-		minDurationWG.Add(1)
-		go func() {
-			defer minDurationWG.Done()
-			time.Sleep(30 * time.Second)
-		}()
-	}
-
-	if cpuProfilePath != "" {
-		f, err := os.Create(cpuProfilePath)
-		if err != nil {
-			return nil, fmt.Errorf("create cpuprofile file: %w", err)
-		}
-		if err := pprof.StartCPUProfile(f); err != nil {
-			logging.Close(ctx, f, "path", cpuProfilePath)
-			return nil, fmt.Errorf("start CPU profile: %w", err)
-		}
-		cpuFile = f
-	}
-
-	return func() error {
-		if profilingEnabled {
-			minDurationWG.Wait()
-		}
-		if cpuFile != nil {
-			pprof.StopCPUProfile()
-			if err := cpuFile.Close(); err != nil {
-				return err
-			}
-		}
-		if memProfilePath != "" {
-			f, err := os.Create(memProfilePath)
-			if err != nil {
-				return fmt.Errorf("create memprofile file: %w", err)
-			}
-			runtime.GC()
-			if err := pprof.WriteHeapProfile(f); err != nil {
-				logging.Close(ctx, f, "path", memProfilePath)
-				return fmt.Errorf("write heap profile: %w", err)
-			}
-			if err := f.Close(); err != nil {
-				return err
-			}
-		}
-		return nil
-	}, nil
+	return ctx, session, nil
 }
