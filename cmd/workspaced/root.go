@@ -94,8 +94,16 @@ func run(ctx context.Context, level *slog.LevelVar) error {
 		return err
 	}
 	runErr := progress.Run(session, ctx, func(ctx context.Context) error {
-		return runLogged(session, ctx, app)
+		// Keep the sink on the TUI writer until progress.Run returns.
+		// app.Run only schedules work; tasks still log during Session.Wait.
+		if processLogOut != nil && progress.Interactive() {
+			processLogOut.Set(session.LineWriter())
+		}
+		return app.Run(ctx)
 	})
+	if processLogOut != nil {
+		processLogOut.Set(os.Stderr)
+	}
 	if hookErr := afterwait.Run(ctx); runErr == nil {
 		runErr = hookErr
 	}
@@ -110,16 +118,6 @@ func executeCLI(ctx context.Context, args []string) error {
 	app, err := cmd.Parse[cmd.App[cli]](args...)
 	if err != nil {
 		return err
-	}
-	return app.Run(ctx)
-}
-
-func runLogged(s *taskgroup.Session, ctx context.Context, app cmd.App[cli]) error {
-	if processLogOut != nil && progress.Interactive() {
-		w := s.LineWriter()
-		defer w.Close()
-		processLogOut.Set(w)
-		defer processLogOut.Set(os.Stderr)
 	}
 	return app.Run(ctx)
 }
