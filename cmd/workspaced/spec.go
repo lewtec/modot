@@ -50,8 +50,7 @@ func (cli) Description() string {
 }
 
 // Setup runs after cmd.App replaces slog.Default with a TextHandler.
-// Put the process logger back so GetLogger and hijacked default stay
-// on the same PlainHandler (stderr, or the session LineWriter).
+// Always restore: App.Setup installs the TextHandler on every call.
 func (*cli) Setup() error {
 	if processLogger != nil {
 		slog.SetDefault(processLogger)

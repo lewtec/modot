@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"reflect"
 
 	cueerrors "cuelang.org/go/cue/errors"
 	pkg_daemon "github.com/lucasew/workspaced/cmd/workspaced/daemon"
@@ -80,12 +81,12 @@ func run(ctx context.Context, level *slog.LevelVar) error {
 		return err
 	}
 	level.Set(app.LogLevel())
-	if app.Help() {
-		return app.Run(ctx)
-	}
 	if app.WantVersion() {
 		_, err := fmt.Fprintln(os.Stdout, version.VersionString())
 		return err
+	}
+	if app.Help() || !selectedHasRun(reflect.ValueOf(&app.Args).Elem()) {
+		return app.Run(ctx)
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
