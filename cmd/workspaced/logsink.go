@@ -6,9 +6,7 @@ import (
 )
 
 // swapWriter is the process log destination. PlainHandler holds this
-// for the life of the process; Set switches stderr vs Session.LogWriter
-// after the TUI is up. LogWriter keeps ANSI; LineWriter would strip it.
-// The TUI writer must stay installed until progress.Run returns (Wait).
+// for the life of the process.
 type swapWriter struct {
 	mu sync.Mutex
 	w  io.Writer
