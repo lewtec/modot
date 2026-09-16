@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"strings"
 
 	"github.com/lewtec/lewkit/x/cmd"
@@ -21,10 +20,6 @@ type cli struct {
 
 func (cli) Description() string {
 	return "workspaced - declarative user environment manager"
-}
-
-func (*cli) Run(context.Context) error {
-	return cmd.ErrUsage
 }
 
 func rewriteArgs(args []string) []string {

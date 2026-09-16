@@ -1,10 +1,6 @@
 package system
 
-import (
-	"context"
-
-	"github.com/lucasew/workspaced/internal/clirun"
-)
+import ()
 
 type Command struct {
 	Apply *Apply
@@ -12,8 +8,4 @@ type Command struct {
 
 func (Command) Description() string {
 	return "System apply tools"
-}
-
-func (c *Command) Run(ctx context.Context) error {
-	return clirun.PrintUsage[Command]("workspaced system")
 }

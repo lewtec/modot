@@ -12,7 +12,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lucasew/workspaced/internal/clirun"
 	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/pkg/filespine"
@@ -70,11 +69,6 @@ type Tree[M Mode] struct {
 }
 
 func (Tree[M]) Description() string { return "Manage configuration" }
-
-func (c *Tree[M]) Run(ctx context.Context) error {
-	var m M
-	return clirun.PrintUsage[Tree[M]]("workspaced " + m.Options().Scope + " config")
-}
 
 // Dump prints the full merged configuration as JSON.
 type Dump[M Mode] struct{}

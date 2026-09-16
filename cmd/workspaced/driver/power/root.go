@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lucasew/workspaced/internal/clirun"
 	"github.com/lucasew/workspaced/pkg/driver/power"
 )
 
@@ -18,10 +17,6 @@ type Command struct {
 
 func (Command) Description() string {
 	return "Power management commands"
-}
-
-func (c *Command) Run(ctx context.Context) error {
-	return clirun.PrintUsage[Command]("workspaced driver power")
 }
 
 type Lock struct{}

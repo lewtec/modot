@@ -3,7 +3,6 @@ package brightness
 import (
 	"context"
 
-	"github.com/lucasew/workspaced/internal/clirun"
 	"github.com/lucasew/workspaced/pkg/driver/brightness"
 )
 
@@ -16,10 +15,6 @@ type Command struct {
 
 func (Command) Description() string {
 	return "Control screen brightness"
-}
-
-func (c *Command) Run(ctx context.Context) error {
-	return clirun.PrintUsage[Command]("workspaced driver brightness")
 }
 
 type Up struct{}

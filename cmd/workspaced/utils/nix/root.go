@@ -1,10 +1,7 @@
 package nix
 
 import (
-	"context"
 	"errors"
-
-	"github.com/lucasew/workspaced/internal/clirun"
 )
 
 var (
@@ -23,8 +20,4 @@ type Command struct {
 
 func (Command) Description() string {
 	return "Nix operations"
-}
-
-func (c *Command) Run(ctx context.Context) error {
-	return clirun.PrintUsage[Command]("workspaced utils nix")
 }

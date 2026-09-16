@@ -3,7 +3,6 @@ package media
 import (
 	"context"
 
-	"github.com/lucasew/workspaced/internal/clirun"
 	"github.com/lucasew/workspaced/pkg/driver/media"
 )
 
@@ -17,10 +16,6 @@ type Command struct {
 
 func (Command) Description() string {
 	return "Control media playback"
-}
-
-func (c *Command) Run(ctx context.Context) error {
-	return clirun.PrintUsage[Command]("workspaced driver media")
 }
 
 type Next struct{}

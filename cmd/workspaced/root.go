@@ -5,7 +5,6 @@ package main
 import (
 	"context"
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -17,7 +16,6 @@ import (
 
 	cueerrors "cuelang.org/go/cue/errors"
 	pkg_daemon "github.com/lucasew/workspaced/cmd/workspaced/daemon"
-	"github.com/lucasew/workspaced/internal/clirun"
 	"github.com/lucasew/workspaced/internal/cmdctx"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/shellgen"
@@ -88,10 +86,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	runErr := clirun.Run(ctx, &app.Args)
-	if errors.Is(runErr, cmd.ErrUsage) {
-		runErr = clirun.PrintUsage[cmd.App[cli]]("workspaced")
-	}
+	runErr := app.Run(ctx)
 	var sessErr error
 	if session != nil {
 		sessErr = session.Close()
@@ -115,7 +110,7 @@ func executeCLI(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	return clirun.Run(ctx, &app.Args)
+	return app.Run(ctx)
 }
 
 func setup(ctx context.Context, app cmd.App[cli]) (context.Context, func() error, *taskgroup.Session, error) {

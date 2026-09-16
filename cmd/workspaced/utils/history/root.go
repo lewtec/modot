@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/lucasew/workspaced/internal/clirun"
 )
 
 type Command struct {
@@ -28,10 +27,6 @@ type Command struct {
 
 func (Command) Description() string {
 	return "History management"
-}
-
-func (c *Command) Run(ctx context.Context) error {
-	return clirun.PrintUsage[Command]("workspaced utils history")
 }
 
 func ingestBash(ctx context.Context) ([]types.HistoryEvent, error) {

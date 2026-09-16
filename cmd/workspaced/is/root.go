@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lucasew/workspaced/internal/clirun"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 )
@@ -20,10 +19,6 @@ type Command struct {
 
 func (Command) Description() string {
 	return "Environment detection commands"
-}
-
-func (c *Command) Run(ctx context.Context) error {
-	return clirun.PrintUsage[Command]("workspaced is")
 }
 
 type Binary struct {

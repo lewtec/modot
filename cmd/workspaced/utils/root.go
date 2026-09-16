@@ -10,7 +10,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/lucasew/workspaced/internal/clirun"
 	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/internal/types"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -24,10 +23,6 @@ type Command struct {
 
 func (Command) Description() string {
 	return "Miscellaneous commands that are not necessarily related to a driver"
-}
-
-func (c *Command) Run(ctx context.Context) error {
-	return clirun.PrintUsage[Command]("workspaced utils")
 }
 
 func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, bool, error) {

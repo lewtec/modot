@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lucasew/workspaced/internal/clirun"
 	"github.com/lucasew/workspaced/pkg/driver/dialog"
 )
 
@@ -23,10 +22,6 @@ type Command struct {
 
 func (Command) Description() string {
 	return "Interactive user input commands"
-}
-
-func (c *Command) Run(ctx context.Context) error {
-	return clirun.PrintUsage[Command]("workspaced driver input")
 }
 
 type Text struct {

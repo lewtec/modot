@@ -1,9 +1,6 @@
 package tool
 
 import (
-	"context"
-
-	"github.com/lucasew/workspaced/internal/clirun"
 	_ "github.com/lucasew/workspaced/internal/tool/prelude"
 )
 
@@ -20,8 +17,4 @@ type Command struct {
 
 func (Command) Description() string {
 	return "Manage development tools"
-}
-
-func (c *Command) Run(ctx context.Context) error {
-	return clirun.PrintUsage[Command]("workspaced tool")
 }

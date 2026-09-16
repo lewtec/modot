@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lucasew/workspaced/internal/clirun"
 	"github.com/lucasew/workspaced/internal/configcue"
 )
 
@@ -18,10 +17,6 @@ type Cue struct {
 
 func (Cue) Description() string {
 	return "Inspect experimental layered CUE configuration"
-}
-
-func (c *Cue) Run(ctx context.Context) error {
-	return clirun.PrintUsage[Cue]("workspaced experiments cue")
 }
 
 type CueLayers struct {

@@ -3,7 +3,6 @@ package screen
 import (
 	"context"
 
-	"github.com/lucasew/workspaced/internal/clirun"
 	"github.com/lucasew/workspaced/pkg/driver/screen"
 )
 
@@ -16,10 +15,6 @@ type Command struct {
 
 func (Command) Description() string {
 	return "Screen and power management"
-}
-
-func (c *Command) Run(ctx context.Context) error {
-	return clirun.PrintUsage[Command]("workspaced driver screen")
 }
 
 type On struct{}

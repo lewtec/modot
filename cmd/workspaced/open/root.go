@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lucasew/workspaced/internal/clirun"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/pkg/driver/opener"
 	"github.com/lucasew/workspaced/pkg/driver/terminal"
@@ -21,10 +20,6 @@ type Command struct {
 
 func (Command) Description() string {
 	return "Open a file, URL or webapp"
-}
-
-func (c *Command) Run(ctx context.Context) error {
-	return clirun.PrintUsage[Command]("workspaced open")
 }
 
 type File struct {

@@ -1,10 +1,6 @@
 package codebase
 
-import (
-	"context"
-
-	"github.com/lucasew/workspaced/internal/clirun"
-)
+import ()
 
 type Command struct {
 	children `flatten:""`
@@ -18,8 +14,4 @@ type Command struct {
 
 func (Command) Description() string {
 	return "Tools for analyzing and managing codebases"
-}
-
-func (c *Command) Run(ctx context.Context) error {
-	return clirun.PrintUsage[Command]("workspaced codebase")
 }

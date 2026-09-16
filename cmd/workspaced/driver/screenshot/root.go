@@ -1,10 +1,6 @@
 package screenshot
 
-import (
-	"context"
-
-	"github.com/lucasew/workspaced/internal/clirun"
-)
+import ()
 
 type Command struct {
 	All    *All
@@ -16,8 +12,4 @@ type Command struct {
 
 func (Command) Description() string {
 	return "Screen capture management"
-}
-
-func (c *Command) Run(ctx context.Context) error {
-	return clirun.PrintUsage[Command]("workspaced driver screenshot")
 }
