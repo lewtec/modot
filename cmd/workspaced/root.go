@@ -26,8 +26,9 @@ import (
 )
 
 func main() {
+	level := &slog.LevelVar{}
 	rootLogger := slog.New(logging.NewPlainHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: level,
 	}))
 	rootCtx := logging.NewRootContext(rootLogger)
 
@@ -53,7 +54,7 @@ func main() {
 
 	pkg_daemon.ExecuteCLI = executeCLI
 
-	if err := run(rootCtx); err != nil {
+	if err := run(rootCtx, level); err != nil {
 		logger := logging.GetLogger(rootCtx)
 		if details := cueerrors.Details(err, nil); details != "" {
 			logger.Error("error", "err", err, "details", "\n"+details)
@@ -64,11 +65,12 @@ func main() {
 	}
 }
 
-func run(ctx context.Context) error {
+func run(ctx context.Context, level *slog.LevelVar) error {
 	app, err := cmd.Parse[cmd.App[cli]](rewriteArgs(os.Args[1:])...)
 	if err != nil {
 		return err
 	}
+	level.Set(app.LogLevel())
 	if app.Help() {
 		return app.Run(ctx)
 	}
@@ -110,8 +112,6 @@ func setup(ctx context.Context, app cmd.App[cli]) (context.Context, *taskgroup.S
 		ctx = logging.ContextWithLogger(ctx, logging.GetLogger(ctx))
 	}
 	envdriver.SetupEssentialPaths(ctx)
-	verbose := app.LogLevel() <= slog.LevelDebug
-	ctx = cmdctx.WithVerbose(ctx, verbose)
 	ctx = cmdctx.WithDryRun(ctx, app.Args.DryRun.Value())
 	armedNoCache := app.Args.NoCache.Value() || cmdctx.EnvNoCache()
 	ctx = cmdctx.WithNoCache(ctx, armedNoCache)
@@ -124,9 +124,5 @@ func setup(ctx context.Context, app cmd.App[cli]) (context.Context, *taskgroup.S
 		limits = homeCfg.ConcurrencyLimits()
 	}
 	session, ctx := taskgroup.Enter(ctx, limits)
-
-	if verbose {
-		slog.SetLogLoggerLevel(slog.LevelDebug)
-	}
 	return ctx, session, nil
 }
