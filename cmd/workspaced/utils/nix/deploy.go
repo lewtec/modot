@@ -9,6 +9,7 @@ import (
 	"github.com/lucasew/workspaced/internal/afterwait"
 	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/internal/nix"
+	"github.com/lucasew/workspaced/internal/taskui"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/notification"
@@ -48,39 +49,41 @@ func (d *Deploy) Run(ctx context.Context) error {
 		action = d.Action.Value().String()
 	}
 
-	err := taskgroup.Each[string]{
-		Name:     "nix-deploy",
-		Items:    nodes,
-		PoolKind: taskgroup.Internet,
-		TaskName: func(_ int, node string) string { return "deploy:" + node },
-		Fn: func(ctx context.Context, s *taskgroup.Status, node string) error {
-			s.Update(node)
-			logger := logging.GetLogger(ctx).With("node", node)
-			logger.Info("Deploying to node")
-			if err := deployNode(ctx, flake, node, action); err != nil {
-				logger.Error("Failed to deploy to node", "error", err)
-				return err
+	return taskui.Run(ctx, func(ctx context.Context) error {
+		err := taskgroup.Each[string]{
+			Name:     "nix-deploy",
+			Items:    nodes,
+			PoolKind: taskgroup.Internet,
+			TaskName: func(_ int, node string) string { return "deploy:" + node },
+			Fn: func(ctx context.Context, s *taskgroup.Status, node string) error {
+				s.Update(node)
+				logger := logging.GetLogger(ctx).With("node", node)
+				logger.Info("Deploying to node")
+				if err := deployNode(ctx, flake, node, action); err != nil {
+					logger.Error("Failed to deploy to node", "error", err)
+					return err
+				}
+				return nil
+			},
+		}.Run(ctx)
+		if err != nil {
+			return err
+		}
+
+		deployed := append([]string(nil), nodes...)
+		afterwait.Register(ctx, func() error {
+			n := notification.Notification{
+				Title:   "NixOS Deploy",
+				Message: fmt.Sprintf("Deploy completed for: %s", strings.Join(deployed, ", ")),
+				Icon:    "nix-snowflake",
+			}
+			if err := notification.Notify(ctx, &n); err != nil {
+				logging.GetLogger(ctx).Error("failed to send notification", "error", err)
 			}
 			return nil
-		},
-	}.Run(ctx)
-	if err != nil {
-		return err
-	}
-
-	deployed := append([]string(nil), nodes...)
-	afterwait.Register(ctx, func() error {
-		n := notification.Notification{
-			Title:   "NixOS Deploy",
-			Message: fmt.Sprintf("Deploy completed for: %s", strings.Join(deployed, ", ")),
-			Icon:    "nix-snowflake",
-		}
-		if err := notification.Notify(ctx, &n); err != nil {
-			logging.GetLogger(ctx).Error("failed to send notification", "error", err)
-		}
+		})
 		return nil
 	})
-	return nil
 }
 
 func deployNode(ctx context.Context, flake, node, action string) error {

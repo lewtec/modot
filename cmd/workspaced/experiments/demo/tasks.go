@@ -9,5 +9,5 @@ func (Tasks) Description() string {
 }
 
 func (*Tasks) Run(ctx context.Context) error {
-	return runTasksDemo(ctx)
+	return withUI(ctx, runTasksDemo)
 }

@@ -24,48 +24,50 @@ TERM=dumb → plain Wait.`
 }
 
 func (*Cpu10k) Run(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
+	return withUI(ctx, func(ctx context.Context) error {
+		logger := logging.GetLogger(ctx)
 
-	items := make([]int, cpu10kItems)
-	for i := range items {
-		items[i] = i
-	}
+		items := make([]int, cpu10kItems)
+		for i := range items {
+			items[i] = i
+		}
 
-	logger.Info("cpu10k: calling Map.Run",
-		"items", len(items),
-		"per_item", "100ms",
-	)
+		logger.Info("cpu10k: calling Map.Run",
+			"items", len(items),
+			"per_item", "100ms",
+		)
 
-	results, err := taskgroup.Map[int, uint64]{
-		Name:     "cpu10k",
-		Items:    items,
-		PoolKind: taskgroup.CPU,
-		TaskName: func(_ int, n int) string { return fmt.Sprintf("cpu:%d", n) },
-		Fn: func(ctx context.Context, st *taskgroup.Status, n int) (uint64, error) {
-			st.Update(fmt.Sprintf("item %d", n))
-			deadline := time.Now().Add(100 * time.Millisecond)
-			var h uint64 = uint64(n)*0x9e3779b97f4a7c15 + 1
-			for time.Now().Before(deadline) {
-				select {
-				case <-ctx.Done():
-					return 0, ctx.Err()
-				default:
+		results, err := taskgroup.Map[int, uint64]{
+			Name:     "cpu10k",
+			Items:    items,
+			PoolKind: taskgroup.CPU,
+			TaskName: func(_ int, n int) string { return fmt.Sprintf("cpu:%d", n) },
+			Fn: func(ctx context.Context, st *taskgroup.Status, n int) (uint64, error) {
+				st.Update(fmt.Sprintf("item %d", n))
+				deadline := time.Now().Add(100 * time.Millisecond)
+				var h uint64 = uint64(n)*0x9e3779b97f4a7c15 + 1
+				for time.Now().Before(deadline) {
+					select {
+					case <-ctx.Done():
+						return 0, ctx.Err()
+					default:
+					}
+					h ^= h << 13
+					h ^= h >> 7
+					h ^= h << 17
+					h++
 				}
-				h ^= h << 13
-				h ^= h >> 7
-				h ^= h << 17
-				h++
-			}
-			return h, nil
-		},
-	}.Run(ctx)
-	if err != nil {
-		return err
-	}
-	logger.Info("cpu10k finished",
-		"results", len(results),
-		"first", results[0],
-		"last", results[len(results)-1],
-	)
-	return nil
+				return h, nil
+			},
+		}.Run(ctx)
+		if err != nil {
+			return err
+		}
+		logger.Info("cpu10k finished",
+			"results", len(results),
+			"first", results[0],
+			"last", results[len(results)-1],
+		)
+		return nil
+	})
 }

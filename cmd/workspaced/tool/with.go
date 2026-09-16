@@ -9,6 +9,7 @@ import (
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/afterwait"
+	"github.com/lucasew/workspaced/internal/taskui"
 	"github.com/lucasew/workspaced/internal/tool"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 )
@@ -56,67 +57,69 @@ func (w *With) Run(ctx context.Context) error {
 	command := cmdLine[0]
 	commandArgs := cmdLine[1:]
 
-	taskgroup.Go(ctx, "tool:with:"+strings.Join(toolSpecs, "+"), taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-		m, err := tool.NewManager()
-		if err != nil {
-			return err
-		}
-
-		type specItem struct {
-			index int
-			spec  string
-		}
-		type binOutcome struct {
-			index   int
-			binPath string
-			miss    bool
-		}
-		items := make([]specItem, len(toolSpecs))
-		for i, spec := range toolSpecs {
-			items[i] = specItem{index: i, spec: spec}
-		}
-
-		outcomes, err := taskgroup.Map[specItem, binOutcome]{
-			Name:     "tool-with:ensure",
-			Items:    items,
-			PoolKind: taskgroup.Control,
-			TaskName: func(_ int, it specItem) string { return "ensure:" + it.spec },
-			Fn: func(ctx context.Context, st *taskgroup.Status, it specItem) (binOutcome, error) {
-				st.Update(it.spec)
-				bp, err := m.EnsureInstalled(ctx, it.spec, command)
-				if err == nil {
-					return binOutcome{index: it.index, binPath: bp}, nil
-				}
-				if isBinaryNotFound(err) {
-					return binOutcome{index: it.index, miss: true}, nil
-				}
-				return binOutcome{}, fmt.Errorf("ensure tool %s: %w", it.spec, err)
-			},
-		}.Run(ctx)
-		if err != nil {
-			return err
-		}
-
-		binPath := ""
-		for i := len(outcomes) - 1; i >= 0; i-- {
-			if !outcomes[i].miss && outcomes[i].binPath != "" {
-				binPath = outcomes[i].binPath
-				break
+	return taskui.Run(ctx, func(ctx context.Context) error {
+		taskgroup.Go(ctx, "tool:with:"+strings.Join(toolSpecs, "+"), taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+			m, err := tool.NewManager()
+			if err != nil {
+				return err
 			}
-		}
-		if binPath == "" {
-			return fmt.Errorf("none of the tools (%s) provide a binary named %q", strings.Join(toolSpecs, ", "), command)
-		}
 
-		execCtx := context.WithoutCancel(ctx)
-		c, err := execdriver.Run(execCtx, binPath, commandArgs...)
-		if err != nil {
-			return err
-		}
-		afterwait.Exec(ctx, c)
+			type specItem struct {
+				index int
+				spec  string
+			}
+			type binOutcome struct {
+				index   int
+				binPath string
+				miss    bool
+			}
+			items := make([]specItem, len(toolSpecs))
+			for i, spec := range toolSpecs {
+				items[i] = specItem{index: i, spec: spec}
+			}
+
+			outcomes, err := taskgroup.Map[specItem, binOutcome]{
+				Name:     "tool-with:ensure",
+				Items:    items,
+				PoolKind: taskgroup.Control,
+				TaskName: func(_ int, it specItem) string { return "ensure:" + it.spec },
+				Fn: func(ctx context.Context, st *taskgroup.Status, it specItem) (binOutcome, error) {
+					st.Update(it.spec)
+					bp, err := m.EnsureInstalled(ctx, it.spec, command)
+					if err == nil {
+						return binOutcome{index: it.index, binPath: bp}, nil
+					}
+					if isBinaryNotFound(err) {
+						return binOutcome{index: it.index, miss: true}, nil
+					}
+					return binOutcome{}, fmt.Errorf("ensure tool %s: %w", it.spec, err)
+				},
+			}.Run(ctx)
+			if err != nil {
+				return err
+			}
+
+			binPath := ""
+			for i := len(outcomes) - 1; i >= 0; i-- {
+				if !outcomes[i].miss && outcomes[i].binPath != "" {
+					binPath = outcomes[i].binPath
+					break
+				}
+			}
+			if binPath == "" {
+				return fmt.Errorf("none of the tools (%s) provide a binary named %q", strings.Join(toolSpecs, ", "), command)
+			}
+
+			execCtx := context.WithoutCancel(ctx)
+			c, err := execdriver.Run(execCtx, binPath, commandArgs...)
+			if err != nil {
+				return err
+			}
+			afterwait.Exec(ctx, c)
+			return nil
+		})
 		return nil
 	})
-	return nil
 }
 
 func isBinaryNotFound(err error) bool {

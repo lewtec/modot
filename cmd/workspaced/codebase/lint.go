@@ -15,6 +15,7 @@ import (
 	"github.com/lucasew/workspaced/internal/checks/lint"
 	"github.com/lucasew/workspaced/internal/checks/review"
 	"github.com/lucasew/workspaced/internal/cmdarg"
+	"github.com/lucasew/workspaced/internal/taskui"
 	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/lewtec/lewkit/x/cmd"
@@ -38,27 +39,29 @@ func (c *Lint) Run(ctx context.Context) error {
 	}
 
 	var report *sarif.Report
-	taskgroup.Go(ctx, "codebase:lint", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-		s.Update("running linters")
-		var err error
-		report, err = lint.RunAll(ctx, path)
-		return err
-	})
-	format := c.Format.Value()
-	doReview := c.Review.Value()
-	afterwait.Register(ctx, func() error {
-		if report == nil {
-			return nil
-		}
-		saveSarifToCI(ctx, report)
-		if doReview {
-			if err := review.AnnotateIfApplicable(ctx, report, review.AnnotateOptions{Root: path}); err != nil {
-				return err
+	return taskui.Run(ctx, func(ctx context.Context) error {
+		taskgroup.Go(ctx, "codebase:lint", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+			s.Update("running linters")
+			var err error
+			report, err = lint.RunAll(ctx, path)
+			return err
+		})
+		format := c.Format.Value()
+		doReview := c.Review.Value()
+		afterwait.Register(ctx, func() error {
+			if report == nil {
+				return nil
 			}
-		}
-		return printReport(report, format)
+			saveSarifToCI(ctx, report)
+			if doReview {
+				if err := review.AnnotateIfApplicable(ctx, report, review.AnnotateOptions{Root: path}); err != nil {
+					return err
+				}
+			}
+			return printReport(report, format)
+		})
+		return nil
 	})
-	return nil
 }
 
 func saveSarifToCI(ctx context.Context, report *sarif.Report) {

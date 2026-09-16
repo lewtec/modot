@@ -21,37 +21,39 @@ Map when you need aggregate progress.`
 }
 
 func (*Nested) Run(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
-	logger.Info("scheduling bundle with Isolate children")
+	return withUI(ctx, func(ctx context.Context) error {
+		logger := logging.GetLogger(ctx)
+		logger.Info("scheduling bundle with Isolate children")
 
-	taskgroup.Go(ctx, "bundle", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-		s.Update("starting bundle phase")
-		time.Sleep(60 * time.Millisecond)
-		err := taskgroup.Isolate(ctx, func(ctx context.Context) error {
-			icons := taskgroup.Go(ctx, "bundle:icons", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
-				logger := logging.GetLogger(ctx)
-				s.Update("generating icons")
-				for i := 0; i < 3; i++ {
-					logger.Info("icon", "num", i)
-					time.Sleep(90 * time.Millisecond)
-				}
+		taskgroup.Go(ctx, "bundle", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+			s.Update("starting bundle phase")
+			time.Sleep(60 * time.Millisecond)
+			err := taskgroup.Isolate(ctx, func(ctx context.Context) error {
+				icons := taskgroup.Go(ctx, "bundle:icons", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+					logger := logging.GetLogger(ctx)
+					s.Update("generating icons")
+					for i := 0; i < 3; i++ {
+						logger.Info("icon", "num", i)
+						time.Sleep(90 * time.Millisecond)
+					}
+					return nil
+				})
+				taskgroup.Go(ctx, "bundle:manifest", taskgroup.IO, func(ctx context.Context, s *taskgroup.Status) error {
+					logger := logging.GetLogger(ctx)
+					s.Update("writing manifest.json")
+					time.Sleep(130 * time.Millisecond)
+					logger.Info("manifest written")
+					return nil
+				}, icons)
 				return nil
 			})
-			taskgroup.Go(ctx, "bundle:manifest", taskgroup.IO, func(ctx context.Context, s *taskgroup.Status) error {
-				logger := logging.GetLogger(ctx)
-				s.Update("writing manifest.json")
-				time.Sleep(130 * time.Millisecond)
-				logger.Info("manifest written")
-				return nil
-			}, icons)
+			if err != nil {
+				return err
+			}
+			s.Update("bundle complete")
+			logging.GetLogger(ctx).Info("isolate subtree done")
 			return nil
 		})
-		if err != nil {
-			return err
-		}
-		s.Update("bundle complete")
-		logging.GetLogger(ctx).Info("isolate subtree done")
 		return nil
 	})
-	return nil
 }

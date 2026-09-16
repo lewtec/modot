@@ -7,8 +7,13 @@ import (
 	"time"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
+	"github.com/lucasew/workspaced/internal/taskui"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
+
+func withUI(ctx context.Context, fn func(context.Context) error) error {
+	return taskui.Run(ctx, fn)
+}
 
 var ErrSimulated503 = errors.New("simulated 503 from registry (demo failure)")
 
@@ -31,7 +36,7 @@ and the root progress view.
 All demos use the same rules as production code:
 - only root may New the session; everything else does MustFromContext / Go
 - schedule with taskgroup.Go(ctx, ..., func(ctx, s){ ... s.Update/Progress })
-- progress UI is started by the CLI (TERM=dumb / CI / non-tty stay plain)
+- progress UI is started by the command via taskui.Run (TERM=dumb / CI / non-tty stay plain)
 
 Run subcommands to see different aspects:
   workspaced experiments demo          - default tasks showcase
@@ -45,7 +50,7 @@ Run subcommands to see different aspects:
 }
 
 func (*Command) Run(ctx context.Context) error {
-	return runTasksDemo(ctx)
+	return withUI(ctx, runTasksDemo)
 }
 
 func runTasksDemo(ctx context.Context) error {

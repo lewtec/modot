@@ -9,7 +9,6 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"reflect"
 
 	cueerrors "cuelang.org/go/cue/errors"
 	pkg_daemon "github.com/lucasew/workspaced/cmd/workspaced/daemon"
@@ -24,19 +23,13 @@ import (
 	_ "github.com/lucasew/workspaced/pkg/palette/prelude"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/lewkit/x/taskgroup/progress"
 )
 
-var (
-	processLogger *slog.Logger
-	processLogOut *swapWriter
-)
+var processLogger *slog.Logger
 
 func main() {
 	level := &slog.LevelVar{}
-	processLogOut = newSwapWriter(os.Stderr)
-	processLogger = slog.New(logging.NewPlainHandler(processLogOut, &slog.HandlerOptions{
+	processLogger = slog.New(logging.NewPlainHandler(logging.ProcessWriter(), &slog.HandlerOptions{
 		Level: level,
 	}))
 	slog.SetDefault(processLogger)
@@ -85,32 +78,10 @@ func run(ctx context.Context, level *slog.LevelVar) error {
 		_, err := fmt.Fprintln(os.Stdout, version.VersionString())
 		return err
 	}
-	if app.Help() || !selectedHasRun(reflect.ValueOf(&app.Args).Elem()) {
-		return app.Run(ctx)
-	}
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	ctx, session, err := setup(ctx, app)
-	if err != nil {
-		return err
-	}
-	runErr := progress.Run(session, ctx, func(ctx context.Context) error {
-		// Keep the sink on the TUI writer until progress.Run returns.
-		// app.Run only schedules work; tasks still log during Session.Wait.
-		if processLogOut != nil && progress.Interactive() {
-			processLogOut.Set(session.LogWriter())
-		}
-		return app.Run(ctx)
-	})
-	if processLogOut != nil {
-		processLogOut.Set(os.Stderr)
-	}
+	ctx = prepare(ctx, app)
+	runErr := app.Run(ctx)
 	if hookErr := afterwait.Run(ctx); runErr == nil {
 		runErr = hookErr
-	}
-	cancel()
-	if runErr != nil {
-		logging.GetLogger(ctx).Error("task group error", "err", runErr)
 	}
 	return runErr
 }
@@ -120,10 +91,15 @@ func executeCLI(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	return app.Run(ctx)
+	ctx = afterwait.With(ctx)
+	runErr := app.Run(ctx)
+	if hookErr := afterwait.Run(ctx); runErr == nil {
+		runErr = hookErr
+	}
+	return runErr
 }
 
-func setup(ctx context.Context, app cmd.App[cli]) (context.Context, *taskgroup.Session, error) {
+func prepare(ctx context.Context, app cmd.App[cli]) context.Context {
 	envdriver.SetupEssentialPaths(ctx)
 	ctx = cmdctx.WithDryRun(ctx, app.Args.DryRun.Value())
 	ctx = afterwait.With(ctx)
@@ -132,11 +108,5 @@ func setup(ctx context.Context, app cmd.App[cli]) (context.Context, *taskgroup.S
 	if armedNoCache {
 		logging.GetLogger(ctx).Info("no-cache enabled (flag or WORKSPACED_NO_CACHE)")
 	}
-
-	base := taskgroup.DefaultLimits()
-	if homeCfg, err := configcue.LoadHome(ctx); err == nil {
-		base = homeCfg.ConcurrencyLimits()
-	}
-	session, ctx := app.Args.Enter(ctx, base)
-	return ctx, session, nil
+	return ctx
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/miseutil"
 	"github.com/lucasew/workspaced/internal/selfbin"
+	"github.com/lucasew/workspaced/internal/taskui"
 	"github.com/lucasew/workspaced/internal/version"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -27,12 +28,14 @@ func (Command) Description() string {
 }
 
 func (c *Command) Run(ctx context.Context) error {
-	taskgroup.Go(ctx, "self-install", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-		s.Update("self-installing workspaced")
-		defer s.Unit()()
-		return runSelfInstall(ctx, c.Force.Value())
+	return taskui.Run(ctx, func(ctx context.Context) error {
+		taskgroup.Go(ctx, "self-install", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+			s.Update("self-installing workspaced")
+			defer s.Unit()()
+			return runSelfInstall(ctx, c.Force.Value())
+		})
+		return nil
 	})
-	return nil
 }
 
 func runSelfInstall(ctx context.Context, force bool) error {

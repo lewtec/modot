@@ -8,6 +8,7 @@ import (
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/afterwait"
+	"github.com/lucasew/workspaced/internal/taskui"
 	"github.com/lucasew/workspaced/internal/tool"
 )
 
@@ -30,21 +31,23 @@ func (w *Which) Run(ctx context.Context) error {
 	}
 
 	var binPath string
-	taskgroup.Go(ctx, "tool:which:"+spec+":"+binary, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-		s.Update("ensuring " + spec)
-		bp, err := m.EnsureInstalled(ctx, spec, binary)
-		if err != nil {
-			return err
-		}
-		binPath = bp
+	return taskui.Run(ctx, func(ctx context.Context) error {
+		taskgroup.Go(ctx, "tool:which:"+spec+":"+binary, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+			s.Update("ensuring " + spec)
+			bp, err := m.EnsureInstalled(ctx, spec, binary)
+			if err != nil {
+				return err
+			}
+			binPath = bp
+			return nil
+		})
+		afterwait.Register(ctx, func() error {
+			if binPath != "" {
+				_, err := fmt.Fprintln(os.Stdout, binPath)
+				return err
+			}
+			return nil
+		})
 		return nil
 	})
-	afterwait.Register(ctx, func() error {
-		if binPath != "" {
-			_, err := fmt.Fprintln(os.Stdout, binPath)
-			return err
-		}
-		return nil
-	})
-	return nil
 }
