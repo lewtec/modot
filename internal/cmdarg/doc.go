@@ -4,7 +4,7 @@
 // case (names, refs, URLs, tool specs, remote rsync, free text).
 //
 //	closed set          cmd.EnumArg[cmdarg.T]
-//	existing directory  cmd.WorkDirArg (optional: *cmd.WorkDirArg)
+//	existing directory  cmd.WorkDirArg
 //	existing data dir   cmd.DataDirArg
 //	host:port           cmd.AddrArg
 //	Go duration         cmd.DurationArg
