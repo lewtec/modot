@@ -20,19 +20,19 @@ import (
 )
 
 type Command struct {
-	Audio *pkg_audio.Command
-	Brightness *pkg_brightness.Command
-	Camera *pkg_camera.Command
-	Doctor *pkg_doctor.Command
-	Input *pkg_input.Command
-	Media *pkg_media.Command
+	Audio        *pkg_audio.Command
+	Brightness   *pkg_brightness.Command
+	Camera       *pkg_camera.Command
+	Doctor       *pkg_doctor.Command
+	Input        *pkg_input.Command
+	Media        *pkg_media.Command
 	Notification *pkg_notification.Command
-	Open *pkg_open.Command
-	Power *pkg_power.Command
-	Rsync *pkg_rsync.Command
-	Screen *pkg_screen.Command
-	Screenshot *pkg_screenshot.Command
-	Sudo *pkg_sudo.Command
-	Wallpaper *pkg_wallpaper.Command
-	Workspace *pkg_workspace.Command
+	Open         *pkg_open.Command
+	Power        *pkg_power.Command
+	Rsync        *pkg_rsync.Command
+	Screen       *pkg_screen.Command
+	Screenshot   *pkg_screenshot.Command
+	Sudo         *pkg_sudo.Command
+	Wallpaper    *pkg_wallpaper.Command
+	Workspace    *pkg_workspace.Command
 }

@@ -10,9 +10,9 @@ import (
 )
 
 type Command struct {
-	Apply *pkg_apply.Command
+	Apply  *pkg_apply.Command
 	Backup *pkg_backup.Command
 	Config *pkg_config.Command
-	Plan *pkg_plan.Command
-	Sync *pkg_sync.Command
+	Plan   *pkg_plan.Command
+	Sync   *pkg_sync.Command
 }

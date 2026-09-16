@@ -7,6 +7,6 @@ import (
 )
 
 type Command struct {
-	Drivers *pkg_drivers.Command
+	Drivers  *pkg_drivers.Command
 	Generate *pkg_generate.Command
 }
