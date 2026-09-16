@@ -20,11 +20,11 @@ import (
 )
 
 type Command struct {
-	DB     db.Arg `long:"database" help:"sqlite URL"`
-	Ingest *Ingest
-	List   *List
-	Record *Record
-	Search *Search
+	*db.Command `flatten:""`
+	Ingest      *Ingest
+	List        *List
+	Record      *Record
+	Search      *Search
 }
 
 func (Command) Description() string {

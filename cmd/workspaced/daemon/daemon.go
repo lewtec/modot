@@ -68,8 +68,8 @@ func (w *StreamPacketWriter) Write(p []byte) (n int, err error) {
 }
 
 type Command struct {
-	Try cmd.Flag `long:"try" help:"Exit if daemon is already running"`
-	DB  db.Arg   `long:"database" help:"sqlite URL"`
+	Try         cmd.Flag `long:"try" help:"Exit if daemon is already running"`
+	*db.Command `flatten:""`
 }
 
 func (Command) Description() string {
@@ -93,7 +93,7 @@ func (c *Command) Run(ctx context.Context) error {
 		logging.GetLogger(ctx).Warn("failed to get initial binary mtime", "error", err)
 	}
 
-	if err := RunDaemon(ctx, c.DB); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if err := RunDaemon(ctx, c.Database); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logging.GetLogger(ctx).Error("daemon failure", "error", err)
 		os.Exit(1)
 	}

@@ -47,42 +47,23 @@ func runSelected(ctx context.Context, v reflect.Value) error {
 	return cmd.ErrUsage
 }
 
+type dbOpener interface {
+	Open(context.Context) (*db.DB, error)
+}
+
 func injectDB(ctx context.Context, v reflect.Value) (context.Context, func(), error) {
 	if _, ok := db.FromContext(ctx); ok {
 		return ctx, func() {}, nil
 	}
-	arg, ok := findDBArg(v)
+	opener, ok := v.Addr().Interface().(dbOpener)
 	if !ok {
 		return ctx, func() {}, nil
 	}
-	database, err := db.OpenArg(ctx, arg)
+	database, err := opener.Open(ctx)
 	if err != nil {
 		return ctx, nil, err
 	}
 	return db.WithDB(ctx, database), func() { logging.Close(ctx, database) }, nil
-}
-
-func findDBArg(v reflect.Value) (db.Arg, bool) {
-	want := reflect.TypeFor[db.Arg]()
-	t := v.Type()
-	for i := range t.NumField() {
-		sf := t.Field(i)
-		fv := v.Field(i)
-		if !fv.CanAddr() {
-			continue
-		}
-		_, flatten := sf.Tag.Lookup("flatten")
-		if (sf.Anonymous || flatten) && fv.Kind() == reflect.Struct {
-			if arg, ok := findDBArg(fv); ok {
-				return arg, true
-			}
-			continue
-		}
-		if fv.Type() == want {
-			return fv.Interface().(db.Arg), true
-		}
-	}
-	return db.Arg{}, false
 }
 
 func selectedCommand(v reflect.Value) reflect.Value {
