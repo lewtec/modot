@@ -16,7 +16,6 @@ import (
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/cmdctx"
 	"github.com/lucasew/workspaced/internal/shellgen"
-	"github.com/lucasew/workspaced/internal/taskui"
 	"github.com/lucasew/workspaced/internal/version"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
@@ -37,185 +36,183 @@ Uses caching for performance - regenerates only when source files change.`
 }
 
 func (i *Init) Run(ctx context.Context) error {
-	return taskui.Run(ctx, func(ctx context.Context) error {
-		logger := logging.GetLogger(ctx)
-		startTime := time.Now()
-		defer func() {
+	logger := logging.GetLogger(ctx)
+	startTime := time.Now()
+	defer func() {
+		if i.Profile.Value() {
+			logger.Info("shell init total time", "duration", time.Since(startTime))
+		}
+	}()
+	shell := "bash"
+	if i.shell != nil {
+		shell = i.shell.Value()
+	}
+
+	dotfilesRoot, err := findDotfilesRoot(ctx)
+	if err != nil {
+		return fmt.Errorf("find dotfiles root: %w", err)
+	}
+
+	preludeDir := filepath.Join(dotfilesRoot, "bin", "prelude")
+
+	allFiles, err := filepath.Glob(filepath.Join(preludeDir, "*.sh"))
+	if err != nil {
+		return fmt.Errorf("list prelude files: %w", err)
+	}
+
+	preludeFingerprint, err := calculatePreludeFingerprint(allFiles)
+	if err != nil {
+		return fmt.Errorf("fingerprint prelude files: %w", err)
+	}
+
+	cacheDir := getCacheDir()
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return fmt.Errorf("create cache directory: %w", err)
+	}
+
+	buildID := version.GetBuildID()
+	cacheFile := filepath.Join(cacheDir, fmt.Sprintf("shell-init-%s-%s-%s.bash", shell, buildID, preludeFingerprint))
+
+	// Local --force is shell-cache only; global --no-cache is the full cascade.
+	if !i.Force.Value() && !cmdctx.IsNoCache(ctx) {
+		if content, err := os.ReadFile(cacheFile); err == nil {
 			if i.Profile.Value() {
-				logger.Info("shell init total time", "duration", time.Since(startTime))
+				logger.Info("shell init cache hit", "cache_file", cacheFile)
 			}
-		}()
-		shell := "bash"
-		if i.shell != nil {
-			shell = i.shell.Value()
+			fmt.Print(string(content))
+			return nil
 		}
+	}
+	if cmdctx.IsNoCache(ctx) {
+		logger.Debug("no-cache: regenerating shell init", "cache_file", cacheFile)
+	}
+	if i.Profile.Value() {
+		logger.Info("shell init cache miss, generating")
+	}
 
-		dotfilesRoot, err := findDotfilesRoot(ctx)
-		if err != nil {
-			return fmt.Errorf("find dotfiles root: %w", err)
-		}
+	// Read all prelude files in parallel
+	t1 := time.Now()
+	if i.Profile.Value() {
+		logger.Info("shell init glob files", "duration", time.Since(t1), "files", len(allFiles))
+	}
 
-		preludeDir := filepath.Join(dotfilesRoot, "bin", "prelude")
+	// Separate .source.sh files from regular .sh files
+	var files []string
+	sourceFiles := make(map[string]string) // basename -> path
 
-		allFiles, err := filepath.Glob(filepath.Join(preludeDir, "*.sh"))
-		if err != nil {
-			return fmt.Errorf("list prelude files: %w", err)
-		}
-
-		preludeFingerprint, err := calculatePreludeFingerprint(allFiles)
-		if err != nil {
-			return fmt.Errorf("fingerprint prelude files: %w", err)
-		}
-
-		cacheDir := getCacheDir()
-		if err := os.MkdirAll(cacheDir, 0755); err != nil {
-			return fmt.Errorf("create cache directory: %w", err)
-		}
-
-		buildID := version.GetBuildID()
-		cacheFile := filepath.Join(cacheDir, fmt.Sprintf("shell-init-%s-%s-%s.bash", shell, buildID, preludeFingerprint))
-
-		// Local --force is shell-cache only; global --no-cache is the full cascade.
-		if !i.Force.Value() && !cmdctx.IsNoCache(ctx) {
-			if content, err := os.ReadFile(cacheFile); err == nil {
-				if i.Profile.Value() {
-					logger.Info("shell init cache hit", "cache_file", cacheFile)
-				}
-				fmt.Print(string(content))
-				return nil
-			}
-		}
-		if cmdctx.IsNoCache(ctx) {
-			logger.Debug("no-cache: regenerating shell init", "cache_file", cacheFile)
-		}
-		if i.Profile.Value() {
-			logger.Info("shell init cache miss, generating")
-		}
-
-		// Read all prelude files in parallel
-		t1 := time.Now()
-		if i.Profile.Value() {
-			logger.Info("shell init glob files", "duration", time.Since(t1), "files", len(allFiles))
-		}
-
-		// Separate .source.sh files from regular .sh files
-		var files []string
-		sourceFiles := make(map[string]string) // basename -> path
-
-		for _, file := range allFiles {
-			basename := filepath.Base(file)
-			if strings.HasSuffix(basename, ".source.sh") {
-				// Skip mise .source.sh as it's generated in Go
-				if strings.Contains(basename, "mise") {
-					continue
-				}
-				// Map the base name without .source.sh extension
-				key := strings.TrimSuffix(basename, ".source.sh")
-				sourceFiles[key] = file
-			} else {
-				files = append(files, file)
-			}
-		}
-		sort.Strings(files)
-
-		// Read all files in parallel (ordered map; Session is on CLI ctx).
-		contents, err := taskgroup.Map[string, string]{
-			Name:     "read-prelude",
-			Items:    files,
-			PoolKind: taskgroup.IO,
-			TaskName: func(_ int, path string) string {
-				return "read:" + filepath.Base(path)
-			},
-			Fn: func(ctx context.Context, s *taskgroup.Status, path string) (string, error) {
-				content, err := os.ReadFile(path)
-				if err != nil {
-					return "", fmt.Errorf("read %s: %w", path, err)
-				}
-				return string(content), nil
-			},
-		}.Run(ctx)
-		if err != nil {
-			return err
-		}
-		contentMap := make(map[string]string, len(files))
-		for i, path := range files {
-			contentMap[path] = contents[i]
-		}
-
-		t2 := time.Now()
-		sourceOutputs, err := executeSourceFiles(ctx, sourceFiles)
-		if err != nil {
-			return fmt.Errorf("execute source files: %w", err)
-		}
-		if i.Profile.Value() {
-			logger.Info("shell init executed .source.sh files", "duration", time.Since(t2), "files", len(sourceFiles))
-		}
-
-		var output strings.Builder
-		output.WriteString("# Generated by workspaced shell init\n")
-		output.WriteString("# This file is cached for performance\n")
-		output.WriteString("# Commands executed in parallel for faster loading\n\n")
-
-		// Generate all inline shell initialization code in parallel
-		t3 := time.Now()
-		inlineCode, err := shellgen.Generate(ctx)
-		if err != nil {
-			return fmt.Errorf("generate inline shell initialization: %w", err)
-		}
-		if i.Profile.Value() {
-			logger.Info("shell init generated inline code", "duration", time.Since(t3))
-		}
-		output.WriteString(inlineCode)
-
-		for _, file := range files {
-			basename := filepath.Base(file)
-			baseKey := strings.TrimSuffix(basename, ".sh")
-
-			// Skip files generated inline above
-			if strings.Contains(basename, "workspaced-init") ||
-				strings.Contains(basename, "workspaced-history") ||
-				strings.Contains(basename, "interactive-uptime") {
+	for _, file := range allFiles {
+		basename := filepath.Base(file)
+		if strings.HasSuffix(basename, ".source.sh") {
+			// Skip mise .source.sh as it's generated in Go
+			if strings.Contains(basename, "mise") {
 				continue
 			}
+			// Map the base name without .source.sh extension
+			key := strings.TrimSuffix(basename, ".source.sh")
+			sourceFiles[key] = file
+		} else {
+			files = append(files, file)
+		}
+	}
+	sort.Strings(files)
 
-			// Check if there's a .source.sh file - if so, use ONLY its output
-			if sourceOutput, hasSource := sourceOutputs[baseKey]; hasSource {
-				fmt.Fprintf(&output, "# Source: %s (generated by %s.source.sh)\n", basename, baseKey)
-				output.WriteString(sourceOutput)
-				if !strings.HasSuffix(sourceOutput, "\n") {
-					output.WriteString("\n")
-				}
-				output.WriteString("\n")
-				continue
+	// Read all files in parallel (ordered map; Session is on CLI ctx).
+	contents, err := taskgroup.Map[string, string]{
+		Name:     "read-prelude",
+		Items:    files,
+		PoolKind: taskgroup.IO,
+		TaskName: func(_ int, path string) string {
+			return "read:" + filepath.Base(path)
+		},
+		Fn: func(ctx context.Context, s *taskgroup.Status, path string) (string, error) {
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return "", fmt.Errorf("read %s: %w", path, err)
 			}
+			return string(content), nil
+		},
+	}.Run(ctx)
+	if err != nil {
+		return err
+	}
+	contentMap := make(map[string]string, len(files))
+	for i, path := range files {
+		contentMap[path] = contents[i]
+	}
 
-			// Regular file processing
-			content := contentMap[file]
-			fmt.Fprintf(&output, "# Source: %s\n", basename)
-			output.WriteString(content)
+	t2 := time.Now()
+	sourceOutputs, err := executeSourceFiles(ctx, sourceFiles)
+	if err != nil {
+		return fmt.Errorf("execute source files: %w", err)
+	}
+	if i.Profile.Value() {
+		logger.Info("shell init executed .source.sh files", "duration", time.Since(t2), "files", len(sourceFiles))
+	}
 
-			if !strings.HasSuffix(content, "\n") {
+	var output strings.Builder
+	output.WriteString("# Generated by workspaced shell init\n")
+	output.WriteString("# This file is cached for performance\n")
+	output.WriteString("# Commands executed in parallel for faster loading\n\n")
+
+	// Generate all inline shell initialization code in parallel
+	t3 := time.Now()
+	inlineCode, err := shellgen.Generate(ctx)
+	if err != nil {
+		return fmt.Errorf("generate inline shell initialization: %w", err)
+	}
+	if i.Profile.Value() {
+		logger.Info("shell init generated inline code", "duration", time.Since(t3))
+	}
+	output.WriteString(inlineCode)
+
+	for _, file := range files {
+		basename := filepath.Base(file)
+		baseKey := strings.TrimSuffix(basename, ".sh")
+
+		// Skip files generated inline above
+		if strings.Contains(basename, "workspaced-init") ||
+			strings.Contains(basename, "workspaced-history") ||
+			strings.Contains(basename, "interactive-uptime") {
+			continue
+		}
+
+		// Check if there's a .source.sh file - if so, use ONLY its output
+		if sourceOutput, hasSource := sourceOutputs[baseKey]; hasSource {
+			fmt.Fprintf(&output, "# Source: %s (generated by %s.source.sh)\n", basename, baseKey)
+			output.WriteString(sourceOutput)
+			if !strings.HasSuffix(sourceOutput, "\n") {
 				output.WriteString("\n")
 			}
 			output.WriteString("\n")
+			continue
 		}
 
-		result := output.String()
+		// Regular file processing
+		content := contentMap[file]
+		fmt.Fprintf(&output, "# Source: %s\n", basename)
+		output.WriteString(content)
 
-		// Atomic repopulate: write temp then rename over the cache file.
-		tmpCache := cacheFile + ".tmp"
-		if err := os.WriteFile(tmpCache, []byte(result), 0644); err != nil {
-			logger.Warn("failed to write shell init cache", "cache_file", tmpCache, "error", err)
-		} else if err := os.Rename(tmpCache, cacheFile); err != nil {
-			if rmErr := os.Remove(tmpCache); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
-				// best-effort cleanup; primary error is rename failure
-			}
-			logger.Warn("failed to finalize shell init cache", "cache_file", cacheFile, "error", err)
+		if !strings.HasSuffix(content, "\n") {
+			output.WriteString("\n")
 		}
+		output.WriteString("\n")
+	}
 
-		fmt.Print(result)
-		return nil
-	})
+	result := output.String()
+
+	// Atomic repopulate: write temp then rename over the cache file.
+	tmpCache := cacheFile + ".tmp"
+	if err := os.WriteFile(tmpCache, []byte(result), 0644); err != nil {
+		logger.Warn("failed to write shell init cache", "cache_file", tmpCache, "error", err)
+	} else if err := os.Rename(tmpCache, cacheFile); err != nil {
+		if rmErr := os.Remove(tmpCache); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+			// best-effort cleanup; primary error is rename failure
+		}
+		logger.Warn("failed to finalize shell init cache", "cache_file", cacheFile, "error", err)
+	}
+
+	fmt.Print(result)
+	return nil
 }
 
 func findDotfilesRoot(ctx context.Context) (string, error) {

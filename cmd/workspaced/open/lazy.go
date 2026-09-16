@@ -7,7 +7,6 @@ import (
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/afterwait"
-	"github.com/lucasew/workspaced/internal/taskui"
 	"github.com/lucasew/workspaced/internal/tool"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 )
@@ -39,21 +38,19 @@ func runLazyTool(ctx context.Context, homeMode bool, toolName, binName string, t
 		resolver = tool.ResolveHomeLazyTool
 	}
 
-	return taskui.Run(ctx, func(ctx context.Context) error {
-		taskgroup.Go(ctx, "open:lazy:"+toolName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-			s.Update("resolving " + toolName)
-			binPath, err := resolver(ctx, toolName, binName)
-			if err != nil {
-				return err
-			}
-			execCtx := context.WithoutCancel(ctx)
-			c, err := execdriver.Run(execCtx, binPath, toolArgs...)
-			if err != nil {
-				return fmt.Errorf("create command: %w", err)
-			}
-			afterwait.Exec(ctx, c)
-			return nil
-		})
+	taskgroup.Go(ctx, "open:lazy:"+toolName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+		s.Update("resolving " + toolName)
+		binPath, err := resolver(ctx, toolName, binName)
+		if err != nil {
+			return err
+		}
+		execCtx := context.WithoutCancel(ctx)
+		c, err := execdriver.Run(execCtx, binPath, toolArgs...)
+		if err != nil {
+			return fmt.Errorf("create command: %w", err)
+		}
+		afterwait.Exec(ctx, c)
 		return nil
 	})
+	return nil
 }

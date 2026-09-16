@@ -9,7 +9,6 @@ import (
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/checks/formatter"
 	"github.com/lucasew/workspaced/internal/git"
-	"github.com/lucasew/workspaced/internal/taskui"
 )
 
 type Format struct {
@@ -31,11 +30,9 @@ func (f *Format) Run(ctx context.Context) error {
 		return fmt.Errorf("find git root (format must run inside a git repo): %w", err)
 	}
 
-	return taskui.Run(ctx, func(ctx context.Context) error {
-		taskgroup.Go(ctx, "codebase:format", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-			s.Update("running formatters")
-			return formatter.RunAll(ctx, root)
-		})
-		return nil
+	taskgroup.Go(ctx, "codebase:format", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+		s.Update("running formatters")
+		return formatter.RunAll(ctx, root)
 	})
+	return nil
 }

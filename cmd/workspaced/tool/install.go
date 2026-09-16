@@ -5,7 +5,6 @@ import (
 
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lucasew/workspaced/internal/taskui"
 	"github.com/lucasew/workspaced/internal/tool"
 )
 
@@ -22,11 +21,9 @@ func (i *Install) Run(ctx context.Context) error {
 	}
 
 	spec := i.spec.Value()
-	return taskui.Run(ctx, func(ctx context.Context) error {
-		taskgroup.Go(ctx, "tool:install:"+spec, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-			s.Update("installing " + spec)
-			return manager.Install(ctx, spec)
-		})
-		return nil
+	taskgroup.Go(ctx, "tool:install:"+spec, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+		s.Update("installing " + spec)
+		return manager.Install(ctx, spec)
 	})
+	return nil
 }

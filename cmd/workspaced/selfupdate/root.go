@@ -15,7 +15,6 @@ import (
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/miseutil"
 	"github.com/lucasew/workspaced/internal/selfbin"
-	"github.com/lucasew/workspaced/internal/taskui"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	githubprov "github.com/lucasew/workspaced/internal/tool/backend/github"
 	"github.com/lucasew/workspaced/internal/version"
@@ -54,13 +53,12 @@ func (c *Command) Run(ctx context.Context) error {
 
 	// Control: github/httpclient and the source build nest limited-pool work.
 	// Do not Unit here — GitHub installs already own a fetch bar.
-	return taskui.Run(ctx, func(ctx context.Context) error {
-		taskgroup.Go(ctx, "self-update", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-			s.Update(msg)
-			return runSelfUpdate(ctx, c.Force.Value(), s)
-		})
-		return nil
+	taskgroup.Go(ctx, "self-update", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+		s.Update(msg)
+		return runSelfUpdate(ctx, c.Force.Value(), s)
 	})
+
+	return nil
 }
 
 // ============================================================================

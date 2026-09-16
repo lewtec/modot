@@ -5,7 +5,6 @@ import (
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/modfile"
-	"github.com/lucasew/workspaced/internal/taskui"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
@@ -30,25 +29,23 @@ func (c *Tidy) Run(ctx context.Context) error {
 }
 
 func runModLock(ctx context.Context) error {
-	return taskui.Run(ctx, func(ctx context.Context) error {
-		taskgroup.Go(ctx, "mod:lock", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-			s.Update("refreshing lockfile")
-			logger := logging.GetLogger(ctx)
-			ws, err := modfile.DetectWorkspace(ctx, "")
-			if err != nil {
-				return err
-			}
-			result, err := modfile.GenerateLock(ctx, ws)
-			if err != nil {
-				return err
-			}
-			if result.Changed {
-				logger.Info("wrote lockfile", "path", ws.SumPath(), "sources", result.Sources)
-			} else {
-				logger.Info("lockfile up to date", "path", ws.SumPath(), "sources", result.Sources)
-			}
-			return nil
-		})
+	taskgroup.Go(ctx, "mod:lock", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+		s.Update("refreshing lockfile")
+		logger := logging.GetLogger(ctx)
+		ws, err := modfile.DetectWorkspace(ctx, "")
+		if err != nil {
+			return err
+		}
+		result, err := modfile.GenerateLock(ctx, ws)
+		if err != nil {
+			return err
+		}
+		if result.Changed {
+			logger.Info("wrote lockfile", "path", ws.SumPath(), "sources", result.Sources)
+		} else {
+			logger.Info("lockfile up to date", "path", ws.SumPath(), "sources", result.Sources)
+		}
 		return nil
 	})
+	return nil
 }
