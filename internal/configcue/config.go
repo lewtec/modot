@@ -10,10 +10,10 @@ import (
 	"strings"
 
 	"cuelang.org/go/cue"
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/pkg/driver"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	"github.com/lucasew/workspaced/pkg/filespine"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 var (

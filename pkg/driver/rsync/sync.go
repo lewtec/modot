@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/lucasew/workspaced/pkg/taskgroup"
+	"github.com/lewtec/lewkit/x/taskgroup"
 )
 
 // SyncWith validates paths, builds CLI args, and runs perform under RunWithTaskGroup.

@@ -9,11 +9,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
-// progressTransport is an http.RoundTripper that, when a taskgroup.Group is
+// progressTransport is an http.RoundTripper that, when a taskgroup.Session is
 // present in the request context, automatically promotes the request into a
 // first-class Internet task. Byte progress is driven from the response
 // ContentLength header + actual body reads.
@@ -26,8 +26,7 @@ type progressTransport struct {
 }
 
 func (t *progressTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	g := taskgroup.FromContext(req.Context())
-	if g == nil {
+	if taskgroup.FromContext(req.Context()) == nil {
 		return t.base.RoundTrip(req)
 	}
 
@@ -41,7 +40,7 @@ func (t *progressTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	// (or closed) the body. This lets the task handler know when to finalize.
 	bodyComplete := make(chan struct{})
 
-	g.Go(name, taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+	taskgroup.Go(req.Context(), name, taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
 		l := logging.GetLogger(ctx)
 		l.Debug("http request promoted to internet task", "name", name, "url", req.URL.String())
 
@@ -272,7 +271,7 @@ func isAllDigits(s string) bool {
 // WithProgress wraps the given RoundTripper so that every request made
 // through it is automatically promoted to a first-class "Internet" task
 // (with determinate progress based on Content-Length + body reads) whenever
-// a taskgroup.Group is present in the request's context.
+// a taskgroup.Session is present in the request's context.
 //
 // This is the central interception point. All code that goes through the
 // official httpclient driver (including the client handed to the external

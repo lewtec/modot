@@ -18,6 +18,7 @@ import (
 	zipfs "github.com/lewtec/lewkit/x/fs/zip"
 	lewpath "github.com/lewtec/lewkit/x/path"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/archive"
 	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/constants"
@@ -26,7 +27,6 @@ import (
 	"github.com/lucasew/workspaced/pkg/driver/fetchurl"
 	"github.com/lucasew/workspaced/pkg/driver/httpclient"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 	"io/fs"
 )
 

@@ -5,10 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/deployer"
 	"github.com/lucasew/workspaced/internal/source"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 func TestApplyPersistsDropOfGitignoredStateOnIdle(t *testing.T) {

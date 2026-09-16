@@ -6,10 +6,10 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/pkg/driver"
 	rsyncdriver "github.com/lucasew/workspaced/pkg/driver/rsync"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	gokrsync "github.com/gokrazy/rsync/rsynccmd"
 )

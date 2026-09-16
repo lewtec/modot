@@ -16,12 +16,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/pkg/driver"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	httpclientdriver "github.com/lucasew/workspaced/pkg/driver/httpclient"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 var ErrBadHTTPStatus = errors.New("unexpected HTTP status")

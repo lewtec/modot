@@ -9,9 +9,11 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"reflect"
 
 	cueerrors "cuelang.org/go/cue/errors"
 	pkg_daemon "github.com/lucasew/workspaced/cmd/workspaced/daemon"
+	"github.com/lucasew/workspaced/internal/afterwait"
 	"github.com/lucasew/workspaced/internal/cmdctx"
 	"github.com/lucasew/workspaced/internal/configcue"
 	_ "github.com/lucasew/workspaced/internal/tool/prelude"
@@ -20,17 +22,25 @@ import (
 	_ "github.com/lucasew/workspaced/pkg/driver/prelude"
 	"github.com/lucasew/workspaced/pkg/logging"
 	_ "github.com/lucasew/workspaced/pkg/palette/prelude"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lewtec/lewkit/x/taskgroup"
+	"github.com/lewtec/lewkit/x/taskgroup/progress"
+)
+
+var (
+	processLogger *slog.Logger
+	processLogOut *swapWriter
 )
 
 func main() {
 	level := &slog.LevelVar{}
-	rootLogger := slog.New(logging.NewPlainHandler(os.Stderr, &slog.HandlerOptions{
+	processLogOut = newSwapWriter(os.Stderr)
+	processLogger = slog.New(logging.NewPlainHandler(processLogOut, &slog.HandlerOptions{
 		Level: level,
 	}))
-	rootCtx := logging.NewRootContext(rootLogger)
+	slog.SetDefault(processLogger)
+	rootCtx := logging.NewRootContext(processLogger)
 
 	if os.Getenv("REBUILD_TEST") != "" {
 		exe, err := os.Executable()
@@ -71,12 +81,12 @@ func run(ctx context.Context, level *slog.LevelVar) error {
 		return err
 	}
 	level.Set(app.LogLevel())
-	if app.Help() {
-		return app.Run(ctx)
-	}
 	if app.WantVersion() {
 		_, err := fmt.Fprintln(os.Stdout, version.VersionString())
 		return err
+	}
+	if app.Help() || !selectedHasRun(reflect.ValueOf(&app.Args).Elem()) {
+		return app.Run(ctx)
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -84,17 +94,21 @@ func run(ctx context.Context, level *slog.LevelVar) error {
 	if err != nil {
 		return err
 	}
-	runErr := app.Run(ctx)
-	var sessErr error
-	if session != nil {
-		sessErr = session.Close()
-		if sessErr != nil {
-			logging.GetLogger(ctx).Error("task group error", "err", sessErr)
+	runErr := progress.Run(session, ctx, func(ctx context.Context) error {
+		if processLogOut != nil {
+			processLogOut.Set(session.LogWriter())
 		}
+		return app.Run(ctx)
+	})
+	if processLogOut != nil {
+		processLogOut.Set(os.Stderr)
+	}
+	if hookErr := afterwait.Run(ctx); runErr == nil {
+		runErr = hookErr
 	}
 	cancel()
-	if sessErr != nil {
-		return sessErr
+	if runErr != nil {
+		logging.GetLogger(ctx).Error("task group error", "err", runErr)
 	}
 	return runErr
 }
@@ -108,11 +122,9 @@ func executeCLI(ctx context.Context, args []string) error {
 }
 
 func setup(ctx context.Context, app cmd.App[cli]) (context.Context, *taskgroup.Session, error) {
-	if !logging.ContextHasLogger(ctx) {
-		ctx = logging.ContextWithLogger(ctx, logging.GetLogger(ctx))
-	}
 	envdriver.SetupEssentialPaths(ctx)
 	ctx = cmdctx.WithDryRun(ctx, app.Args.DryRun.Value())
+	ctx = afterwait.With(ctx)
 	armedNoCache := app.Args.NoCache.Value()
 	ctx = cmdctx.WithNoCache(ctx, armedNoCache)
 	if armedNoCache {

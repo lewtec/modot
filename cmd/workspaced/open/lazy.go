@@ -5,9 +5,10 @@ import (
 	"fmt"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lewtec/lewkit/x/taskgroup"
+	"github.com/lucasew/workspaced/internal/afterwait"
 	"github.com/lucasew/workspaced/internal/tool"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 type Lazy struct {
@@ -37,8 +38,7 @@ func runLazyTool(ctx context.Context, homeMode bool, toolName, binName string, t
 		resolver = tool.ResolveHomeLazyTool
 	}
 
-	g := taskgroup.MustFromContext(ctx)
-	g.Go("open:lazy:"+toolName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+	taskgroup.Go(ctx, "open:lazy:"+toolName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update("resolving " + toolName)
 		binPath, err := resolver(ctx, toolName, binName)
 		if err != nil {
@@ -49,7 +49,7 @@ func runLazyTool(ctx context.Context, homeMode bool, toolName, binName string, t
 		if err != nil {
 			return fmt.Errorf("create command: %w", err)
 		}
-		s.AfterWaitRun(c)
+		afterwait.Exec(ctx, c)
 		return nil
 	})
 	return nil

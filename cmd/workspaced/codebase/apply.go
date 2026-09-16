@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/cmdwire"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/deployer"
@@ -14,7 +15,6 @@ import (
 	_ "github.com/lucasew/workspaced/internal/modfile/sourceprovider/prelude"
 	"github.com/lucasew/workspaced/internal/source"
 	"github.com/lucasew/workspaced/internal/tool"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	"github.com/lewtec/lewkit/x/cmd"
 )
@@ -33,7 +33,7 @@ func (c *Apply) Run(ctx context.Context) error {
 
 // Schedule wires codebase plan/apply.
 // target is always the workspace root.
-func Schedule(g *taskgroup.Group, ctx context.Context, dryRun, showNoop bool) func() error {
+func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 	taskName := "codebase:apply"
 	updateMsg := "applying to repo root"
 	if dryRun {
@@ -44,7 +44,7 @@ func Schedule(g *taskgroup.Group, ctx context.Context, dryRun, showNoop bool) fu
 	logCtx := ctx
 	var finalResult *dotfiles.ApplyResult
 
-	g.Go(taskName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+	taskgroup.Go(ctx, taskName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update(updateMsg)
 		// Nested plan/apply Maps own aggregate bars; no Unit shell here.
 

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 // Generator is a function that generates shell code

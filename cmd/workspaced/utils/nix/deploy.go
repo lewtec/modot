@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
+	"github.com/lucasew/workspaced/internal/afterwait"
 	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/internal/nix"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/notification"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lucasew/workspaced/internal/cmdarg"
@@ -68,7 +69,7 @@ func (d *Deploy) Run(ctx context.Context) error {
 	}
 
 	deployed := append([]string(nil), nodes...)
-	taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
+	afterwait.Register(ctx, func() error {
 		n := notification.Notification{
 			Title:   "NixOS Deploy",
 			Message: fmt.Sprintf("Deploy completed for: %s", strings.Join(deployed, ", ")),

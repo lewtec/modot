@@ -13,13 +13,13 @@ import (
 	"time"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/cmdctx"
 	"github.com/lucasew/workspaced/internal/shellgen"
 	"github.com/lucasew/workspaced/internal/version"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 type Init struct {

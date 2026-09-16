@@ -3,7 +3,6 @@ module github.com/lucasew/workspaced
 go 1.27.0
 
 require (
-	charm.land/bubbletea/v2 v2.0.7
 	cuelang.org/go v0.17.1
 	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/fetchurl/fetchurl v0.0.0-20260714002336-2d69880d6c8b
@@ -11,22 +10,20 @@ require (
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/gokrazy/rsync v0.3.3
 	github.com/google/go-cmp v0.7.0
-	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
-	github.com/lewtec/lewkit v0.0.0-20260916154329-723b09437a2f
-	github.com/mattn/go-runewidth v0.0.23
+	github.com/lewtec/lewkit v0.0.0-20260916232321-ed6072c4389d
 	github.com/owenrumney/go-sarif/v2 v2.3.3
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/pelletier/go-toml/v2 v2.3.1
 	github.com/stretchr/testify v1.12.1
 	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/image v0.42.0
-	golang.org/x/sys v0.47.0
 )
 
 require (
 	cel.dev/expr v0.25.2 // indirect
+	charm.land/bubbletea/v2 v2.0.7 // indirect
 	filippo.io/edwards25519 v1.1.1 // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/anchore/go-lzo v0.1.0 // indirect
@@ -59,6 +56,7 @@ require (
 	github.com/google/cel-go v0.28.0 // indirect
 	github.com/google/renameio/v2 v2.0.2 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
@@ -70,6 +68,7 @@ require (
 	github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
+	github.com/mattn/go-runewidth v0.0.30 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mmcloughlin/md4 v0.1.2 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
@@ -106,6 +105,7 @@ require (
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/term v0.45.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260630182238-925bb5da69e7 // indirect

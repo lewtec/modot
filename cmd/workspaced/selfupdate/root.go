@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/miseutil"
 	"github.com/lucasew/workspaced/internal/selfbin"
 	"github.com/lucasew/workspaced/internal/tool/backend"
@@ -20,7 +21,6 @@ import (
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	"github.com/lewtec/lewkit/x/cmd"
 )
@@ -42,8 +42,6 @@ func (Command) Description() string {
 }
 
 func (c *Command) Run(ctx context.Context) error {
-	g := taskgroup.FromContext(ctx)
-
 	msg := "downloading from GitHub"
 	srcPath, err := findSourcePath(ctx)
 	if err != nil {
@@ -55,7 +53,7 @@ func (c *Command) Run(ctx context.Context) error {
 
 	// Control: github/httpclient and the source build nest limited-pool work.
 	// Do not Unit here — GitHub installs already own a fetch bar.
-	g.Go("self-update", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+	taskgroup.Go(ctx, "self-update", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update(msg)
 		return runSelfUpdate(ctx, c.Force.Value(), s)
 	})

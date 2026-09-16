@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/apply"
 	"github.com/lucasew/workspaced/internal/cmdwire"
 	"github.com/lucasew/workspaced/internal/configcue"
@@ -19,7 +20,6 @@ import (
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	"github.com/lewtec/lewkit/x/cmd"
 )
@@ -36,11 +36,10 @@ func (c *Command) Run(ctx context.Context) error {
 	return cmdwire.RunAfterWait(ctx, false, c.ShowNoop.Value(), Schedule)
 }
 
-// Schedule wires the home apply/plan work into the given task Group.
+// Schedule wires the home apply/plan work into the session.
 // Both "home apply" and "home plan" use this so the work always runs in-process
-// under the caller's session. Register the returned func with Session.AfterWait
-// so the plan/apply report prints after tasks finish and the UI/output env is gone.
-func Schedule(g *taskgroup.Group, ctx context.Context, dryRun, showNoop bool) func() error {
+// under the caller's session. The returned func prints the report after wait.
+func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 	taskName := "home:apply"
 	updateMsg := "applying configuration"
 	if dryRun {
@@ -51,7 +50,7 @@ func Schedule(g *taskgroup.Group, ctx context.Context, dryRun, showNoop bool) fu
 	logCtx := ctx
 	var finalResult *dotfiles.ApplyResult
 
-	g.Go(taskName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+	taskgroup.Go(ctx, taskName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update(updateMsg)
 		// Nested plan/apply Maps own aggregate bars; no Unit shell here.
 

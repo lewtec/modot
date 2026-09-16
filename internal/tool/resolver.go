@@ -8,12 +8,12 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/cmdctx"
 	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 var (

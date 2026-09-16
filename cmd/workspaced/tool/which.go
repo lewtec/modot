@@ -6,8 +6,9 @@ import (
 	"os"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lewtec/lewkit/x/taskgroup"
+	"github.com/lucasew/workspaced/internal/afterwait"
 	"github.com/lucasew/workspaced/internal/tool"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 type Which struct {
@@ -28,9 +29,8 @@ func (w *Which) Run(ctx context.Context) error {
 		return err
 	}
 
-	g := taskgroup.MustFromContext(ctx)
 	var binPath string
-	g.Go("tool:which:"+spec+":"+binary, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+	taskgroup.Go(ctx, "tool:which:"+spec+":"+binary, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update("ensuring " + spec)
 		bp, err := m.EnsureInstalled(ctx, spec, binary)
 		if err != nil {
@@ -39,7 +39,7 @@ func (w *Which) Run(ctx context.Context) error {
 		binPath = bp
 		return nil
 	})
-	taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
+	afterwait.Register(ctx, func() error {
 		if binPath != "" {
 			_, err := fmt.Fprintln(os.Stdout, binPath)
 			return err

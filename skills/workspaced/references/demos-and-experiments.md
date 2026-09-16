@@ -14,7 +14,7 @@ treating demos as the main API.
 Experimental / developer-oriented commands.
 
 `workspaced experiments demo` (and subcommands) showcase output rendering and
-the taskgroup system (progress, logs, optional bubbletea UI).
+lewkit `x/taskgroup` (progress, logs, optional TUI).
 
 Examples of what that tree is for (names can grow; use `--help`):
 
@@ -22,7 +22,7 @@ Examples of what that tree is for (names can grow; use `--help`):
 |----------------------|--------|
 | `experiments demo` / `… demo tasks` | Default taskgroup + UI showcase |
 | `… demo plain` | Same scheduling without forcing the fancy renderer |
-| `… demo nested` | Nested groups / explicit UI run |
+| `… demo nested` | Isolate error boundary + child tasks |
 | `… demo loop` | Logs + progress interaction |
 | `… demo map` | Parallel map-style tasks |
 

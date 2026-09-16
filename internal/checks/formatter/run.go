@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/checks"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 // RunAll loads CUE formatter tools and runs applicable ones serially.
@@ -43,7 +43,7 @@ func RunAll(ctx context.Context, dir string) error {
 	}
 
 	// Soft-collect per-tool failures in U so one bad formatter does not cancel
-	// siblings (Map shares one SubGroup; a hard Fn error would). Hard error is
+	// siblings (Map children share a parent node; a hard Fn error would). Hard error is
 	// only for Map/taskgroup failure. nil *toolFailure means that tool succeeded.
 	// Control: ResolveCmd may EnsureInstalled (httpclient Internet).
 	failures, err := taskgroup.Map[item, *toolFailure]{

@@ -9,12 +9,12 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/cmdctx"
 	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 // Manager orchestrates the lifecycle, installation, and storage mapping for external tools.

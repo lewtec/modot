@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 const cpu10kItems = 10_000

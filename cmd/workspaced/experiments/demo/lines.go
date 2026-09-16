@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lucasew/workspaced/pkg/taskgroup"
+	"github.com/lewtec/lewkit/x/taskgroup"
 )
 
 type Lines struct{}
@@ -20,7 +20,6 @@ This is the same writer exec.Run attaches to child stderr when a Session is on c
 }
 
 func (*Lines) Run(ctx context.Context) error {
-	g := taskgroup.MustFromContext(ctx)
 	jobs := []struct {
 		name string
 		n    int
@@ -31,7 +30,7 @@ func (*Lines) Run(ctx context.Context) error {
 		{"gamma", 20, 100 * time.Millisecond},
 	}
 	for _, job := range jobs {
-		g.Go(job.name, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+		taskgroup.Go(ctx, job.name, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 			w := taskgroup.LineWriterFrom(ctx)
 			defer w.Close()
 			for i := 1; i <= job.n; i++ {

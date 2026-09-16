@@ -15,7 +15,7 @@ CUE config (`workspaced.cue`) drives everything.
 ## Critical locations
 
 - `pkg/driver/driver.go` and `pkg/driver/prelude`: driver system
-- `pkg/taskgroup/`: Session, progress UI, `Map`/`Each`/`Isolate` (package doc + AGENTS.md map/reduce rule)
+- Task pools / progress: `github.com/lewtec/lewkit/x/taskgroup` and `x/taskgroup/progress` (AGENTS.md map/reduce rule)
 - `pkg/palette/`, `pkg/logging/`, `pkg/api/`, `pkg/filespine/`: rest of `pkg/` (dest compose: Provider + Compose)
 - `internal/tool/backend/backend.go` and `internal/tool/backend/catalog/`: tool backends
 - `internal/tool/checks`: optional `InstallChecker` for install trees. `mise run test:registry-install` (sets `WORKSPACED_TEST_TOOL_INSTALL=1`) does full install verification. Not part of `mise release`. Multi-target CI: `.github/workflows/registry-install.yml` (linux amd64 + arm64). Per-tool failures append to `GITHUB_STEP_SUMMARY` from `install_test.go` when that env is set.
@@ -57,7 +57,7 @@ For complex subsystems, mirror `skills/workspaced/references/templates.md`: deci
 - No lists in module configs.
 - Use `pkg/driver/exec` outside driver implementations.
 - Import driver prelude only from `cmd/workspaced/root.go`.
-- Only leaf taskgroup tasks take IO/CPU/Internet (`pkg/taskgroup` package doc).
+- Only leaf taskgroup tasks take IO/CPU/Internet (`x/taskgroup` package doc).
 
 Rest is in AGENTS.md and `skills/workspaced/`.
 

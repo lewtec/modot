@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 type MapCmd struct{}
@@ -40,7 +40,7 @@ func (*MapCmd) Run(ctx context.Context) error {
 		"src/config.cue",
 		"src/utils/helpers.go",
 		"pkg/driver/audio/driver.go",
-		"pkg/taskgroup/map.go",
+		"pkg/driver/httpclient/progress.go",
 		"cmd/workspaced/home/apply/root.go",
 		"internal/templates/base.tmpl",
 		"modules/base16/module.cue",

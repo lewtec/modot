@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 var ErrSimulated503 = errors.New("simulated 503 from registry (demo failure)")
@@ -25,23 +25,22 @@ type Command struct {
 func (Command) Description() string {
 	return `Showcase the output rendering and task system
 
-The demo command exercises the taskgroup primitive (g.Go + Status + context slog)
-and the opt-in bubbletea renderer (a Group method).
+The demo command exercises lewkit x/taskgroup (Go + Status + context slog)
+and the root progress view.
 
-All demos use the exact same rules as production code:
-- only root may New the group; everything else does MustFromContext
-- schedule with g.Go(..., func(ctx, s){ logger:=logging.GetLogger(ctx); ... s.Update/Progress })
-- bubbletea UI is opt-in via g.RunBubbleTea() (demos call it; normal cmds never do)
-- RunBubbleTea is a no-op (plain Wait + normal slog) when TERM=dumb / CI / non-tty
+All demos use the same rules as production code:
+- only root may New the session; everything else does MustFromContext / Go
+- schedule with taskgroup.Go(ctx, ..., func(ctx, s){ ... s.Update/Progress })
+- progress UI is started by the CLI (TERM=dumb / CI / non-tty stay plain)
 
 Run subcommands to see different aspects:
-  workspaced experiments demo          - default tasks showcase (calls RunBubbleTea)
+  workspaced experiments demo          - default tasks showcase
   workspaced experiments demo tasks    - same as above
-  workspaced experiments demo plain    - schedules but does NOT call RunBubbleTea (plain transcript)
+  workspaced experiments demo plain    - same schedule; set TERM=dumb for a transcript
   workspaced experiments demo nested   - Isolate error boundary + child tasks
-  workspaced experiments demo loop     - 5x sleep+log+progress; calls RunBubbleTea to show logs over moving bar
-  workspaced experiments demo map      - taskgroup.Map over a slice (parallel transform, len(items) as progress hint)
-  workspaced experiments demo cpu10k   - 10k CPU-bound Map items (prune / live-set stress)
+  workspaced experiments demo loop     - 5x sleep+log+progress
+  workspaced experiments demo map      - taskgroup.Map over a slice
+  workspaced experiments demo cpu10k   - 10k CPU-bound Map items
   workspaced experiments demo lines    - three LineWriter counters rewriting in place`
 }
 
@@ -50,17 +49,15 @@ func (*Command) Run(ctx context.Context) error {
 }
 
 func runTasksDemo(ctx context.Context) error {
-	g := taskgroup.MustFromContext(ctx)
 	logger := logging.GetLogger(ctx)
 
-	logger.Info("Scheduling work on the task group obtained via MustFromContext.")
-	logger.Info("This demo calls g.RunBubbleTea() to kick in the (opt-in) bubbletea UI.")
+	logger.Info("Scheduling work on the session obtained via context.")
 	logger.Info("Tasks use IO / CPU / Internet pools, have dependencies, emit logs, and report progress.")
 
 	// Internet task with determinate progress + logs.
 	// Layout is "ICON BAR title: subtitle" — subtitle is size/phase only, not
 	// a repeated title or a percent (the bar already shows fraction).
-	g.Go("bundle.tar.gz", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+	download := taskgroup.Go(ctx, "bundle.tar.gz", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
 		logger := logging.GetLogger(ctx)
 		logger.Info("starting download")
 
@@ -84,7 +81,7 @@ func runTasksDemo(ctx context.Context) error {
 	})
 
 	// CPU-bound work that depends on the download.
-	g.Go("build", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+	build := taskgroup.Go(ctx, "build", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
 		logger := logging.GetLogger(ctx)
 		s.Update("preparing sources")
 		time.Sleep(80 * time.Millisecond)
@@ -97,10 +94,10 @@ func runTasksDemo(ctx context.Context) error {
 		time.Sleep(160 * time.Millisecond)
 		logger.Info("build finished", "binary", "./bin/app")
 		return nil
-	}, "bundle.tar.gz")
+	}, download)
 
 	// Another CPU task in parallel with build (after download).
-	g.Go("check", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+	taskgroup.Go(ctx, "check", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
 		logger := logging.GetLogger(ctx)
 		s.Update("static analysis")
 		time.Sleep(90 * time.Millisecond)
@@ -108,10 +105,10 @@ func runTasksDemo(ctx context.Context) error {
 		logger.Info("govulncheck", "status", "clean")
 		time.Sleep(220 * time.Millisecond)
 		return nil
-	}, "bundle.tar.gz")
+	}, download)
 
 	// IO task that depends on build.
-	g.Go("install", taskgroup.IO, func(ctx context.Context, s *taskgroup.Status) error {
+	taskgroup.Go(ctx, "install", taskgroup.IO, func(ctx context.Context, s *taskgroup.Status) error {
 		logger := logging.GetLogger(ctx)
 		s.Update("installing to $HOME/.local/bin")
 		time.Sleep(60 * time.Millisecond)
@@ -121,10 +118,10 @@ func runTasksDemo(ctx context.Context) error {
 		done()
 		logger.Info("binary installed")
 		return nil
-	}, "build")
+	}, build)
 
 	// Indeterminate task (no Total) running in parallel.
-	g.Go("lint", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+	taskgroup.Go(ctx, "lint", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
 		logger := logging.GetLogger(ctx)
 		s.Update("linting workspace")
 		for i := 0; i < 3; i++ {
@@ -137,14 +134,14 @@ func runTasksDemo(ctx context.Context) error {
 	})
 
 	// A task that fails so the error UI is visible.
-	g.Go("publish", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+	taskgroup.Go(ctx, "publish", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
 		logger := logging.GetLogger(ctx)
 		s.Update("connecting to registry")
 		time.Sleep(140 * time.Millisecond)
 		logger.Info("POST", "path", "/artifacts")
 		time.Sleep(200 * time.Millisecond)
 		return ErrSimulated503
-	}, "build")
+	}, build)
 
 	return nil
 }

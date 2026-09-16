@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/git"
 	"github.com/lucasew/workspaced/internal/modfile"
@@ -16,7 +17,6 @@ import (
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 var (
