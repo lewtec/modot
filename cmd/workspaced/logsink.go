@@ -6,7 +6,8 @@ import (
 )
 
 // swapWriter is the process log destination. PlainHandler holds this
-// for the life of the process.
+// for the life of the process; Set points it at Session.LogWriter
+// while progress.Run is in flight.
 type swapWriter struct {
 	mu sync.Mutex
 	w  io.Writer

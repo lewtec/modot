@@ -94,7 +94,15 @@ func run(ctx context.Context, level *slog.LevelVar) error {
 	if err != nil {
 		return err
 	}
-	runErr := progress.Run(session, ctx, app.Run)
+	runErr := progress.Run(session, ctx, func(ctx context.Context) error {
+		if processLogOut != nil {
+			processLogOut.Set(session.LogWriter())
+		}
+		return app.Run(ctx)
+	})
+	if processLogOut != nil {
+		processLogOut.Set(os.Stderr)
+	}
 	if hookErr := afterwait.Run(ctx); runErr == nil {
 		runErr = hookErr
 	}
