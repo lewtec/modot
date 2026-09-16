@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log/slog"
+
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lewtec/lewkit/x/taskgroup"
 	pkg_codebase "github.com/lucasew/workspaced/cmd/workspaced/codebase"
@@ -45,4 +47,14 @@ type cli struct {
 
 func (cli) Description() string {
 	return "workspaced - declarative user environment manager"
+}
+
+// Setup runs after cmd.App replaces slog.Default with a TextHandler.
+// Put the process logger back so GetLogger and hijacked default stay
+// on the same PlainHandler (stderr, or the session LineWriter).
+func (*cli) Setup() error {
+	if processLogger != nil {
+		slog.SetDefault(processLogger)
+	}
+	return nil
 }

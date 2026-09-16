@@ -1,6 +1,8 @@
 package main
 
 import (
+	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/lewtec/lewkit/x/cmd"
@@ -49,6 +51,18 @@ func TestSelfInstallForceSelected(t *testing.T) {
 	app := cmd.ParseOK[cmd.App[cli]](t, "self-install", "-f")
 	require.NotNil(t, app.Args.Selfinstall)
 	assert.True(t, app.Args.Selfinstall.Force.Value())
+}
+
+func TestCLISetupRestoresProcessLogger(t *testing.T) {
+	lewtest.RestoreSlog(t)
+	prev := processLogger
+	t.Cleanup(func() { processLogger = prev })
+
+	want := slog.Default()
+	processLogger = want
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	require.NoError(t, (*cli)(nil).Setup())
+	assert.Equal(t, want, slog.Default())
 }
 
 func TestLintFormatParse(t *testing.T) {

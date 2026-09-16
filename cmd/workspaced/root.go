@@ -27,12 +27,19 @@ import (
 	"github.com/lewtec/lewkit/x/taskgroup/progress"
 )
 
+var (
+	processLogger *slog.Logger
+	processLogOut *swapWriter
+)
+
 func main() {
 	level := &slog.LevelVar{}
-	rootLogger := slog.New(logging.NewPlainHandler(os.Stderr, &slog.HandlerOptions{
+	processLogOut = newSwapWriter(os.Stderr)
+	processLogger = slog.New(logging.NewPlainHandler(processLogOut, &slog.HandlerOptions{
 		Level: level,
 	}))
-	rootCtx := logging.NewRootContext(rootLogger)
+	slog.SetDefault(processLogger)
+	rootCtx := logging.NewRootContext(processLogger)
 
 	if os.Getenv("REBUILD_TEST") != "" {
 		exe, err := os.Executable()
@@ -86,7 +93,9 @@ func run(ctx context.Context, level *slog.LevelVar) error {
 	if err != nil {
 		return err
 	}
-	runErr := progress.Run(session, ctx, app.Run)
+	runErr := progress.Run(session, ctx, func(ctx context.Context) error {
+		return runLogged(session, ctx, app)
+	})
 	if hookErr := afterwait.Run(ctx); runErr == nil {
 		runErr = hookErr
 	}
@@ -105,10 +114,17 @@ func executeCLI(ctx context.Context, args []string) error {
 	return app.Run(ctx)
 }
 
-func setup(ctx context.Context, app cmd.App[cli]) (context.Context, *taskgroup.Session, error) {
-	if !logging.ContextHasLogger(ctx) {
-		ctx = logging.ContextWithLogger(ctx, logging.GetLogger(ctx))
+func runLogged(s *taskgroup.Session, ctx context.Context, app cmd.App[cli]) error {
+	if processLogOut != nil && progress.Interactive() {
+		w := s.LineWriter()
+		defer w.Close()
+		processLogOut.Set(w)
+		defer processLogOut.Set(os.Stderr)
 	}
+	return app.Run(ctx)
+}
+
+func setup(ctx context.Context, app cmd.App[cli]) (context.Context, *taskgroup.Session, error) {
 	envdriver.SetupEssentialPaths(ctx)
 	ctx = cmdctx.WithDryRun(ctx, app.Args.DryRun.Value())
 	ctx = afterwait.With(ctx)
