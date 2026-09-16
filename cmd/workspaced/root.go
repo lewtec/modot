@@ -97,7 +97,7 @@ func run(ctx context.Context, level *slog.LevelVar) error {
 		// Keep the sink on the TUI writer until progress.Run returns.
 		// app.Run only schedules work; tasks still log during Session.Wait.
 		if processLogOut != nil && progress.Interactive() {
-			processLogOut.Set(session.LineWriter())
+			processLogOut.Set(session.LogWriter())
 		}
 		return app.Run(ctx)
 	})
