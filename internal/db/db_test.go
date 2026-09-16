@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/lewtec/lewkit/x/cmd"
 	lewtest "github.com/lewtec/lewkit/x/test"
 	"github.com/lucasew/workspaced/internal/types"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -35,12 +36,20 @@ func TestOpenURLMigratesAndQueries(t *testing.T) {
 func TestOpenArgUsesParsedFlag(t *testing.T) {
 	ctx := logging.NewWriterContext(t.Output())
 	path := filepath.Join(t.TempDir(), "flag.db")
-	var a DBArg
+	var a Arg
 	require.NoError(t, a.Parse(path))
 	d, err := OpenArg(ctx, a)
 	require.NoError(t, err)
 	lewtest.CloseOnCleanup(t, d)
 	require.NotNil(t, d)
+}
+
+func TestArgDefaultIsEmpty(t *testing.T) {
+	got := cmd.ParseOK[struct {
+		DB Arg `long:"database"`
+	}](t)
+	require.NotNil(t, got.DB.Value())
+	assert.Empty(t, got.DB.Value().URL())
 }
 
 func TestOpenURLRejectsUnknownScheme(t *testing.T) {

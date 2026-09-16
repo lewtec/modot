@@ -48,27 +48,35 @@ func Open(ctx context.Context) (*DB, error) {
 	return OpenURL(ctx, dbPath)
 }
 
+// Arg is --database. Empty (the ArgDefault) opens the user-data-dir file.
+type Arg struct {
+	DBArg
+}
+
+func (Arg) ArgDefault() string { return "" }
+
 // OpenURL opens a sqlite URL (bare path, file:, sqlite:, or :memory:)
 // and applies sqlite/migrations.
 func OpenURL(ctx context.Context, url string) (*DB, error) {
-	var a DBArg
+	var a Arg
 	if err := a.Parse(url); err != nil {
 		return nil, err
 	}
 	return OpenArg(ctx, a)
 }
 
-// OpenArg opens a parsed DBArg, or the user-data-dir default when the
-// flag was omitted. Callers must Close the result. Do not take URL()
-// and open it again.
-func OpenArg(ctx context.Context, a DBArg) (*DB, error) {
-	if a.Value() == nil {
+// OpenArg opens a parsed Arg, or the user-data-dir store when the URL
+// is empty. Callers must Close the result. Do not take URL() and open
+// it again.
+func OpenArg(ctx context.Context, a Arg) (*DB, error) {
+	c := a.Value()
+	if c == nil || c.URL() == "" {
 		return Open(ctx)
 	}
 	if err := a.Open(ctx); err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
-	return FromArg(a), nil
+	return FromArg(a.DBArg), nil
 }
 
 // FromArg wraps an already-Open DBArg. Nil if the arg was never parsed.

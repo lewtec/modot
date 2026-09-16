@@ -14,7 +14,7 @@ import (
 var ErrUnknownSource = errors.New("unknown source")
 
 type Ingest struct {
-	DB     db.DBArg `long:"database" help:"sqlite URL"`
+	DB     db.Arg `long:"database" help:"sqlite URL"`
 	source cmd.StringArg
 }
 

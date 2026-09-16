@@ -13,7 +13,7 @@ import (
 )
 
 type List struct {
-	DB    db.DBArg          `long:"database" help:"sqlite URL"`
+	DB    db.Arg            `long:"database" help:"sqlite URL"`
 	Limit cmd.IntArg[int32] `long:"limit" help:"Limit number of entries" default:"5000"`
 	JSON  cmd.Flag          `long:"json" help:"Output as JSON"`
 }

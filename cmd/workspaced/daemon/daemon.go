@@ -69,7 +69,7 @@ func (w *StreamPacketWriter) Write(p []byte) (n int, err error) {
 
 type Command struct {
 	Try cmd.Flag `long:"try" help:"Exit if daemon is already running"`
-	DB  db.DBArg `long:"database" help:"sqlite URL"`
+	DB  db.Arg   `long:"database" help:"sqlite URL"`
 }
 
 func (Command) Description() string {
@@ -100,7 +100,7 @@ func (c *Command) Run(ctx context.Context) error {
 	return nil
 }
 
-func RunDaemon(ctx context.Context, databaseArg db.DBArg) error {
+func RunDaemon(ctx context.Context, databaseArg db.Arg) error {
 	var listener net.Listener
 
 	// Inherit from the command's ctx (which has the logger from the actual root).

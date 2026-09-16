@@ -13,7 +13,7 @@ import (
 )
 
 type Record struct {
-	DB        db.DBArg          `long:"database" help:"sqlite URL"`
+	DB        db.Arg            `long:"database" help:"sqlite URL"`
 	Command   cmd.StringArg     `long:"command" help:"Command string"`
 	Cwd       cmd.WorkDirArg    `long:"cwd" help:"Current working directory"`
 	ExitCode  cmd.IntArg[int]   `long:"exit-code" help:"Exit code"`

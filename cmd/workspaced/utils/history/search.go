@@ -18,7 +18,7 @@ import (
 var ErrNoHistory = errors.New("no history found")
 
 type Search struct {
-	DB    db.DBArg `long:"database" help:"sqlite URL"`
+	DB    db.Arg `long:"database" help:"sqlite URL"`
 	query []cmd.StringArg
 }
 
