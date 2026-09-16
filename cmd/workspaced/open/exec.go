@@ -31,7 +31,7 @@ Examples:
 func (e *Exec) Run(ctx context.Context) error {
 	args := cmd.Values(e.cmd)
 	if len(args) == 0 {
-		return fmt.Errorf("usage: workspaced open exec [flags] -- <command> [args...]")
+		return cmd.ErrUsage
 	}
 
 	command, err := execdriver.Run(ctx, args[0], args[1:]...)

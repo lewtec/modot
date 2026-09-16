@@ -36,6 +36,13 @@ func TestUrgencyRejectsUnknown(t *testing.T) {
 	require.ErrorIs(t, err, cmd.ErrInvalidArgument)
 }
 
+func TestHistorySource(t *testing.T) {
+	got := cmd.ParseOK[struct {
+		S cmd.EnumArg[HistorySource]
+	}](t, "atuin")
+	assert.Equal(t, HistoryAtuin, got.S.Value())
+}
+
 func TestLayersFormatUsage(t *testing.T) {
 	text, err := cmd.Usage[struct {
 		F cmd.EnumArg[LayersFormat] `long:"format" help:"output format" default:"paths"`

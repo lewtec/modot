@@ -14,11 +14,12 @@ import (
 	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/internal/cmdarg"
 )
 
 type Deploy struct {
-	Flake  cmd.StringArg `short:"f" long:"flake" help:"Flake reference to use" default:""`
-	Action cmd.StringArg `short:"a" long:"action" help:"Action to perform (switch, boot, test). If empty, auto-detects." default:""`
+	Flake  cmd.StringArg                  `short:"f" long:"flake" help:"Flake reference to use" default:""`
+	Action *cmd.EnumArg[cmdarg.NixAction] `short:"a" long:"action" help:"Action to perform (switch, boot, test). If omitted, auto-detects."`
 	nodes  []cmd.StringArg
 }
 
@@ -41,7 +42,10 @@ func (d *Deploy) Run(ctx context.Context) error {
 		flake = root
 	}
 
-	action := d.Action.Value()
+	action := ""
+	if d.Action != nil {
+		action = d.Action.Value().String()
+	}
 
 	err := taskgroup.Each[string]{
 		Name:     "nix-deploy",

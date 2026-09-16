@@ -7,9 +7,7 @@ import (
 	"github.com/lucasew/workspaced/pkg/driver/wm"
 )
 
-type Rotate struct {
-	Move cmd.Flag `long:"move" help:"Move container to workspace"`
-}
+type Rotate struct{}
 
 func (Rotate) Description() string { return "Rotate workspaces across outputs" }
 
@@ -17,9 +15,7 @@ func (*Rotate) Run(ctx context.Context) error {
 	return wm.RotateWorkspaces(ctx)
 }
 
-type Scratchpad struct {
-	Move cmd.Flag `long:"move" help:"Move container to workspace"`
-}
+type Scratchpad struct{}
 
 func (Scratchpad) Description() string { return "Toggle scratchpad visibility with status info" }
 

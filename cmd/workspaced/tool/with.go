@@ -49,7 +49,7 @@ func (w *With) Run(ctx context.Context) error {
 	toolSpecs := cmd.Values(w.Tools)
 	cmdLine := cmd.Values(w.Cmd)
 	if len(toolSpecs) == 0 || len(cmdLine) == 0 {
-		return fmt.Errorf("usage: workspaced tool with <tool-spec>... -- <command> [args...]")
+		return cmd.ErrUsage
 	}
 
 	command := cmdLine[0]
