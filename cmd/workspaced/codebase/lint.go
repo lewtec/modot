@@ -9,12 +9,13 @@ import (
 	"path/filepath"
 	"text/tabwriter"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
+	"github.com/lucasew/workspaced/internal/afterwait"
 	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/checks/lint"
 	"github.com/lucasew/workspaced/internal/checks/review"
 	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/owenrumney/go-sarif/v2/sarif"
@@ -36,9 +37,8 @@ func (c *Lint) Run(ctx context.Context) error {
 		return err
 	}
 
-	g := taskgroup.MustFromContext(ctx)
 	var report *sarif.Report
-	g.Go("codebase:lint", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+	taskgroup.Go(ctx, "codebase:lint", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update("running linters")
 		var err error
 		report, err = lint.RunAll(ctx, path)
@@ -46,7 +46,7 @@ func (c *Lint) Run(ctx context.Context) error {
 	})
 	format := c.Format.Value()
 	doReview := c.Review.Value()
-	taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
+	afterwait.Register(ctx, func() error {
 		if report == nil {
 			return nil
 		}

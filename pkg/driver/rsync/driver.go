@@ -27,7 +27,7 @@ type Driver interface {
 	// Sync copies files from src to dst using rsync semantics.
 	// Both src and dst may be local paths or remote rsync URLs (user@host:path, rsync://...).
 	//
-	// When a taskgroup.Group is present in ctx (via taskgroup.FromContext), Sync
+	// When a taskgroup.Session is present in ctx (via taskgroup.FromContext), Sync
 	// schedules the actual transfer as a child task ("rsync:...") in the IO pool
 	// so that progress is tracked and rendered by the taskgroup system (Update + Progress).
 	//

@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/configcue"
 	_ "github.com/lucasew/workspaced/internal/module/prelude"
 	_ "github.com/lucasew/workspaced/pkg/driver/env/native"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 func TestStandardDotfilesKeepsCodebasePresetOnly(t *testing.T) {

@@ -12,6 +12,7 @@ import (
 
 	// Minimal driver set for tool install (not full prelude: that is reserved
 	// for cmd/workspaced/root.go). fetchurl + httpclient download; exec extracts.
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
 	apps "github.com/lucasew/workspaced/internal/tool/backend/catalog/applications"
@@ -21,7 +22,6 @@ import (
 	_ "github.com/lucasew/workspaced/pkg/driver/fetchurl/fetchurl"
 	_ "github.com/lucasew/workspaced/pkg/driver/httpclient/native"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 // stepSummaryMu serializes appends to GITHUB_STEP_SUMMARY (parallel subtests).

@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/internal/afterwait"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 type Exec struct {
@@ -82,12 +82,6 @@ func (e *Exec) Run(ctx context.Context) error {
 		command.Env = env
 	}
 
-	theCmd := command
-	taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
-		theCmd.Stdin = os.Stdin
-		theCmd.Stdout = os.Stdout
-		theCmd.Stderr = os.Stderr
-		return theCmd.Run()
-	})
+	afterwait.Exec(ctx, command)
 	return nil
 }

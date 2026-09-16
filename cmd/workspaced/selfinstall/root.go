@@ -7,13 +7,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/miseutil"
 	"github.com/lucasew/workspaced/internal/selfbin"
 	"github.com/lucasew/workspaced/internal/version"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	"github.com/lewtec/lewkit/x/cmd"
 )
@@ -27,9 +27,7 @@ func (Command) Description() string {
 }
 
 func (c *Command) Run(ctx context.Context) error {
-	g := taskgroup.FromContext(ctx)
-
-	g.Go("self-install", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+	taskgroup.Go(ctx, "self-install", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update("self-installing workspaced")
 		defer s.Unit()()
 		return runSelfInstall(ctx, c.Force.Value())

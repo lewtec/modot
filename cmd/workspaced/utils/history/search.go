@@ -10,8 +10,8 @@ import (
 
 	"github.com/ktr0731/go-fuzzyfinder"
 	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/internal/afterwait"
 	"github.com/lucasew/workspaced/internal/db"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 var ErrNoHistory = errors.New("no history found")
@@ -73,7 +73,7 @@ func (s *Search) Run(ctx context.Context) error {
 	}
 
 	selected := strings.TrimSpace(events[idx].Command)
-	taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
+	afterwait.Register(ctx, func() error {
 		if selected == "" {
 			return nil
 		}

@@ -3,9 +3,9 @@ package mod
 import (
 	"context"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/modfile"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 type Lock struct{}
@@ -29,8 +29,7 @@ func (c *Tidy) Run(ctx context.Context) error {
 }
 
 func runModLock(ctx context.Context) error {
-	g := taskgroup.MustFromContext(ctx)
-	g.Go("mod:lock", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+	taskgroup.Go(ctx, "mod:lock", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update("refreshing lockfile")
 		logger := logging.GetLogger(ctx)
 		ws, err := modfile.DetectWorkspace(ctx, "")

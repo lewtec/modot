@@ -7,9 +7,10 @@ import (
 	"strings"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lewtec/lewkit/x/taskgroup"
+	"github.com/lucasew/workspaced/internal/afterwait"
 	"github.com/lucasew/workspaced/internal/tool"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 type With struct {
@@ -55,8 +56,7 @@ func (w *With) Run(ctx context.Context) error {
 	command := cmdLine[0]
 	commandArgs := cmdLine[1:]
 
-	g := taskgroup.MustFromContext(ctx)
-	g.Go("tool:with:"+strings.Join(toolSpecs, "+"), taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+	taskgroup.Go(ctx, "tool:with:"+strings.Join(toolSpecs, "+"), taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		m, err := tool.NewManager()
 		if err != nil {
 			return err
@@ -113,7 +113,7 @@ func (w *With) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		s.AfterWaitRun(c)
+		afterwait.Exec(ctx, c)
 		return nil
 	})
 	return nil

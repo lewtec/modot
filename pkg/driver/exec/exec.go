@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os/exec"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 // Driver provides platform-specific command execution.

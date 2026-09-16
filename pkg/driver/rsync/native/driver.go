@@ -7,11 +7,11 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	rsyncdriver "github.com/lucasew/workspaced/pkg/driver/rsync"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 // ErrBinaryNotAvailable is returned when execRsync runs without an rsync binary on PATH.

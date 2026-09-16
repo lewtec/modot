@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 type stubHashProvider struct {
@@ -66,7 +66,7 @@ func registerStubHashProvider(t *testing.T, id string) *stubHashProvider {
 	return p
 }
 
-func testGroupCtx(t *testing.T) (*taskgroup.Group, context.Context) {
+func testGroupCtx(t *testing.T) (*taskgroup.Session, context.Context) {
 	t.Helper()
 	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
 	t.Cleanup(func() {
@@ -115,9 +115,8 @@ type nestedInternetHashProvider struct {
 }
 
 func (p *nestedInternetHashProvider) LockHash(ctx context.Context, alias string, src SourceConfig, modulesBaseDir string) (string, SourceConfig, error) {
-	g := taskgroup.MustFromContext(ctx)
 	done := make(chan struct{})
-	g.Go("fetch:"+alias, taskgroup.Internet, func(context.Context, *taskgroup.Status) error {
+	taskgroup.Go(ctx, "fetch:"+alias, taskgroup.Internet, func(context.Context, *taskgroup.Status) error {
 		close(done)
 		return nil
 	})

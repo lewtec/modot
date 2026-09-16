@@ -5,27 +5,22 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 type Loop struct{}
 
 func (Loop) Description() string {
-	return `Demo a 5-iteration loop (like the other demos: schedule on group from context and return)
+	return `Demo a 5-iteration loop (schedule on the session from context and return)
 
-Uses exactly the same primitives as "tasks", "plain", and "nested":
-- g := taskgroup.MustFromContext(ctx)
-- g.Go("loop-demo", ..., func(ctx, s) { logger := ...; logger.Info(...); s.Update(...); s.Progress(...) })
-- g.RunBubbleTea()  (opt-in; the group method starts the bubbletea UI for this demo
-  only, and is a no-op on TERM=dumb / non-tty. Other commands never call it.)`
+Uses the same primitives as the other demos:
+- taskgroup.Go(ctx, "loop-demo", ..., func(ctx, s) { ... s.Update/Progress })
+- progress UI comes from the root session (TERM=dumb / CI / non-tty stay plain)`
 }
 
 func (*Loop) Run(ctx context.Context) error {
-	g := taskgroup.MustFromContext(ctx)
-
-	// Schedule using the task primitive (same as all other demos).
-	g.Go("loop-demo", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+	taskgroup.Go(ctx, "loop-demo", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
 		logger := logging.GetLogger(ctx)
 
 		for i := 1; i <= 5; i++ {
@@ -36,8 +31,5 @@ func (*Loop) Run(ctx context.Context) error {
 		}
 		return nil
 	})
-
-	// Kick in bubbletea (group method). Ignored automatically on dumb term.
-	// This is what makes the demo show live bars + logs scrolling above them.
 	return nil
 }

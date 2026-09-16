@@ -8,7 +8,7 @@ Read in this order:
 
 ## Package layout
 
-- `pkg/` — import this if you embed workspaced as a library. Keep it small (`api`, `driver`, `filespine`, `logging`, `palette`, `taskgroup`).
+- `pkg/` — import this if you embed workspaced as a library. Keep it small (`api`, `driver`, `filespine`, `logging`, `palette`).
 - `internal/` — default. CLI, apply, tools, modules, checks, config, helpers.
 - `cmd/workspaced/` — x/cmd entrypoints only.
 - New code goes in `internal/<domain>/`. Move to `pkg/` only if another module should import it.
@@ -69,7 +69,7 @@ Register an impl by importing its package from the central prelude.
 - Lists in module config.
 - `utils` / `common` package names.
 - `Each` + `mu.Lock` + `append` to build a result list — use `Map` + a pure reduce.
-- Hand-rolled `WaitGroup`/`chan` fan-out when a Session or `taskgroup.Group` is already on `ctx`.
+- Hand-rolled `WaitGroup`/`chan` fan-out when a `taskgroup.Session` is already on `ctx`.
 
 Locate-X recipes live in CODEMAP.md.
 
@@ -85,10 +85,10 @@ Locate-X recipes live in CODEMAP.md.
 
 ### Taskgroup map/reduce
 
-Parallel work over a list goes through `pkg/taskgroup` (see the package doc for progress hierarchy: one owner per bar; `Isolate` / `GoIsolated` / `Map` / `Each`).
+Parallel work over a list goes through `github.com/lewtec/lewkit/x/taskgroup` (package doc: one owner per bar; `Isolate` / `GoIsolated` / `Map` / `Each`).
 
 - `Map[T,U].Run`: fan-out that returns `[]U` in input order. Reduce with a pure merge (`errors.Join`, `BundleRuns`, ordered lockfile writes, state patches).
 - `Each[T].Run`: fan-out when only success/failure matters (no `struct{}` results).
 - If you reach for `Each` + mutex + `append`, switch to `Map` + pure reduce. Shared mutable state touched from parallel FS/network work should return a patch from the map step; apply patches serially in the reduce step.
 - Do not wrap `Map`/`Each` in an extra `Control`+`Unit` shell when they already own the aggregate bar.
-- Only leaf tasks take IO/CPU/Internet. Orchestrators (`Map`/`Each`/`GoIsolated`/`Go` whose Fn schedules more taskgroup or httpclient/rsync work) are Control. Same-kind nest deadlocks when the pool fills. Details: `pkg/taskgroup` package doc.
+- Only leaf tasks take IO/CPU/Internet. Orchestrators (`Map`/`Each`/`GoIsolated`/`Go` whose Fn schedules more taskgroup or httpclient/rsync work) are Control. Same-kind nest deadlocks when the pool fills. Details: `x/taskgroup` package doc.

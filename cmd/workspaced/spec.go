@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lewtec/lewkit/x/taskgroup"
 	pkg_codebase "github.com/lucasew/workspaced/cmd/workspaced/codebase"
 	pkg_daemon "github.com/lucasew/workspaced/cmd/workspaced/daemon"
 	pkg_driver "github.com/lucasew/workspaced/cmd/workspaced/driver"
@@ -17,7 +18,6 @@ import (
 	pkg_system "github.com/lucasew/workspaced/cmd/workspaced/system"
 	pkg_tool "github.com/lucasew/workspaced/cmd/workspaced/tool"
 	pkg_utils "github.com/lucasew/workspaced/cmd/workspaced/utils"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 // cli is the workspaced command spec. Process flags live on cmd.App[cli].

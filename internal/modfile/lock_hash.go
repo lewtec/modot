@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 type sourceLockHashUpdate struct {
@@ -40,7 +40,7 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 	// Map owns the aggregate bar. Children are Control — httpclient.WithProgress
 	// already takes Internet slots. Internet here plus nested fetch deadlocks
 	// once the pool fills (leaven codegen: 72 sources, Internet=4).
-	// Session root always carries a Group (MustFromContext).
+	// Session root always carries a Session (MustFromContext).
 	updates, err := taskgroup.Map[string, sourceLockHashUpdate]{
 		Name:     "source-locks",
 		Items:    needsWork,

@@ -5,34 +5,25 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 type Plain struct{}
 
 func (Plain) Description() string {
-	return `Run tasks under the root group; observe plain-style rendering behavior
+	return `Run tasks under the root session; observe plain-style rendering behavior
 
-Schedules some work on the group from context but deliberately does NOT
-call g.RunBubbleTea().
-
-This produces plain structured slog output for the logs emitted from inside
-the tasks (via logging.GetLogger(ctx).Info etc). To force this plain path
-on a tty you can set TERM=dumb (or CI=1 or NO_COLOR).
-
-This demonstrates the default (no TUI) behavior that all non-demo commands
-use: they schedule work via the primitives and never start bubbletea.`
+Schedules the same kind of work as the default demo. Set TERM=dumb
+(or CI=1 or NO_COLOR) to skip the progress TUI and see slog only.`
 }
 
 func (*Plain) Run(ctx context.Context) error {
-	g := taskgroup.MustFromContext(ctx)
 	logger := logging.GetLogger(ctx)
-	logger.Info("Group obtained with MustFromContext (enforced rule).")
-	logger.Info("This demo does not call RunBubbleTea, so you get plain slog output.")
+	logger.Info("Scheduling on the session from context.")
 	logger.Info("Pipe the command or set TERM=dumb/CI=1/NO_COLOR to observe plain behavior on tty.")
 
-	g.Go("fetch", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+	fetch := taskgroup.Go(ctx, "fetch", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
 		logger := logging.GetLogger(ctx)
 		s.Update("contacting API")
 		time.Sleep(80 * time.Millisecond)
@@ -46,7 +37,7 @@ func (*Plain) Run(ctx context.Context) error {
 		return nil
 	})
 
-	g.Go("process", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+	process := taskgroup.Go(ctx, "process", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
 		logger := logging.GetLogger(ctx)
 		s.Update("crunching numbers")
 		for i := range 3 {
@@ -54,15 +45,15 @@ func (*Plain) Run(ctx context.Context) error {
 			time.Sleep(110 * time.Millisecond)
 		}
 		return nil
-	}, "fetch")
+	}, fetch)
 
-	g.Go("write", taskgroup.IO, func(ctx context.Context, s *taskgroup.Status) error {
+	taskgroup.Go(ctx, "write", taskgroup.IO, func(ctx context.Context, s *taskgroup.Status) error {
 		logger := logging.GetLogger(ctx)
 		s.Update("writing artifacts")
 		time.Sleep(150 * time.Millisecond)
 		logger.Info("fsync complete")
 		return nil
-	}, "process")
+	}, process)
 
 	return nil
 }

@@ -6,13 +6,13 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/modfile"
 	_ "github.com/lucasew/workspaced/internal/modfile/sourceprovider/prelude"
 	"github.com/lucasew/workspaced/internal/module"
 	_ "github.com/lucasew/workspaced/internal/module/prelude"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 type ModuleScannerPlugin struct {
