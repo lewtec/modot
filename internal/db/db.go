@@ -55,11 +55,29 @@ func OpenURL(ctx context.Context, url string) (*DB, error) {
 	if err := a.Parse(url); err != nil {
 		return nil, err
 	}
+	return OpenArg(ctx, a)
+}
+
+// OpenArg opens a parsed DBArg, or the user-data-dir default when the
+// flag was omitted. Callers must Close the result. Do not take URL()
+// and open it again.
+func OpenArg(ctx context.Context, a DBArg) (*DB, error) {
+	if a.Value() == nil {
+		return Open(ctx)
+	}
 	if err := a.Open(ctx); err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
+	return FromArg(a), nil
+}
+
+// FromArg wraps an already-Open DBArg. Nil if the arg was never parsed.
+func FromArg(a DBArg) *DB {
 	conn := a.Value()
-	return &DB{conn: conn, Queries: conn.Queries()}, nil
+	if conn == nil {
+		return nil
+	}
+	return &DB{conn: conn, Queries: conn.Queries()}
 }
 
 func (d *DB) Close() error {

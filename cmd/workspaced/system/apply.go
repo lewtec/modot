@@ -3,6 +3,7 @@ package system
 import (
 	"context"
 	"fmt"
+	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/cmdctx"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/modfile"
@@ -12,7 +13,7 @@ import (
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	"github.com/lucasew/workspaced/pkg/logging"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
 )
 
 func RunApply(ctx context.Context, action string) error {
@@ -60,18 +61,14 @@ func RunApply(ctx context.Context, action string) error {
 	return nix.Rebuild(ctx, action, flake)
 }
 
-func getApplyCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "apply [action]",
-		Short: "Apply system-level configuration (NixOS rebuild)",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			action := "switch"
-			if len(args) > 0 {
-				action = args[0]
-			}
-			return RunApply(cmd.Context(), action)
-		},
-	}
-	return cmd
+type Apply struct {
+	action cmd.EnumArg[cmdarg.NixAction] `default:"switch"`
+}
+
+func (Apply) Description() string {
+	return "Apply system-level configuration (NixOS rebuild)"
+}
+
+func (a *Apply) Run(ctx context.Context) error {
+	return RunApply(ctx, a.action.Value().String())
 }
