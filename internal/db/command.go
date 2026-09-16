@@ -9,7 +9,7 @@ import "context"
 // so --database lands on the parent. The same type can be a real
 // subcommand later (`*db.Command` without flatten).
 type Command struct {
-	Database Arg `long:"database" help:"sqlite URL"`
+	Database Arg `long:"database" help:"sqlite URL" ctx:""`
 }
 
 func (Command) Description() string {

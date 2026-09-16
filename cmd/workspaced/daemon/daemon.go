@@ -93,14 +93,14 @@ func (c *Command) Run(ctx context.Context) error {
 		logging.GetLogger(ctx).Warn("failed to get initial binary mtime", "error", err)
 	}
 
-	if err := RunDaemon(ctx, c.Database); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if err := RunDaemon(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logging.GetLogger(ctx).Error("daemon failure", "error", err)
 		os.Exit(1)
 	}
 	return nil
 }
 
-func RunDaemon(ctx context.Context, databaseArg db.Arg) error {
+func RunDaemon(ctx context.Context) error {
 	var listener net.Listener
 
 	// Inherit from the command's ctx (which has the logger from the actual root).
@@ -117,7 +117,7 @@ func RunDaemon(ctx context.Context, databaseArg db.Arg) error {
 		logger.Info("config loaded successfully")
 	}
 
-	database, err := db.OpenArg(ctx, databaseArg)
+	database, err := db.OpenFromCtx(ctx)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}

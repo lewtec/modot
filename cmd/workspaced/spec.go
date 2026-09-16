@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"strings"
 
 	"github.com/lewtec/lewkit/x/cmd"
 	pkg_daemon "github.com/lucasew/workspaced/cmd/workspaced/daemon"
+	"github.com/lucasew/workspaced/internal/clirun"
 )
 
 // cli is the workspaced command spec. Process flags live on cmd.App[cli].
@@ -18,6 +20,12 @@ type cli struct {
 
 func (cli) Description() string {
 	return "workspaced - declarative user environment manager"
+}
+
+// Run is invoked by App.Run after bind, when the selected command sits
+// under the generated children embed (App.Run skips anonymous groups).
+func (c *cli) Run(ctx context.Context) error {
+	return clirun.Run(ctx, c)
 }
 
 func rewriteArgs(args []string) []string {

@@ -9,8 +9,6 @@ import (
 	"reflect"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lucasew/workspaced/internal/db"
-	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 // Run walks v (including flatten/anonymous structs) and calls Run(ctx) error
@@ -20,7 +18,17 @@ func Run(ctx context.Context, v any) error {
 	if rv.Kind() != reflect.Pointer {
 		rv = reflect.ValueOf(&v).Elem()
 	}
-	return runSelected(ctx, rv)
+	if rv.Kind() == reflect.Pointer {
+		if rv.IsNil() {
+			return cmd.ErrUsage
+		}
+		rv = rv.Elem()
+	}
+	child := selectedCommand(rv)
+	if !child.IsValid() {
+		return cmd.ErrUsage
+	}
+	return runSelected(ctx, child)
 }
 
 func runSelected(ctx context.Context, v reflect.Value) error {
@@ -34,36 +42,12 @@ func runSelected(ctx context.Context, v reflect.Value) error {
 		return cmd.ErrUsage
 	}
 	if child := selectedCommand(v); child.IsValid() {
-		ctx, cleanup, err := injectDB(ctx, v)
-		if err != nil {
-			return err
-		}
-		defer cleanup()
 		return runSelected(ctx, child)
 	}
 	if run := runMethod(v); run.IsValid() {
 		return callRun(ctx, run)
 	}
 	return cmd.ErrUsage
-}
-
-type dbOpener interface {
-	Open(context.Context) (*db.DB, error)
-}
-
-func injectDB(ctx context.Context, v reflect.Value) (context.Context, func(), error) {
-	if _, ok := db.FromContext(ctx); ok {
-		return ctx, func() {}, nil
-	}
-	opener, ok := v.Addr().Interface().(dbOpener)
-	if !ok {
-		return ctx, func() {}, nil
-	}
-	database, err := opener.Open(ctx)
-	if err != nil {
-		return ctx, nil, err
-	}
-	return db.WithDB(ctx, database), func() { logging.Close(ctx, database) }, nil
 }
 
 func selectedCommand(v reflect.Value) reflect.Value {

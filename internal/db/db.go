@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/lewtec/lewkit/x/cmd"
 	xdb "github.com/lewtec/lewkit/x/db"
 	"github.com/lucasew/workspaced/internal/types"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
@@ -69,9 +70,16 @@ func OpenURL(ctx context.Context, url string) (*DB, error) {
 	return OpenArg(ctx, a)
 }
 
-// OpenArg opens a parsed Arg. Callers must Close the result.
-func OpenArg(ctx context.Context, a Arg) (*DB, error) {
-	c := a.Value()
+// OpenFromCtx opens the --database Conn that x/cmd bound (ctx:"").
+// If a *DB is already on ctx (daemon), that store is returned instead.
+func OpenFromCtx(ctx context.Context) (*DB, error) {
+	if database, ok := FromContext(ctx); ok {
+		return database, nil
+	}
+	return openConn(ctx, cmd.Get[*xdb.Conn[Queries]](ctx, "database"))
+}
+
+func openConn(ctx context.Context, c *xdb.Conn[Queries]) (*DB, error) {
 	if c == nil {
 		return nil, fmt.Errorf("database url not set")
 	}
@@ -80,10 +88,15 @@ func OpenArg(ctx context.Context, a Arg) (*DB, error) {
 			return nil, err
 		}
 	}
-	if err := a.Open(ctx); err != nil {
+	if err := c.Open(ctx, FS, New(c.URL())); err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
-	return FromArg(a.DBArg), nil
+	return &DB{conn: c, Queries: c.Queries()}, nil
+}
+
+// OpenArg opens a parsed Arg. Callers must Close the result.
+func OpenArg(ctx context.Context, a Arg) (*DB, error) {
+	return openConn(ctx, a.Value())
 }
 
 // FromArg wraps an already-Open DBArg. Nil if the arg was never parsed.
