@@ -84,7 +84,7 @@ func HandleRegistryCodegen(ctx context.Context, r DetectedRoot) error {
 	if len(children) == 0 {
 		return nil
 	}
-	if r.Package == "main" {
+	if r.Package == "main" || commandDefinedInPackage(r.Dir) {
 		for _, c := range children {
 			if err := HandleRegistryCodegen(ctx, c); err != nil {
 				return err
@@ -167,6 +167,26 @@ func (autoRegistry) Run(ctx context.Context) error {
 		Package:    "main",
 		ImportPath: "github.com/lucasew/workspaced/cmd/workspaced",
 	})
+}
+
+func commandDefinedInPackage(dir string) bool {
+	matches, err := filepath.Glob(filepath.Join(dir, "*.go"))
+	if err != nil {
+		return false
+	}
+	for _, f := range matches {
+		if filepath.Base(f) == "prelude.go" {
+			continue
+		}
+		data, err := os.ReadFile(f)
+		if err != nil {
+			continue
+		}
+		if strings.Contains(string(data), "type Command struct") {
+			return true
+		}
+	}
+	return false
 }
 
 func exportedName(pkg string) string {

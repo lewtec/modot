@@ -12,11 +12,11 @@ import (
 )
 
 type Command struct {
-	Demo     *pkg_demo.Command
-	History  *pkg_history.Command
-	Icons    *pkg_icons.Command
-	Nix      *pkg_nix.Command
-	Palette  *pkg_palette.Command
-	Shell    *pkg_shell.Command
+	Demo *pkg_demo.Command
+	History *pkg_history.Command
+	Icons *pkg_icons.Command
+	Nix *pkg_nix.Command
+	Palette *pkg_palette.Command
+	Shell *pkg_shell.Command
 	Template *pkg_template.Command
 }
