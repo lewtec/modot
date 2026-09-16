@@ -134,12 +134,12 @@ func Extract(ctx context.Context, src, dest string) error {
 	defer logging.Close(ctx, f)
 
 	var files lewfs.Files
-	if z, err := zipfs.Open(f); err == nil {
-		files = lewfs.Walk(z, nil)
-	} else if img, err := squashfs.Open(f); err == nil {
-		files = lewfs.Walk(img, nil)
-	} else if tfs, err := tarfs.Open(f); err == nil {
-		files = lewfs.Walk(tfs, nil)
+	if z, err := zipfs.Open(ctx, f); err == nil {
+		files = lewfs.Walk(ctx, z, nil)
+	} else if img, err := squashfs.Open(ctx, f); err == nil {
+		files = lewfs.Walk(ctx, img, nil)
+	} else if tfs, err := tarfs.Open(ctx, f); err == nil {
+		files = lewfs.Walk(ctx, tfs, nil)
 	} else if errors.Is(err, fs.ErrInvalid) {
 		return err
 	} else {

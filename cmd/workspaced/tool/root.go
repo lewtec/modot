@@ -1,9 +1,5 @@
 package tool
 
-import (
-	_ "github.com/lucasew/workspaced/internal/tool/prelude"
-)
-
 type Command struct {
 	List      *List
 	Install   *Install

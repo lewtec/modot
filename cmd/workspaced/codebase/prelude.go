@@ -5,6 +5,12 @@ import (
 	pkg_config "github.com/lucasew/workspaced/cmd/workspaced/codebase/config"
 )
 
-type children struct {
-	Config *pkg_config.Command
+type Command struct {
+	Config   *pkg_config.Command
+	Apply    *Apply
+	Plan     *Plan
+	Lint     *Lint
+	Format   *Format
+	Lsp      *Lsp
+	CIStatus *CIStatus `cmd:"ci-status"`
 }

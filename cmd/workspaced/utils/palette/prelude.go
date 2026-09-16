@@ -6,8 +6,7 @@ import (
 	pkg_generate "github.com/lucasew/workspaced/cmd/workspaced/utils/palette/generate"
 )
 
-type children struct {
-	Drivers     *pkg_drivers.Command
-	ListDrivers *pkg_drivers.Command `cmd:"list-drivers"`
-	Generate    *pkg_generate.Command
+type Command struct {
+	Drivers  *pkg_drivers.Command
+	Generate *pkg_generate.Command
 }

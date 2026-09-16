@@ -84,6 +84,14 @@ func HandleRegistryCodegen(ctx context.Context, r DetectedRoot) error {
 	if len(children) == 0 {
 		return nil
 	}
+	if r.Package == "main" {
+		for _, c := range children {
+			if err := HandleRegistryCodegen(ctx, c); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 
 	f, err := os.Create(prelude)
 	if err != nil {
@@ -113,7 +121,7 @@ func HandleRegistryCodegen(ctx context.Context, r DetectedRoot) error {
 	if _, err := fmt.Fprintf(f, "\n"); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(f, "type children struct {\n"); err != nil {
+	if _, err := fmt.Fprintf(f, "type Command struct {\n"); err != nil {
 		return err
 	}
 	for _, c := range children {

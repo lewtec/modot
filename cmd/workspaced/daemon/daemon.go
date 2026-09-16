@@ -68,8 +68,8 @@ func (w *StreamPacketWriter) Write(p []byte) (n int, err error) {
 }
 
 type Command struct {
-	Try         cmd.Flag `long:"try" help:"Exit if daemon is already running"`
-	*db.Command `flatten:""`
+	Try      cmd.Flag `long:"try" help:"Exit if daemon is already running"`
+	Database db.Arg   `long:"database" help:"sqlite URL" ctx:""`
 }
 
 func (Command) Description() string {

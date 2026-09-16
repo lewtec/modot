@@ -5,6 +5,7 @@ import (
 	pkg_demo "github.com/lucasew/workspaced/cmd/workspaced/experiments/demo"
 )
 
-type children struct {
+type Command struct {
 	Demo *pkg_demo.Command
+	Cue  *Cue `cmd:"cue"`
 }

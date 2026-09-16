@@ -16,12 +16,16 @@ type ScheduleFunc func(g *taskgroup.Group, ctx context.Context, dryRun, showNoop
 func RunAfterWait(ctx context.Context, forceDryRun, showNoop bool, schedule ScheduleFunc) error {
 	dryRun := forceDryRun || cmdctx.IsDryRun(ctx)
 
+	if sess := taskgroup.SessionFrom(ctx); sess != nil {
+		sess.Overlay(ctx)
+	}
 	if forceDryRun {
 		ctx = cmdctx.WithDryRun(ctx, true)
-		sess := taskgroup.MustSessionFrom(ctx)
-		sess.Overlay(ctx)
+		if sess := taskgroup.SessionFrom(ctx); sess != nil {
+			sess.Overlay(ctx)
+		}
 		g := taskgroup.MustFromContext(ctx)
-		sess.AfterWait(schedule(g, ctx, true, showNoop))
+		taskgroup.MustSessionFrom(ctx).AfterWait(schedule(g, ctx, true, showNoop))
 		return nil
 	}
 

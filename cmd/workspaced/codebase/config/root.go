@@ -5,7 +5,11 @@ import (
 )
 
 type Command struct {
-	configcmd.Tree[configcmd.Codebase] `flatten:""`
+	Dump   *configcmd.Dump[configcmd.Codebase]
+	Get    *configcmd.Get[configcmd.Codebase]
+	Eval   *configcmd.Eval[configcmd.Codebase]
+	Def    *configcmd.Def[configcmd.Codebase]
+	Layers *configcmd.Layers[configcmd.Codebase]
 }
 
 func (Command) Description() string { return "Manage configuration" }

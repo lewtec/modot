@@ -9,7 +9,7 @@ import (
 	pkg_sync "github.com/lucasew/workspaced/cmd/workspaced/home/sync"
 )
 
-type children struct {
+type Command struct {
 	Apply  *pkg_apply.Command
 	Backup *pkg_backup.Command
 	Config *pkg_config.Command

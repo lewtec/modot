@@ -6,7 +6,6 @@ import (
 
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lucasew/workspaced/internal/tool"
-	_ "github.com/lucasew/workspaced/internal/tool/prelude"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
 )

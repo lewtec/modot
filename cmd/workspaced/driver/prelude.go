@@ -19,7 +19,7 @@ import (
 	pkg_workspace "github.com/lucasew/workspaced/cmd/workspaced/driver/workspace"
 )
 
-type children struct {
+type Command struct {
 	Audio        *pkg_audio.Command
 	Brightness   *pkg_brightness.Command
 	Camera       *pkg_camera.Command

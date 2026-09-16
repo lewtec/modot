@@ -14,6 +14,7 @@ import (
 	pkg_daemon "github.com/lucasew/workspaced/cmd/workspaced/daemon"
 	"github.com/lucasew/workspaced/internal/cmdctx"
 	"github.com/lucasew/workspaced/internal/configcue"
+	wspdb "github.com/lucasew/workspaced/internal/db"
 	_ "github.com/lucasew/workspaced/internal/tool/prelude"
 	"github.com/lucasew/workspaced/internal/version"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
@@ -104,7 +105,26 @@ func executeCLI(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	return app.Run(ctx)
+	fresh := context.Background()
+	if logging.ContextHasLogger(ctx) {
+		fresh = logging.ContextWithLogger(fresh, logging.GetLogger(ctx))
+	}
+	if database, ok := wspdb.FromContext(ctx); ok {
+		fresh = wspdb.WithDB(fresh, database)
+	}
+	fresh, session, err := setup(fresh, app)
+	if err != nil {
+		return err
+	}
+	runErr := app.Run(fresh)
+	var sessErr error
+	if session != nil {
+		sessErr = session.Close()
+	}
+	if sessErr != nil {
+		return sessErr
+	}
+	return runErr
 }
 
 func setup(ctx context.Context, app cmd.App[cli]) (context.Context, *taskgroup.Session, error) {
@@ -113,7 +133,7 @@ func setup(ctx context.Context, app cmd.App[cli]) (context.Context, *taskgroup.S
 	}
 	envdriver.SetupEssentialPaths(ctx)
 	ctx = cmdctx.WithDryRun(ctx, app.Args.DryRun.Value())
-	armedNoCache := app.Args.NoCache.Value() || cmdctx.EnvNoCache()
+	armedNoCache := app.Args.NoCache.Value()
 	ctx = cmdctx.WithNoCache(ctx, armedNoCache)
 	if armedNoCache {
 		logging.GetLogger(ctx).Info("no-cache enabled (flag or WORKSPACED_NO_CACHE)")

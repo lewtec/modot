@@ -17,10 +17,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type Command struct {
-	children `flatten:""`
-}
-
 func (Command) Description() string {
 	return "Miscellaneous commands that are not necessarily related to a driver"
 }

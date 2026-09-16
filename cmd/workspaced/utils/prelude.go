@@ -11,7 +11,7 @@ import (
 	pkg_template "github.com/lucasew/workspaced/cmd/workspaced/utils/template"
 )
 
-type children struct {
+type Command struct {
 	Demo     *pkg_demo.Command
 	History  *pkg_history.Command
 	Icons    *pkg_icons.Command
