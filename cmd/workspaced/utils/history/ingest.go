@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/internal/db"
 	"github.com/lucasew/workspaced/internal/types"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
@@ -20,11 +21,10 @@ func (Ingest) Description() string { return "Ingest history from other sources (
 
 func (i *Ingest) Run(ctx context.Context) error {
 	source := i.source.Value()
-	database, cleanup, err := open(ctx)
+	database, err := db.OpenFromCtx(ctx)
 	if err != nil {
 		return err
 	}
-	defer cleanup()
 
 	var events []types.HistoryEvent
 	switch source {

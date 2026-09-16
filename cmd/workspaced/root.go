@@ -14,7 +14,6 @@ import (
 	pkg_daemon "github.com/lucasew/workspaced/cmd/workspaced/daemon"
 	"github.com/lucasew/workspaced/internal/cmdctx"
 	"github.com/lucasew/workspaced/internal/configcue"
-	"github.com/lucasew/workspaced/internal/shellgen"
 	_ "github.com/lucasew/workspaced/internal/tool/prelude"
 	"github.com/lucasew/workspaced/internal/version"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
@@ -53,7 +52,6 @@ func main() {
 	}
 
 	pkg_daemon.ExecuteCLI = executeCLI
-	shellgen.SetRootSpec(cmd.App[cli]{})
 
 	if err := run(rootCtx); err != nil {
 		logger := logging.GetLogger(rootCtx)

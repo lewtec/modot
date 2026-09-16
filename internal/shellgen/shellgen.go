@@ -16,19 +16,10 @@ import (
 // Generator is a function that generates shell code
 type Generator func(context.Context) (string, error)
 
-var rootSpec any
-
-// SetRootSpec sets the CLI spec for generators that need it (e.g., completion)
-func SetRootSpec(v any) {
-	rootSpec = v
-}
-
-// generators maps order/name to generator functions
 var generators = map[string]Generator{
-	"05-flags":      func(ctx context.Context) (string, error) { return GenerateFlags(ctx) },
-	"06-daemon":     func(ctx context.Context) (string, error) { return GenerateDaemon() },
-	"10-completion": func(ctx context.Context) (string, error) { return GenerateCompletion() },
-	"20-history":    func(ctx context.Context) (string, error) { return GenerateHistory() },
+	"05-flags":   func(ctx context.Context) (string, error) { return GenerateFlags(ctx) },
+	"06-daemon":  func(ctx context.Context) (string, error) { return GenerateDaemon() },
+	"20-history": func(ctx context.Context) (string, error) { return GenerateHistory() },
 }
 
 // Generate executes all generators in parallel and returns ordered output.

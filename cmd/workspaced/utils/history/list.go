@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/internal/db"
 )
 
 type List struct {
@@ -18,11 +19,10 @@ type List struct {
 func (List) Description() string { return "List history entries (internal use)" }
 
 func (l *List) Run(ctx context.Context) error {
-	database, cleanup, err := open(ctx)
+	database, err := db.OpenFromCtx(ctx)
 	if err != nil {
 		return err
 	}
-	defer cleanup()
 
 	events, err := database.SearchHistory(ctx, "", int(l.Limit.Value()))
 	if err != nil {

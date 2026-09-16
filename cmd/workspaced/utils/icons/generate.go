@@ -6,11 +6,24 @@ import (
 
 	"github.com/lewtec/lewkit/x/cmd"
 	iconspkg "github.com/lucasew/workspaced/internal/icons"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 )
 
+type iconInput struct{ cmd.WorkDirArg }
+
+func (iconInput) ArgDefault() string {
+	return envdriver.ExpandPath("~/.dotfiles/assets/icons/master")
+}
+
+type iconOutput struct{ cmd.DataDirArg }
+
+func (iconOutput) ArgDefault() string {
+	return envdriver.ExpandPath("~/.local/share/icons/workspaced-base16")
+}
+
 type Generate struct {
-	InputDir       cmd.StringArg   `long:"input-dir" help:"Directory containing .svg/.svg.tmpl masters" default:"~/.dotfiles/assets/icons/master"`
-	OutputDir      cmd.StringArg   `long:"output-dir" help:"Output icon theme directory" default:"~/.local/share/icons/workspaced-base16"`
+	InputDir       iconInput       `long:"input-dir" help:"Directory containing .svg/.svg.tmpl masters"`
+	OutputDir      iconOutput      `long:"output-dir" help:"Output icon theme directory"`
 	ThemeName      cmd.StringArg   `long:"theme-name" help:"Theme name written in index.theme" default:"workspaced-base16"`
 	Sizes          cmd.StringArg   `long:"sizes" help:"PNG sizes to render, comma-separated" default:"16,24,32,48,64,128,256"`
 	Replace        []cmd.StringArg `long:"replace" help:"Color replacement rule old=new (hex, with or without #). Can be repeated"`

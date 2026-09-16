@@ -56,10 +56,9 @@ func (r *Record) Run(ctx context.Context) error {
 		return nil
 	}
 
-	database, cleanup, err := open(ctx)
+	database, err := db.OpenFromCtx(ctx)
 	if err != nil {
 		return err
 	}
-	defer cleanup()
 	return database.RecordHistory(ctx, event)
 }

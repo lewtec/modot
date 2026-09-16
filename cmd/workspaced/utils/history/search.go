@@ -10,6 +10,7 @@ import (
 
 	"github.com/ktr0731/go-fuzzyfinder"
 	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/internal/db"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
@@ -22,11 +23,10 @@ type Search struct {
 func (Search) Description() string { return "Search history using fuzzy finder" }
 
 func (s *Search) Run(ctx context.Context) error {
-	database, cleanup, err := open(ctx)
+	database, err := db.OpenFromCtx(ctx)
 	if err != nil {
 		return err
 	}
-	defer cleanup()
 
 	events, err := database.SearchHistory(ctx, "", 5000)
 	if err != nil {

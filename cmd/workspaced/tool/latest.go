@@ -2,11 +2,14 @@ package tool
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/lewtec/lewkit/x/cmd"
 )
+
+var ErrNoVersions = errors.New("no versions found")
 
 type Latest struct {
 	spec cmd.StringArg
@@ -23,7 +26,7 @@ func (l *Latest) Run(ctx context.Context) error {
 		return err
 	}
 	if len(versions) == 0 {
-		return fmt.Errorf("no versions found for %s", specStr)
+		return fmt.Errorf("%w: %s", ErrNoVersions, specStr)
 	}
 	fmt.Fprintln(os.Stdout, versions[0])
 	return nil
