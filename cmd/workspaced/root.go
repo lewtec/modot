@@ -67,7 +67,7 @@ func main() {
 }
 
 func run(ctx context.Context, level *slog.LevelVar) error {
-	app, err := cmd.Parse[cmd.App[cli]](rewriteArgs(os.Args[1:])...)
+	app, err := cmd.Parse[cmd.App[cli]](os.Args[1:]...)
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func run(ctx context.Context, level *slog.LevelVar) error {
 }
 
 func executeCLI(ctx context.Context, args []string) error {
-	app, err := cmd.Parse[cmd.App[cli]](rewriteArgs(args)...)
+	app, err := cmd.Parse[cmd.App[cli]](args...)
 	if err != nil {
 		return err
 	}
