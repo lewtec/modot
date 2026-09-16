@@ -7,12 +7,14 @@ import (
 	"github.com/lewtec/lewkit/x/cmd"
 	pkg_daemon "github.com/lucasew/workspaced/cmd/workspaced/daemon"
 	"github.com/lucasew/workspaced/internal/clirun"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 // cli is the workspaced command spec. Process flags live on cmd.App[cli].
 type cli struct {
-	DryRun  cmd.Flag `short:"d" long:"dry-run" help:"Only show what would be done" ctx:"dry-run"`
-	NoCache cmd.Flag `long:"no-cache" help:"Ignore install/module/source/shell caches; re-fetch locked tools; treat deploy noops as updates (also WORKSPACED_NO_CACHE)" env:"WORKSPACED_NO_CACHE" ctx:"no-cache"`
+	taskgroup.Arg `flatten:""`
+	DryRun        cmd.Flag `short:"d" long:"dry-run" help:"Only show what would be done" ctx:"dry-run"`
+	NoCache       cmd.Flag `long:"no-cache" help:"Ignore install/module/source/shell caches; re-fetch locked tools; treat deploy noops as updates (also WORKSPACED_NO_CACHE)" env:"WORKSPACED_NO_CACHE" ctx:"no-cache"`
 
 	children `flatten:""`
 	Daemon   *pkg_daemon.Command
@@ -90,7 +92,7 @@ func optionTakesValue(a string) bool {
 	name := strings.TrimLeft(a, "-")
 	name, _, _ = strings.Cut(name, "=")
 	switch name {
-	case "profile-dir":
+	case "profile-dir", "io", "cpu", "internet":
 		return true
 	default:
 		return false

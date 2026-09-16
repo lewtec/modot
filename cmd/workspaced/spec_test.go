@@ -23,8 +23,16 @@ func TestRootUsageHasProfileDir(t *testing.T) {
 	text, err := cmd.Usage[cmd.App[cli]]("workspaced")
 	require.NoError(t, err)
 	assert.Contains(t, text, "--profile-dir")
+	assert.Contains(t, text, "--io")
+	assert.Contains(t, text, "--cpu")
+	assert.Contains(t, text, "--internet")
 	assert.NotContains(t, text, "--cpuprofile")
 	assert.NotContains(t, text, "--memprofile")
+}
+
+func TestSessionArgOverridesIO(t *testing.T) {
+	app := cmd.ParseOK[cmd.App[cli]](t, "--io", "9", "home", "--help")
+	assert.Equal(t, 9, app.Args.IO.Value())
 }
 
 func TestHistoryDatabaseIsOnGroup(t *testing.T) {

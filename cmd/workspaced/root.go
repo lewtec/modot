@@ -119,10 +119,10 @@ func setup(ctx context.Context, app cmd.App[cli]) (context.Context, *taskgroup.S
 		logging.GetLogger(ctx).Info("no-cache enabled (flag or WORKSPACED_NO_CACHE)")
 	}
 
-	limits := taskgroup.DefaultLimits()
+	base := taskgroup.DefaultLimits()
 	if homeCfg, err := configcue.LoadHome(ctx); err == nil {
-		limits = homeCfg.ConcurrencyLimits()
+		base = homeCfg.ConcurrencyLimits()
 	}
-	session, ctx := taskgroup.Enter(ctx, limits)
+	session, ctx := app.Args.Enter(ctx, base)
 	return ctx, session, nil
 }
