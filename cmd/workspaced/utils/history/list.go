@@ -8,12 +8,9 @@ import (
 	"time"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lucasew/workspaced/internal/db"
-	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 type List struct {
-	DB    db.Arg            `long:"database" help:"sqlite URL"`
 	Limit cmd.IntArg[int32] `long:"limit" help:"Limit number of entries" default:"5000"`
 	JSON  cmd.Flag          `long:"json" help:"Output as JSON"`
 }
@@ -21,15 +18,11 @@ type List struct {
 func (List) Description() string { return "List history entries (internal use)" }
 
 func (l *List) Run(ctx context.Context) error {
-	database, ok := db.FromContext(ctx)
-	if !ok {
-		var err error
-		database, err = db.OpenArg(ctx, l.DB)
-		if err != nil {
-			return err
-		}
-		defer logging.Close(ctx, database)
+	database, cleanup, err := open(ctx)
+	if err != nil {
+		return err
 	}
+	defer cleanup()
 
 	events, err := database.SearchHistory(ctx, "", int(l.Limit.Value()))
 	if err != nil {

@@ -27,6 +27,18 @@ func TestRootUsageHasProfileDir(t *testing.T) {
 	assert.NotContains(t, text, "--memprofile")
 }
 
+func TestHistoryDatabaseIsOnGroup(t *testing.T) {
+	app := cmd.ParseOK[cmd.App[cli]](t, "utils", "history", "--database", "/tmp/ws-hist.db", "list")
+	require.NotNil(t, app.Args.Utils)
+	require.NotNil(t, app.Args.Utils.History)
+	require.NotNil(t, app.Args.Utils.History.DB.Value())
+	assert.Equal(t, "/tmp/ws-hist.db", app.Args.Utils.History.DB.Value().URL())
+
+	app = cmd.ParseOK[cmd.App[cli]](t, "utils", "history", "list", "--database", "/tmp/ws-hist2.db")
+	require.NotNil(t, app.Args.Utils.History.DB.Value())
+	assert.Equal(t, "/tmp/ws-hist2.db", app.Args.Utils.History.DB.Value().URL())
+}
+
 func TestSelfInstallForceSelected(t *testing.T) {
 	app := cmd.ParseOK[cmd.App[cli]](t, "self-install", "-f")
 	require.NotNil(t, app.Args.Selfinstall)

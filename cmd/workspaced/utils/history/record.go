@@ -9,11 +9,9 @@ import (
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lucasew/workspaced/internal/db"
 	"github.com/lucasew/workspaced/internal/types"
-	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 type Record struct {
-	DB        db.Arg            `long:"database" help:"sqlite URL"`
 	Command   cmd.StringArg     `long:"command" help:"Command string"`
 	Cwd       cmd.WorkDirArg    `long:"cwd" help:"Current working directory"`
 	ExitCode  cmd.IntArg[int]   `long:"exit-code" help:"Exit code"`
@@ -58,10 +56,10 @@ func (r *Record) Run(ctx context.Context) error {
 		return nil
 	}
 
-	database, err := db.OpenArg(ctx, r.DB)
+	database, cleanup, err := open(ctx)
 	if err != nil {
 		return err
 	}
-	defer logging.Close(ctx, database)
+	defer cleanup()
 	return database.RecordHistory(ctx, event)
 }

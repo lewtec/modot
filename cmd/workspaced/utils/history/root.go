@@ -16,9 +16,11 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/lucasew/workspaced/internal/db"
 )
 
 type Command struct {
+	DB     db.Arg `long:"database" help:"sqlite URL"`
 	Ingest *Ingest
 	List   *List
 	Record *Record

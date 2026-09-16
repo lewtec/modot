@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lucasew/workspaced/internal/db"
 	"github.com/lucasew/workspaced/internal/types"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
@@ -14,7 +13,6 @@ import (
 var ErrUnknownSource = errors.New("unknown source")
 
 type Ingest struct {
-	DB     db.Arg `long:"database" help:"sqlite URL"`
 	source cmd.StringArg
 }
 
@@ -22,19 +20,13 @@ func (Ingest) Description() string { return "Ingest history from other sources (
 
 func (i *Ingest) Run(ctx context.Context) error {
 	source := i.source.Value()
-	database, ok := db.FromContext(ctx)
-	if !ok {
-		var err error
-		database, err = db.OpenArg(ctx, i.DB)
-		if err != nil {
-			return err
-		}
-		defer logging.Close(ctx, database)
+	database, cleanup, err := open(ctx)
+	if err != nil {
+		return err
 	}
+	defer cleanup()
 
 	var events []types.HistoryEvent
-	var err error
-
 	switch source {
 	case "bash":
 		events, err = ingestBash(ctx)

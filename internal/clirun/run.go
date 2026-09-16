@@ -9,6 +9,8 @@ import (
 	"reflect"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/internal/db"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 // Run walks v (including flatten/anonymous structs) and calls Run(ctx) error
@@ -32,12 +34,55 @@ func runSelected(ctx context.Context, v reflect.Value) error {
 		return cmd.ErrUsage
 	}
 	if child := selectedCommand(v); child.IsValid() {
+		ctx, cleanup, err := injectDB(ctx, v)
+		if err != nil {
+			return err
+		}
+		defer cleanup()
 		return runSelected(ctx, child)
 	}
 	if run := runMethod(v); run.IsValid() {
 		return callRun(ctx, run)
 	}
 	return cmd.ErrUsage
+}
+
+func injectDB(ctx context.Context, v reflect.Value) (context.Context, func(), error) {
+	if _, ok := db.FromContext(ctx); ok {
+		return ctx, func() {}, nil
+	}
+	arg, ok := findDBArg(v)
+	if !ok {
+		return ctx, func() {}, nil
+	}
+	database, err := db.OpenArg(ctx, arg)
+	if err != nil {
+		return ctx, nil, err
+	}
+	return db.WithDB(ctx, database), func() { logging.Close(ctx, database) }, nil
+}
+
+func findDBArg(v reflect.Value) (db.Arg, bool) {
+	want := reflect.TypeFor[db.Arg]()
+	t := v.Type()
+	for i := range t.NumField() {
+		sf := t.Field(i)
+		fv := v.Field(i)
+		if !fv.CanAddr() {
+			continue
+		}
+		_, flatten := sf.Tag.Lookup("flatten")
+		if (sf.Anonymous || flatten) && fv.Kind() == reflect.Struct {
+			if arg, ok := findDBArg(fv); ok {
+				return arg, true
+			}
+			continue
+		}
+		if fv.Type() == want {
+			return fv.Interface().(db.Arg), true
+		}
+	}
+	return db.Arg{}, false
 }
 
 func selectedCommand(v reflect.Value) reflect.Value {

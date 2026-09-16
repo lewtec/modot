@@ -10,30 +10,23 @@ import (
 
 	"github.com/ktr0731/go-fuzzyfinder"
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lucasew/workspaced/internal/db"
-	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 var ErrNoHistory = errors.New("no history found")
 
 type Search struct {
-	DB    db.Arg `long:"database" help:"sqlite URL"`
 	query []cmd.StringArg
 }
 
 func (Search) Description() string { return "Search history using fuzzy finder" }
 
 func (s *Search) Run(ctx context.Context) error {
-	database, ok := db.FromContext(ctx)
-	if !ok {
-		var err error
-		database, err = db.OpenArg(ctx, s.DB)
-		if err != nil {
-			return err
-		}
-		defer logging.Close(ctx, database)
+	database, cleanup, err := open(ctx)
+	if err != nil {
+		return err
 	}
+	defer cleanup()
 
 	events, err := database.SearchHistory(ctx, "", 5000)
 	if err != nil {
