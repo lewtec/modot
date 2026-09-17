@@ -9,6 +9,7 @@ svu = "3.3.0"
 run = "go run ./cmd/workspaced codebase lint --review"
 
 [tasks.format]
+wait_for = ["codegen"]
 run = "go run ./cmd/workspaced codebase format"
 
 [tasks.codegen]
@@ -25,7 +26,7 @@ run = "go test -v ./internal/tool/backend/catalog/ -run '^TestRegistryInstall$' 
 
 [tasks.release]
 description = "Run a release"
-depends = ["codegen", "ci"]
+depends = ["codegen", "format", "ci"]
 wait_for = ["codegen"]
 usage = '''
 arg "<version>" help="New version" {
