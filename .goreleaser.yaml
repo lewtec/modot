@@ -9,15 +9,6 @@
 version: 2
 project_name: workspaced
 
-before:
-  hooks:
-    # You may remove this if you don't use go modules.
-    - go mod tidy
-    # you may remove this if you don't need go generate
-    - mise run ci
-    # Registry install is optional (mise run test:registry-install /
-    # registry-install.yml), not a release hook.
-
 builds:
   - binary: workspaced
     main: ./cmd/workspaced
