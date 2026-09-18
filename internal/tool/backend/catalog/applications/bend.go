@@ -105,7 +105,7 @@ func (t *bendTool) InstallArtifact(ctx context.Context, artifact backend.Artifac
 	if err := defaultInstallArtifact(ctx, artifact, destDir); err != nil {
 		return err
 	}
-	return writeBendLauncher(destDir, "")
+	return writeBendLauncher(destDir)
 }
 
 func (t *bendTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
@@ -159,19 +159,7 @@ func validBendVersion(v string) bool {
 	return true
 }
 
-func writeBendLauncher(destDir, workspacedBin string) error {
-	if strings.TrimSpace(workspacedBin) == "" {
-		exe, err := os.Executable()
-		if err != nil {
-			return err
-		}
-		workspacedBin = exe
-	}
-	binDir := filepath.Join(destDir, "bin")
-	if err := os.MkdirAll(binDir, 0o755); err != nil {
-		return err
-	}
-	script := fmt.Sprintf(`#!/bin/sh
+const bendLauncherScript = `#!/bin/sh
 set -eu
 bindir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 root=$(CDPATH= cd -- "$bindir/.." && pwd)
@@ -186,12 +174,18 @@ if [ -z "$main" ]; then
 	echo "bend: missing bend2/main.ts under $root" >&2
 	exit 1
 fi
-export BEND_NO_TELEMETRY=1
-exec -a bun %s tool with bun -- bun "$main" "$@"
-`, shSingleQuote(workspacedBin))
-	return os.WriteFile(filepath.Join(binDir, "bend"), []byte(script), 0o755)
+ws=$(command -v workspaced) || {
+	echo "bend: workspaced not found on PATH" >&2
+	exit 1
 }
+export BEND_NO_TELEMETRY=1
+exec -a bun "$ws" tool with bun -- bun "$main" "$@"
+`
 
-func shSingleQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
+func writeBendLauncher(destDir string) error {
+	binDir := filepath.Join(destDir, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(binDir, "bend"), []byte(bendLauncherScript), 0o755)
 }

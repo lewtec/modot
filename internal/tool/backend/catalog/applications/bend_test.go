@@ -130,7 +130,7 @@ func TestBendListArtifactsWindowsUnsupported(t *testing.T) {
 func TestWriteBendLauncher(t *testing.T) {
 	t.Parallel()
 	dest := t.TempDir()
-	if err := writeBendLauncher(dest, "/opt/workspaced"); err != nil {
+	if err := writeBendLauncher(dest); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dest, "bin", "bend")
@@ -149,25 +149,16 @@ func TestWriteBendLauncher(t *testing.T) {
 	for _, want := range []string{
 		"#!/bin/sh",
 		"BEND_NO_TELEMETRY=1",
-		"exec -a bun '/opt/workspaced' tool with bun -- bun \"$main\" \"$@\"",
+		`ws=$(command -v workspaced)`,
+		`exec -a bun "$ws" tool with bun -- bun "$main" "$@"`,
 		"bend2/main.ts",
 	} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("launcher missing %q\n%s", want, s)
 		}
 	}
-	if strings.Contains(s, "curl") || strings.Contains(s, "bend-lang.com/ping") || strings.Contains(s, "oven-sh/bun") {
-		t.Fatalf("launcher still vendors bun or talks to the official installer: %s", s)
-	}
-}
-
-func TestShSingleQuote(t *testing.T) {
-	t.Parallel()
-	if got := shSingleQuote(`/opt/workspaced`); got != `'/opt/workspaced'` {
-		t.Fatalf("plain = %q", got)
-	}
-	if got := shSingleQuote(`/tmp/it's`); got != `'/tmp/it'"'"'s'` {
-		t.Fatalf("embedded quote = %q", got)
+	if strings.Contains(s, "XDG_DATA_HOME") || strings.Contains(s, ".local/share") || strings.Contains(s, "/tmp/go-build") || strings.Contains(s, "curl") || strings.Contains(s, "bend-lang.com/ping") {
+		t.Fatalf("launcher bakes a path or talks to the official installer: %s", s)
 	}
 }
 
