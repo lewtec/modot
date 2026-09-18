@@ -84,7 +84,7 @@ func (t *bendTool) ListArtifacts(ctx context.Context, version string) ([]backend
 		return nil, fmt.Errorf("%w: %q", ErrInvalidBendVersion, version)
 	}
 
-	u := t.baseURL() + "/dl/" + v + ".tar.gz"
+	u := fmt.Sprintf("%s/dl/%s.tar.gz", t.baseURL(), v)
 	hash := ""
 	if relErr == nil && rel.Ver == v {
 		if rel.URL != "" {
