@@ -21,4 +21,5 @@ func init() {
 	catalog.RegisterGitHub("refactree", "lucasew/refactree", checks.Binary("rft"))
 	catalog.RegisterGitHub("ripgrep", "burntsushi/ripgrep", checks.Binary("rg"))
 	catalog.RegisterGitHub("mise", "jdx/mise", checks.Binary("mise"))
+	catalog.RegisterGitHub("bun", "oven-sh/bun", checks.Binary("bun"))
 }

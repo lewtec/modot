@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/lucasew/workspaced/internal/modfile"
-	"github.com/lucasew/workspaced/internal/tool/checks"
 )
 
 var errUnexpectedTestURL = errors.New("unexpected test url")
@@ -131,7 +130,7 @@ func TestBendListArtifactsWindowsUnsupported(t *testing.T) {
 func TestWriteBendLauncher(t *testing.T) {
 	t.Parallel()
 	dest := t.TempDir()
-	if err := writeBendLauncher(dest); err != nil {
+	if err := writeBendLauncher(dest, "/opt/workspaced"); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dest, "bin", "bend")
@@ -150,57 +149,25 @@ func TestWriteBendLauncher(t *testing.T) {
 	for _, want := range []string{
 		"#!/bin/sh",
 		"BEND_NO_TELEMETRY=1",
-		`"$bun" "$main" "$@"`,
+		"exec -a bun '/opt/workspaced' tool with bun -- bun \"$main\" \"$@\"",
 		"bend2/main.ts",
 	} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("launcher missing %q\n%s", want, s)
 		}
 	}
-	if strings.Contains(s, "curl") || strings.Contains(s, "bend-lang.com/ping") {
-		t.Fatalf("launcher still talks to the official installer: %s", s)
+	if strings.Contains(s, "curl") || strings.Contains(s, "bend-lang.com/ping") || strings.Contains(s, "oven-sh/bun") {
+		t.Fatalf("launcher still vendors bun or talks to the official installer: %s", s)
 	}
 }
 
-func TestBendEnsureBunSkipsWhenPresent(t *testing.T) {
+func TestShSingleQuote(t *testing.T) {
 	t.Parallel()
-	dest := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dest, "bun"), []byte("#!/bin/sh\n"), 0o755); err != nil {
-		t.Fatal(err)
+	if got := shSingleQuote(`/opt/workspaced`); got != `'/opt/workspaced'` {
+		t.Fatalf("plain = %q", got)
 	}
-	var installed bool
-	tool := &bendTool{
-		bun: stubToolWithInstall{versions: []string{"1.0.0"}, install: func(string) error {
-			installed = true
-			return nil
-		}},
-	}
-	if err := tool.ensureBun(t.Context(), dest); err != nil {
-		t.Fatal(err)
-	}
-	if installed {
-		t.Fatal("ensureBun installed bun even though destDir already had it")
-	}
-}
-
-func TestBendEnsureBunInstallsWhenMissing(t *testing.T) {
-	t.Parallel()
-	dest := t.TempDir()
-	var gotDir string
-	tool := &bendTool{
-		bun: stubToolWithInstall{versions: []string{"1.0.0"}, install: func(dir string) error {
-			gotDir = dir
-			return os.WriteFile(filepath.Join(dir, "bun"), []byte("#!/bin/sh\n"), 0o755)
-		}},
-	}
-	if err := tool.ensureBun(t.Context(), dest); err != nil {
-		t.Fatal(err)
-	}
-	if gotDir != dest {
-		t.Fatalf("bun install dest = %q, want %q", gotDir, dest)
-	}
-	if checks.FindBinary(dest, "bun") == "" {
-		t.Fatal("bun missing after ensureBun")
+	if got := shSingleQuote(`/tmp/it's`); got != `'/tmp/it'"'"'s'` {
+		t.Fatalf("embedded quote = %q", got)
 	}
 }
 
@@ -225,16 +192,4 @@ func newTestBend(t *testing.T, latestJSON string) *bendTool {
 			return []byte(latestJSON), nil
 		},
 	}
-}
-
-type stubToolWithInstall struct {
-	stubTool
-	install func(destDir string) error
-}
-
-func (t stubToolWithInstall) Install(_ context.Context, _ string, destDir string) error {
-	if t.install == nil {
-		return nil
-	}
-	return t.install(destDir)
 }
