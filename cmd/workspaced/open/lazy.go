@@ -12,7 +12,7 @@ import (
 )
 
 type Lazy struct {
-	Bin  cmd.StringArg `long:"bin" help:"Binary name to resolve inside the tool package"`
+	Bin  cmd.StringArg `long:"bin" help:"Binary name to resolve inside the tool package" default:""`
 	Home cmd.Flag      `long:"home" help:"Resolve the lazy tool using the home/dotfiles workspace"`
 	tool cmd.StringArg
 	sep  cmd.Dash
@@ -25,11 +25,14 @@ func (Lazy) Description() string {
 
 func (l *Lazy) Run(ctx context.Context) error {
 	toolName := l.tool.Value()
-	binName := l.Bin.Value()
-	if binName == "" {
-		binName = toolName
+	return runLazyTool(ctx, l.Home.Value(), toolName, l.binName(toolName), cmd.Values(l.args))
+}
+
+func (l *Lazy) binName(toolName string) string {
+	if v := l.Bin.Value(); v != "" {
+		return v
 	}
-	return runLazyTool(ctx, l.Home.Value(), toolName, binName, cmd.Values(l.args))
+	return toolName
 }
 
 func runLazyTool(ctx context.Context, homeMode bool, toolName, binName string, toolArgs []string) error {

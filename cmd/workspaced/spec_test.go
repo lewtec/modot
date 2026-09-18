@@ -71,3 +71,12 @@ func TestLintFormatParse(t *testing.T) {
 	require.NotNil(t, app.Args.Codebase.Lint)
 	assert.Equal(t, "sarif", app.Args.Codebase.Lint.Format.Value().String())
 }
+
+func TestOpenLazyOmitsBin(t *testing.T) {
+	// Hermes shim and `open mise` docs: open lazy --home <tool> -- <args>
+	app := cmd.ParseOK[cmd.App[cli]](t, "open", "lazy", "--home", "uv", "--", "run", "--project", "/tmp/hermes", "hermes")
+	require.NotNil(t, app.Args.Open)
+	require.NotNil(t, app.Args.Open.Lazy)
+	assert.True(t, app.Args.Open.Lazy.Home.Value())
+	assert.Empty(t, app.Args.Open.Lazy.Bin.Value())
+}
