@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
+	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	rsyncdriver "github.com/lucasew/workspaced/pkg/driver/rsync"
@@ -49,13 +50,18 @@ func (d *Driver) execRsync(ctx context.Context, args []string, st *taskgroup.Sta
 	}
 
 	cmd := execdriver.MustRun(ctx, "rsync", args...)
-	if c, ok := cmd.Stderr.(io.Closer); ok {
-		logging.Close(ctx, c)
+	base := cmd.Stderr
+	out := io.Writer(base)
+	if extraOut != nil {
+		out = io.MultiWriter(base, extraOut)
 	}
-	out, done := rsyncdriver.BindStreams(ctx, extraOut)
-	defer done()
 	cmd.Stdout = out
 	cmd.Stderr = out
-
-	return cmd.Run()
+	err := cmd.Run()
+	if extraOut != nil && executil.Stderr(ctx) == nil {
+		if c, ok := base.(io.Closer); ok {
+			logging.Close(ctx, c)
+		}
+	}
+	return err
 }

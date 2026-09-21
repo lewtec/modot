@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
@@ -34,5 +35,24 @@ func TestBindStreamsWithoutExtraIsNotProcessStderr(t *testing.T) {
 	t.Cleanup(done)
 	if w == os.Stderr {
 		t.Fatal("writer is os.Stderr")
+	}
+}
+
+func TestBindStreamsHonorsContextStderr(t *testing.T) {
+	t.Parallel()
+	var got bytes.Buffer
+	ctx := executil.WithStderr(logging.NewWriterContext(t.Output()), &got)
+	var extra bytes.Buffer
+	w, done := BindStreams(ctx, &extra)
+	t.Cleanup(done)
+	if _, err := io.WriteString(w, "hello\n"); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	done()
+	if got.String() != "hello\n" {
+		t.Fatalf("context stderr=%q want %q", got.String(), "hello\n")
+	}
+	if extra.String() != "hello\n" {
+		t.Fatalf("extra=%q want %q", extra.String(), "hello\n")
 	}
 }
