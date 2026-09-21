@@ -1,15 +1,15 @@
 package checks
 
 import (
-	"os"
 	"os/exec"
 )
 
-// RunAttached runs cmd in dir with stdout/stderr attached to the process streams.
-// Formatters use this so tool output stays visible to the user.
+// RunAttached runs cmd in dir with stdout sharing the session live-row writer
+// already attached to stderr by exec.Run.
 func RunAttached(cmd *exec.Cmd, dir string) error {
 	cmd.Dir = dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	if cmd.Stderr != nil {
+		cmd.Stdout = cmd.Stderr
+	}
 	return cmd.Run()
 }

@@ -31,7 +31,6 @@ func RunTool(ctx context.Context, toolName string, args ...string) (*exec.Cmd, e
 		return nil, err
 	}
 	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = cmd.Stderr
 	return cmd, nil
 }

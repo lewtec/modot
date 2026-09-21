@@ -52,8 +52,7 @@ func Run(ctx context.Context, args ...string) error {
 	if err != nil {
 		return err
 	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = cmd.Stderr
 	cmd.Stdin = os.Stdin
 	return cmd.Run()
 }

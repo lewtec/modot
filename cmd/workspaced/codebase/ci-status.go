@@ -31,7 +31,6 @@ func (c *CIStatus) Run(ctx context.Context) error {
 		return err
 	}
 	run.Stdin = os.Stdin
-	run.Stdout = os.Stdout
-	run.Stderr = os.Stderr
+	run.Stdout = run.Stderr
 	return run.Run()
 }

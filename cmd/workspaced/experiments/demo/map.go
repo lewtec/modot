@@ -2,8 +2,6 @@ package demo
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"time"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
@@ -69,6 +67,5 @@ func (*MapCmd) Run(ctx context.Context) error {
 		return err
 	}
 	logger.Info("map finished", "count", len(results), "first", results[0], "last", results[len(results)-1])
-	fmt.Fprintf(os.Stderr, "map collected %d results in order\n", len(results))
 	return nil
 }

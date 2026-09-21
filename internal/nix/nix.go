@@ -44,17 +44,21 @@ func parseFlakeRef(ref string) (repo string, item string) {
 }
 
 // nixCmd builds a command with explicit stdout/stderr (context writers or
-// process streams). Never leaves either stream nil.
+// the session live-row writer). Never leaves either stream nil.
 func nixCmd(ctx context.Context, stdout, stderr io.Writer, name string, args ...string) *exec.Cmd {
 	cmd := execdriver.MustRun(ctx, name, args...)
-	if stdout == nil {
-		stdout = executil.StdoutOr(ctx, os.Stdout)
+	if stderr != nil {
+		cmd.Stderr = stderr
+	} else if w := executil.Stderr(ctx); w != nil {
+		cmd.Stderr = w
 	}
-	if stderr == nil {
-		stderr = executil.StderrOr(ctx, os.Stderr)
+	if stdout != nil {
+		cmd.Stdout = stdout
+	} else if w := executil.Stdout(ctx); w != nil {
+		cmd.Stdout = w
+	} else {
+		cmd.Stdout = cmd.Stderr
 	}
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
 	return cmd
 }
 
