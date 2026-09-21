@@ -7,20 +7,32 @@ import (
 	"strings"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
+	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 // BindStreams returns the writer for rsync stdout+stderr. Chatter stays on
 // the session live row; extraOut is an optional transcript (backup notification).
+// Context stderr (daemon packet streams) wins over a new live writer.
 // Call the returned func after cmd.Run (safe to defer).
 func BindStreams(ctx context.Context, extraOut io.Writer) (io.Writer, func()) {
-	w := taskgroup.LineWriterFrom(ctx)
-	out := io.Writer(w)
-	if extraOut != nil {
-		out = io.MultiWriter(w, extraOut)
+	base := executil.Stderr(ctx)
+	var closer io.Closer
+	if base == nil {
+		lw := taskgroup.LineWriterFrom(ctx)
+		base = lw
+		closer = lw
 	}
-	return out, func() { logging.Close(ctx, w) }
+	out := base
+	if extraOut != nil {
+		out = io.MultiWriter(base, extraOut)
+	}
+	return out, func() {
+		if closer != nil {
+			logging.Close(ctx, closer)
+		}
+	}
 }
 
 // Sync performs an rsync transfer using the selected driver.
