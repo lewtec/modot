@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"log/slog"
-	"os"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/pkg/driver"
@@ -46,16 +45,10 @@ func (d *Driver) Sync(ctx context.Context, src, dst string, opts rsyncdriver.Opt
 func (d *Driver) runRsyncCmd(ctx context.Context, args []string, st *taskgroup.Status, extraOut io.Writer, logger *slog.Logger) error {
 	// rsynccmd gives us a drop-in replacement for spawning rsync.
 	cmd := gokrsync.Command("rsync", args...)
-
-	// Use the real process stdout/stderr directly (standard terminal behavior).
-	// No pipes, no line scanning, no progress extraction inside the driver.
-	// rsync's own output (including --progress chatter, file lists, errors, etc.)
-	// will appear on the caller's terminal exactly as a normal rsync invocation
-	// would. This is the requested "no fancy stuff" behavior.
-	// Both streams to stderr (user request: no fancy capture, rsync should
-	// behave like a plain command but with all its chatter on stderr).
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
+	out, done := rsyncdriver.BindStreams(ctx, extraOut)
+	defer done()
+	cmd.Stdout = out
+	cmd.Stderr = out
 	cmd.DontRestrict = true
 
 	_, err := cmd.Run(ctx)

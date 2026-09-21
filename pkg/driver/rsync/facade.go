@@ -11,6 +11,18 @@ import (
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
+// BindStreams returns the writer for rsync stdout+stderr. Chatter stays on
+// the session live row; extraOut is an optional transcript (backup notification).
+// Call the returned func after cmd.Run (safe to defer).
+func BindStreams(ctx context.Context, extraOut io.Writer) (io.Writer, func()) {
+	w := taskgroup.LineWriterFrom(ctx)
+	out := io.Writer(w)
+	if extraOut != nil {
+		out = io.MultiWriter(w, extraOut)
+	}
+	return out, func() { logging.Close(ctx, w) }
+}
+
 // Sync performs an rsync transfer using the selected driver.
 // See Driver.Sync for semantics and taskgroup integration.
 func Sync(ctx context.Context, src, dst string, opts Options) error {

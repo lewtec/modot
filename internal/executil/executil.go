@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"github.com/lucasew/workspaced/pkg/logging"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/lewtec/lewkit/x/taskgroup"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 type stdoutKey struct{}
@@ -59,18 +61,20 @@ func Env(ctx context.Context) []string {
 }
 
 // InheritContextWriters sets cmd.Stdout and cmd.Stderr from context writers when
-// present, otherwise the process os.Stdout / os.Stderr. Always assigns both so
-// callers never rely on Output() swallowing an unset stderr.
+// present. Otherwise stderr stays on the session live-row writer (or finished
+// lines on os.Stderr with no session), and stdout shares that writer so child
+// chatter does not inherit the process tty and walk the progress overlay.
+// Context writers still win (daemon packet streams).
 func InheritContextWriters(ctx context.Context, cmd *exec.Cmd) {
-	if stdout := Stdout(ctx); stdout != nil {
-		cmd.Stdout = stdout
-	} else {
-		cmd.Stdout = os.Stdout
+	if w := Stderr(ctx); w != nil {
+		cmd.Stderr = w
+	} else if cmd.Stderr == nil {
+		cmd.Stderr = taskgroup.LineWriterFrom(ctx)
 	}
-	if stderr := Stderr(ctx); stderr != nil {
-		cmd.Stderr = stderr
-	} else {
-		cmd.Stderr = os.Stderr
+	if w := Stdout(ctx); w != nil {
+		cmd.Stdout = w
+	} else if cmd.Stdout == nil {
+		cmd.Stdout = cmd.Stderr
 	}
 }
 

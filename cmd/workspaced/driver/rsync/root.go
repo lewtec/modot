@@ -2,7 +2,6 @@ package rsync
 
 import (
 	"context"
-	"os"
 
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lucasew/workspaced/pkg/driver/rsync"
@@ -23,7 +22,6 @@ func (c *Command) Run(ctx context.Context) error {
 	opts := rsync.Options{
 		Excludes:        cmd.Values(c.Exclude),
 		SkipPermissions: c.NoPerms.Value(),
-		Output:          os.Stdout,
 	}
 	return rsync.Sync(ctx, c.src.Value(), c.dst.Value(), opts)
 }

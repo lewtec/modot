@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/notification"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -99,14 +100,12 @@ func (a GitRepoSyncAction) cmd(ctx context.Context, args ...string) *exec.Cmd {
 
 func (a GitRepoSyncAction) run(ctx context.Context, args ...string) error {
 	cmd := a.cmd(ctx, args...)
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = cmd.Stderr
 	return cmd.Run()
 }
 
 func (a GitRepoSyncAction) output(ctx context.Context, args ...string) ([]byte, error) {
 	cmd := a.cmd(ctx, args...)
-	cmd.Stderr = os.Stderr
 	return cmd.Output()
 }
 
@@ -117,10 +116,18 @@ func (a GitRepoSyncAction) hasGitDir() bool {
 
 func (a GitRepoSyncAction) hasHEAD(ctx context.Context) (bool, error) {
 	cmd := a.cmd(ctx, "rev-parse", "--verify", "HEAD")
-	cmd.Stdout = os.Stderr
+	live := cmd.Stderr
+	if live == nil {
+		live = taskgroup.LineWriterFrom(ctx)
+	}
+	cmd.Stdout = io.Discard
 	var stderr bytes.Buffer
-	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
-	if err := cmd.Run(); err != nil {
+	cmd.Stderr = io.MultiWriter(live, &stderr)
+	err := cmd.Run()
+	if c, ok := live.(io.Closer); ok {
+		logging.Close(ctx, c)
+	}
+	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) && strings.Contains(stderr.String(), "Needed a single revision") {
 			return false, nil
@@ -172,8 +179,7 @@ func (a GitRepoSyncAction) prepareEmptyPathForClone() error {
 
 func (a GitRepoSyncAction) clone(ctx context.Context) error {
 	cmd := execdriver.MustRun(ctx, "git", "clone", a.Dst, a.Src)
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = cmd.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("git clone failed for %s from %s: %w", a.Src, a.Dst, err)
 	}

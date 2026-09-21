@@ -32,8 +32,7 @@ func (c *Approve) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	ec.Stdout = os.Stdout
-	ec.Stderr = os.Stderr
+	ec.Stdout = ec.Stderr
 	ec.Stdin = os.Stdin
 	ec.Dir = sc.Cwd
 	ec.Env = sc.Env
