@@ -16,7 +16,7 @@ Profiles are `home`, `codebase`, `etc`, `usr`, `root`, `var`, `bin`, and `system
 | `codebase` | `codebase` |
 | `system` | `etc`, `usr`, `root`, `var`, `bin`, `system` |
 
-`home` uses `~`. `codebase` uses the repo. The system root defaults to `/`. `system apply --prefix` selects another root. `root` and `system` are that root. `etc`, `usr`, `var`, and `bin` are `etc`, `usr`, `var`, and `usr/local/bin` under it.
+`home apply --prefix` defaults to `~`. `codebase` uses the repo. `system apply --prefix` defaults to `/`. `root` and `system` are that prefix. `etc`, `usr`, `var`, and `bin` are `etc`, `usr`, `var`, and `usr/local/bin` under the system prefix.
 
 `Open(name)` on a profile filesystem returns the combined file. `name` is an `fs.FS` path. It has no leading `/`, no `~`, and no `..`.
 

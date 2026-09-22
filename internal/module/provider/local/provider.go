@@ -31,6 +31,9 @@ func (p *Provider) Name() string { return "Workspace Module" }
 func resolvePresetBase(name, modulesBaseDir, prefix string) (string, error) {
 	switch name {
 	case "home":
+		if prefix != "" && prefix != "~" {
+			return prefix, nil
+		}
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("get home directory: %w", err)
@@ -77,7 +80,7 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) (modu
 			return module.ResolveResult{}, fmt.Errorf("%w: %q in module %q", ErrStrictStructureViolation, name, req.Ref)
 		}
 		presetName := preset.Name()
-		targetBase, err := resolvePresetBase(presetName, req.ModulesBaseDir, req.SystemPrefix)
+		targetBase, err := resolvePresetBase(presetName, req.ModulesBaseDir, req.Prefix)
 		if err != nil {
 			return module.ResolveResult{}, fmt.Errorf("%w in module %q", err, req.Ref)
 		}

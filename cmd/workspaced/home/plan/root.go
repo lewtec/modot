@@ -9,7 +9,8 @@ import (
 )
 
 type Command struct {
-	ShowNoop cmd.Flag `long:"show-noop" help:"Also show files that would not change"`
+	ShowNoop cmd.Flag      `long:"show-noop" help:"Also show files that would not change"`
+	Prefix   cmd.StringArg `long:"prefix" default:"~" help:"directory that receives home files"`
 }
 
 func (Command) Description() string {
@@ -17,5 +18,8 @@ func (Command) Description() string {
 }
 
 func (c *Command) Run(ctx context.Context) error {
-	return cmdwire.RunAfterWait(ctx, true, c.ShowNoop.Value(), apply.Schedule)
+	prefix := c.Prefix.Value()
+	return cmdwire.RunAfterWait(ctx, true, c.ShowNoop.Value(), func(ctx context.Context, dryRun, showNoop bool) func() error {
+		return apply.Schedule(ctx, dryRun, showNoop, prefix)
+	})
 }

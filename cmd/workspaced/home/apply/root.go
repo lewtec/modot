@@ -25,7 +25,8 @@ import (
 )
 
 type Command struct {
-	ShowNoop cmd.Flag `long:"show-noop" help:"Also show files that would not change"`
+	ShowNoop cmd.Flag      `long:"show-noop" help:"Also show files that would not change"`
+	Prefix   cmd.StringArg `long:"prefix" default:"~" help:"directory that receives home files"`
 }
 
 func (Command) Description() string {
@@ -33,13 +34,28 @@ func (Command) Description() string {
 }
 
 func (c *Command) Run(ctx context.Context) error {
-	return cmdwire.RunAfterWait(ctx, false, c.ShowNoop.Value(), Schedule)
+	prefix := c.Prefix.Value()
+	return cmdwire.RunAfterWait(ctx, false, c.ShowNoop.Value(), func(ctx context.Context, dryRun, showNoop bool) func() error {
+		return Schedule(ctx, dryRun, showNoop, prefix)
+	})
+}
+
+// homePrefix resolves the home apply root. Empty and ~ are the user home directory.
+func homePrefix(prefix string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	if prefix == "" || prefix == "~" {
+		return home, nil
+	}
+	return envdriver.ExpandPathIn(prefix, home), nil
 }
 
 // Schedule wires the home apply/plan work into the session.
 // Both "home apply" and "home plan" use this so the work always runs in-process
 // under the caller's session. The returned func prints the report after wait.
-func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
+func Schedule(ctx context.Context, dryRun, showNoop bool, prefix string) func() error {
 	taskName := "home:apply"
 	updateMsg := "applying configuration"
 	if dryRun {
@@ -70,7 +86,11 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 			return fmt.Errorf("refresh workspace lockfile: %w", err)
 		}
 
-		home, err := os.UserHomeDir()
+		home, err := homePrefix(prefix)
+		if err != nil {
+			return fmt.Errorf("get home directory: %w", err)
+		}
+		liveHome, err := os.UserHomeDir()
 		if err != nil {
 			return fmt.Errorf("get home directory: %w", err)
 		}
@@ -83,6 +103,7 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 			ConfigTreeTarget: home,
 			ModulesDir:       modulesDir,
 			ModulesCfg:       cfg,
+			Prefix:           home,
 			Extra:            []source.Plugin{&apply.DconfPlugin{}},
 		}.Builder(cfg)
 		if err != nil {
@@ -93,8 +114,8 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 			return err
 		}
 
-		// StateStore — paths on disk are relative to $HOME (~).
-		stateStore, err := deployer.NewFileStateStore("~/.config/workspaced/state.json", home)
+		// StateStore — paths on disk are relative to the home prefix.
+		stateStore, err := deployer.NewFileStateStore(filepath.Join(home, ".config", "workspaced", "state.json"), home)
 		if err != nil {
 			return fmt.Errorf("create state store: %w", err)
 		}
@@ -113,7 +134,7 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 						}
 						// Match DconfPlugin, which places the marker under UserHomeDir
 						// (not os.Getenv("HOME") — those can diverge when HOME is unset).
-						if action.Desired.File != nil && deployer.GetTarget(action.Desired) == filepath.Join(home, ".config", "workspaced", "dconf.marker") {
+						if home == liveHome && action.Desired.File != nil && deployer.GetTarget(action.Desired) == filepath.Join(home, ".config", "workspaced", "dconf.marker") {
 							needsDconfApply = true
 							break
 						}

@@ -93,6 +93,7 @@ func TestResolvePresetBase(t *testing.T) {
 		wantErr        error
 	}{
 		{name: "home", preset: "home", modulesBaseDir: "/ws/modules", want: home},
+		{name: "home prefix", preset: "home", modulesBaseDir: "/ws/modules", prefix: "/tmp/stage", want: "/tmp/stage"},
 		{name: "codebase", preset: "codebase", modulesBaseDir: "/ws/modules", want: "/ws"},
 		{name: "etc", preset: "etc", modulesBaseDir: "/ws/modules", want: "/etc"},
 		{name: "etc prefix", preset: "etc", modulesBaseDir: "/ws/modules", prefix: "/mnt", want: "/mnt/etc"},

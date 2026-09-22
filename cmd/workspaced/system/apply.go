@@ -78,7 +78,7 @@ func applySystemFiles(ctx context.Context, prefix string, cfg *configcue.Config,
 		ConfigTreeTarget: prefix,
 		ModulesDir:       modulesDir,
 		ModulesCfg:       cfg,
-		SystemPrefix:     prefix,
+		Prefix:           prefix,
 	}.Builder(cfg)
 	if err != nil {
 		return err

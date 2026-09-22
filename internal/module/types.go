@@ -13,8 +13,9 @@ type ResolveRequest struct {
 	ModuleConfig   map[string]any
 	ModulesBaseDir string
 	Config         *configcue.Config
-	// SystemPrefix is the system root. Empty means /.
-	SystemPrefix string
+	// Prefix is the apply root for this mode.
+	// Home: empty means ~. System: empty means /.
+	Prefix string
 }
 
 type ResolvedFile struct {

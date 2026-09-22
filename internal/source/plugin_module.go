@@ -16,10 +16,10 @@ import (
 )
 
 type ModuleScannerPlugin struct {
-	baseDir      string
-	cfg          *configcue.Config
-	priority     int
-	systemPrefix string
+	baseDir  string
+	cfg      *configcue.Config
+	priority int
+	prefix   string
 }
 
 func NewModuleScannerPlugin(baseDir string, cfg *configcue.Config, priority int) *ModuleScannerPlugin {
@@ -142,7 +142,7 @@ func (p *ModuleScannerPlugin) resolveModule(
 		ModuleConfig:   moduleConfig,
 		ModulesBaseDir: p.baseDir,
 		Config:         p.cfg,
-		SystemPrefix:   p.systemPrefix,
+		Prefix:         p.prefix,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("module %q from %s:%s: %w", m.name, providerID, ref, err)
