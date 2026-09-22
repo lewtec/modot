@@ -165,6 +165,8 @@ github.com/lewtec/lewkit v0.0.0-20260922165428-1f3d3ff0a8e0 h1:BPYrm936sGHtxYaIx
 github.com/lewtec/lewkit v0.0.0-20260922165428-1f3d3ff0a8e0/go.mod h1:nS/ZkqiabjaGQdOLCz5EB/ZA7esCpaj6Fhi+uOtVR/s=
 github.com/lewtec/lewkit v0.0.0-20260922180623-3f5cf34051fb h1:OyhnXnzJMVSFKcOBIMk8YN/SJOZCs3YbK2FUtdAhu/Y=
 github.com/lewtec/lewkit v0.0.0-20260922180623-3f5cf34051fb/go.mod h1:nS/ZkqiabjaGQdOLCz5EB/ZA7esCpaj6Fhi+uOtVR/s=
+github.com/lewtec/lewkit v0.0.0-20260922194906-c274bf661137 h1:L3CV9/ShvwdRsY2ihty2xUOOaiE24dHpI+ZCI7rE4Sw=
+github.com/lewtec/lewkit v0.0.0-20260922194906-c274bf661137/go.mod h1:nS/ZkqiabjaGQdOLCz5EB/ZA7esCpaj6Fhi+uOtVR/s=
 github.com/lib/pq v1.12.3 h1:tTWxr2YLKwIvK90ZXEw8GP7UFHtcbTtty8zsI+YjrfQ=
 github.com/lib/pq v1.12.3/go.mod h1:/p+8NSbOcwzAEI7wiMXFlgydTwcgTr3OSKMsD2BitpA=
 github.com/lucasb-eyer/go-colorful v1.2.0/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=
