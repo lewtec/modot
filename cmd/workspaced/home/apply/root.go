@@ -9,6 +9,7 @@ import (
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/apply"
+	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/cmdwire"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/deployer"
@@ -25,8 +26,8 @@ import (
 )
 
 type Command struct {
-	ShowNoop cmd.Flag      `long:"show-noop" help:"Also show files that would not change"`
-	Prefix   cmd.StringArg `long:"prefix" default:"~" help:"directory that receives home files"`
+	ShowNoop cmd.Flag          `long:"show-noop" help:"Also show files that would not change"`
+	Prefix   cmdarg.HomePrefix `long:"prefix" help:"directory that receives home files"`
 }
 
 func (Command) Description() string {
@@ -38,18 +39,6 @@ func (c *Command) Run(ctx context.Context) error {
 	return cmdwire.RunAfterWait(ctx, false, c.ShowNoop.Value(), func(ctx context.Context, dryRun, showNoop bool) func() error {
 		return Schedule(ctx, dryRun, showNoop, prefix)
 	})
-}
-
-// homePrefix resolves the home apply root. Empty and ~ are the user home directory.
-func homePrefix(prefix string) (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	if prefix == "" || prefix == "~" {
-		return home, nil
-	}
-	return envdriver.ExpandPathIn(prefix, home), nil
 }
 
 // Schedule wires the home apply/plan work into the session.
@@ -86,10 +75,7 @@ func Schedule(ctx context.Context, dryRun, showNoop bool, prefix string) func() 
 			return fmt.Errorf("refresh workspace lockfile: %w", err)
 		}
 
-		home, err := homePrefix(prefix)
-		if err != nil {
-			return fmt.Errorf("get home directory: %w", err)
-		}
+		home := prefix
 		liveHome, err := os.UserHomeDir()
 		if err != nil {
 			return fmt.Errorf("get home directory: %w", err)

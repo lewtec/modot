@@ -5,12 +5,13 @@ import (
 
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lucasew/workspaced/cmd/workspaced/home/apply"
+	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/cmdwire"
 )
 
 type Command struct {
-	ShowNoop cmd.Flag      `long:"show-noop" help:"Also show files that would not change"`
-	Prefix   cmd.StringArg `long:"prefix" default:"~" help:"directory that receives home files"`
+	ShowNoop cmd.Flag          `long:"show-noop" help:"Also show files that would not change"`
+	Prefix   cmdarg.HomePrefix `long:"prefix" help:"directory that receives home files"`
 }
 
 func (Command) Description() string {
