@@ -8,8 +8,6 @@ import (
 	"io"
 	"io/fs"
 	"iter"
-	"os"
-	"path/filepath"
 
 	lewfs "github.com/lewtec/lewkit/x/fs"
 	"github.com/lewtec/lewkit/x/fs/compose"
@@ -152,9 +150,8 @@ func applyFiles(filesystem fs.FS, recorded map[string]recordedFile, targetBase s
 			return err
 		}
 		sourceInfo, module := recordedNote(recorded, name)
-		relativePath := filepath.FromSlash(name)
 		basic := BasicFile{
-			RelPathStr:    relativePath,
+			RelPathStr:    name,
 			TargetBaseDir: targetBase,
 			FileMode:      permission(info.Mode()),
 			Info:          sourceInfo,
@@ -244,7 +241,7 @@ type profileFiles struct {
 }
 
 func (profile *profileFiles) add(file File) error {
-	name := lewpath.New(filepath.ToSlash(file.RelPath()))
+	name := lewpath.New(file.RelPath())
 	if !name.Valid() || name.IsAbs() || name.String() == "." {
 		return fmt.Errorf("file %s: %w", file.RelPath(), errInvalidRelativePath)
 	}
@@ -302,29 +299,34 @@ func fileMember(name lewpath.Path, file File) (recordedFile, lewfs.File, error) 
 	if staticFile.AbsPath == "" {
 		return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, errStaticNoSource)
 	}
-	directory := os.DirFS(filepath.Dir(staticFile.AbsPath))
-	base := lewpath.New(filepath.Base(staticFile.AbsPath))
-	linkInfo, err := base.Lstat(directory)
+	absolute := lewpath.New(staticFile.AbsPath)
+	root, err := lewpath.Open(absolute.Parent().String())
+	if err != nil {
+		return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
+	}
+	defer root.Close()
+	base := lewpath.New(absolute.Name())
+	linkInfo, err := base.Lstat(root)
 	if err != nil {
 		return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
 	}
 	recorded.absolutePath = staticFile.AbsPath
 	mode = permission(linkInfo.Mode())
 	if linkInfo.Mode()&fs.ModeSymlink != 0 {
-		target, err := base.ReadLink(directory)
+		target, err := base.ReadLink(root)
 		if err != nil {
 			return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
 		}
 		recorded.linkTarget = target.String()
 	}
-	opened, err := base.Open(directory)
+	opened, err := base.Open(root)
 	if err != nil {
 		if recorded.linkTarget == "" {
 			return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
 		}
 		return recorded, lewfs.File{Name: name, Mode: mode, Reader: bytes.NewReader(nil)}, nil
 	}
-	openedInfo, err := opened.Stat()
+	openedInfo, err := base.Stat(root)
 	if err != nil {
 		opened.Close()
 		return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
