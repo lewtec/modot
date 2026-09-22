@@ -1,10 +1,6 @@
 package filespine
 
-import (
-	"slices"
-
-	lewpath "github.com/lewtec/lewkit/x/path"
-)
+import "slices"
 
 const (
 	ModeHome     = "home"
@@ -62,21 +58,15 @@ func ApplyDir(profile, primary string) string {
 // ProfileForTarget reports the profile whose apply directory is target.
 // An empty target, or target equal to primary, selects Primary(mode).
 func ProfileForTarget(mode, target, primary string) (string, bool) {
-	if target == "" || clean(target) == clean(primary) {
+	if target == "" || target == primary {
 		return Primary(mode), true
 	}
-	targetPath := clean(target)
 	for _, profile := range Visible(mode) {
-		directory, ok := NamespaceBase[profile]
-		if ok && clean(directory) == targetPath {
+		if NamespaceBase[profile] == target {
 			return profile, true
 		}
 	}
 	return "", false
-}
-
-func clean(name string) string {
-	return lewpath.New(name).Clean().String()
 }
 
 // Primary is the profile that receives files aimed at the apply target.
