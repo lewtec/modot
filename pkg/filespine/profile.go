@@ -1,6 +1,9 @@
 package filespine
 
-import "path/filepath"
+import (
+	"path/filepath"
+	"slices"
+)
 
 const (
 	ModeHome     = "home"
@@ -32,12 +35,7 @@ var NamespaceBase = map[string]string{
 
 // IsNamespace reports whether name is a dest profile.
 func IsNamespace(name string) bool {
-	for _, profile := range Profiles {
-		if profile == name {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(Profiles, name)
 }
 
 // Visible profiles for mode, in Profiles order.
@@ -66,10 +64,10 @@ func ProfileForTarget(mode, target, primary string) (string, bool) {
 	if target == "" || filepath.Clean(target) == filepath.Clean(primary) {
 		return Primary(mode), true
 	}
-	cleaned := filepath.Clean(target)
+	targetPath := filepath.Clean(target)
 	for _, profile := range Visible(mode) {
-		base, ok := NamespaceBase[profile]
-		if ok && filepath.Clean(base) == cleaned {
+		directory, ok := NamespaceBase[profile]
+		if ok && filepath.Clean(directory) == targetPath {
 			return profile, true
 		}
 	}

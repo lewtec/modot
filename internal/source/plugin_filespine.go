@@ -20,7 +20,7 @@ func NewFileSpinePlugin(cfg *configcue.Config, targetBase string) *FileSpinePlug
 func (p *FileSpinePlugin) Name() string { return "file-spine" }
 
 func (p *FileSpinePlugin) Process(ctx context.Context, files []File) ([]File, error) {
-	tree, err := composeApply(ctx, destRequest{cfg: p.cfg, targetBase: p.targetBase, files: files})
+	tree, err := composeApply(ctx, destRequest{config: p.cfg, targetBase: p.targetBase, files: files})
 	if err != nil {
 		return nil, err
 	}

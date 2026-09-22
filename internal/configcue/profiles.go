@@ -14,31 +14,31 @@ var errNilCueContext = errors.New("nil cue context")
 
 // mountFileProfiles installs the compose schema and closes workspaced.file
 // to the profile names. A flat key is a schema error.
-func mountFileProfiles(v cue.Value) (cue.Value, error) {
+func mountFileProfiles(value cue.Value) (cue.Value, error) {
 	source, err := compose.Mount("workspaced.file.home")
 	if err != nil {
 		return cue.Value{}, err
 	}
-	var b strings.Builder
-	b.WriteString(source)
+	var builder strings.Builder
+	builder.WriteString(source)
 	if !strings.HasSuffix(source, "\n") {
-		b.WriteByte('\n')
+		builder.WriteByte('\n')
 	}
-	b.WriteString("workspaced: file: close({\n")
+	builder.WriteString("workspaced: file: close({\n")
 	for _, name := range filespine.Profiles {
-		fmt.Fprintf(&b, "\t%s?: _compose.#Tree\n", name)
+		fmt.Fprintf(&builder, "\t%s?: _compose.#Tree\n", name)
 	}
-	b.WriteString("})\n")
+	builder.WriteString("})\n")
 
-	ctx := v.Context()
-	if ctx == nil {
+	cueContext := value.Context()
+	if cueContext == nil {
 		return cue.Value{}, fmt.Errorf("mount file profiles: %w", errNilCueContext)
 	}
-	layer := ctx.CompileString(b.String(), cue.Filename("compose-profiles.cue"))
+	layer := cueContext.CompileString(builder.String(), cue.Filename("compose-profiles.cue"))
 	if err := layer.Err(); err != nil {
 		return cue.Value{}, fmt.Errorf("compile file profiles: %w", err)
 	}
-	out := v.Unify(layer)
+	out := value.Unify(layer)
 	if err := out.Err(); err != nil {
 		return cue.Value{}, fmt.Errorf("unify file profiles: %w", err)
 	}
