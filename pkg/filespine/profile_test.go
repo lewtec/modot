@@ -11,17 +11,13 @@ func TestNamespaceVisible(t *testing.T) {
 	}{
 		{mode: ModeHome, profile: ModeHome, want: true},
 		{mode: ModeHome, profile: "etc", want: false},
-		{mode: ModeHome, profile: "bin", want: false},
 		{mode: ModeHome, profile: ModeCodebase, want: false},
 		{mode: ModeHome, profile: ModeSystem, want: false},
 		{mode: "", profile: ModeHome, want: true},
-		{mode: "", profile: "etc", want: false},
-		{mode: "", profile: ModeCodebase, want: false},
 		{mode: ModeCodebase, profile: ModeCodebase, want: true},
 		{mode: ModeCodebase, profile: ModeHome, want: false},
 		{mode: ModeSystem, profile: ModeSystem, want: true},
-		{mode: ModeSystem, profile: "etc", want: true},
-		{mode: ModeSystem, profile: "bin", want: true},
+		{mode: ModeSystem, profile: "etc", want: false},
 		{mode: ModeSystem, profile: ModeHome, want: false},
 	}
 	for _, tt := range tests {
@@ -34,6 +30,19 @@ func TestNamespaceVisible(t *testing.T) {
 	}
 }
 
+func TestPresetVisible(t *testing.T) {
+	t.Parallel()
+	if !PresetVisible(ModeSystem, "etc") || !PresetVisible(ModeSystem, "bin") || !PresetVisible(ModeSystem, "root") {
+		t.Fatal("system mode should read the system presets")
+	}
+	if PresetVisible(ModeHome, "etc") {
+		t.Fatal("home mode should skip etc")
+	}
+	if SystemRel("bin") != "usr/local/bin" || SystemRel("etc") != "etc" || SystemRel("root") != "." {
+		t.Fatalf("rels bin=%q etc=%q root=%q", SystemRel("bin"), SystemRel("etc"), SystemRel("root"))
+	}
+}
+
 func TestProfileForTarget(t *testing.T) {
 	t.Parallel()
 	home := "/home/user"
@@ -41,43 +50,21 @@ func TestProfileForTarget(t *testing.T) {
 	if !ok || got != ModeHome {
 		t.Fatalf("home target = %q %v", got, ok)
 	}
-	got, ok = ProfileForTarget(ModeSystem, "/etc", "/")
-	if !ok || got != "etc" {
-		t.Fatalf("etc target = %q %v", got, ok)
-	}
-	got, ok = ProfileForTarget(ModeSystem, "/mnt/etc", "/mnt")
-	if !ok || got != "etc" {
-		t.Fatalf("prefixed etc target = %q %v", got, ok)
+	got, ok = ProfileForTarget(ModeSystem, "/", "/")
+	if !ok || got != ModeSystem {
+		t.Fatalf("system target = %q %v", got, ok)
 	}
 	if _, ok := ProfileForTarget(ModeHome, "/etc", home); ok {
 		t.Fatal("home mode accepted /etc")
 	}
-	if _, ok := ProfileForTarget(ModeCodebase, "/etc", "/repo"); ok {
-		t.Fatal("codebase mode accepted /etc")
+	if ApplyDir(ModeHome, "") != "." || ApplyDir("etc", "") != "etc" {
+		t.Fatalf("relative home=%q etc=%q", ApplyDir(ModeHome, ""), ApplyDir("etc", ""))
 	}
-	if got, ok := ProfileForTarget(ModeHome, "", home); !ok || got != ModeHome {
-		t.Fatalf("empty target = %q %v", got, ok)
+	if ApplyDir("etc", "/") != "/etc" || ApplyDir("bin", "/mnt") != "/mnt/usr/local/bin" {
+		t.Fatalf("joined etc=%q bin=%q", ApplyDir("etc", "/"), ApplyDir("bin", "/mnt"))
 	}
-	if RelDir("etc") != "etc" || RelDir("bin") != "usr/local/bin" || RelDir(ModeHome) != "." {
-		t.Fatalf("RelDir etc=%q bin=%q home=%q", RelDir("etc"), RelDir("bin"), RelDir(ModeHome))
-	}
-	if ApplyDir("etc", "") != "etc" {
-		t.Fatalf("ApplyDir etc relative = %q", ApplyDir("etc", ""))
-	}
-	if ApplyDir("etc", "/") != "/etc" || ApplyDir("etc", "/mnt") != "/mnt/etc" {
-		t.Fatalf("ApplyDir etc = %q / %q", ApplyDir("etc", "/"), ApplyDir("etc", "/mnt"))
-	}
-	if ApplyDir("bin", "/") != "/usr/local/bin" {
-		t.Fatalf("ApplyDir bin = %q", ApplyDir("bin", "/"))
-	}
-	if ApplyDir("root", "/mnt") != "/mnt" || ApplyDir(ModeSystem, "/mnt") != "/mnt" {
-		t.Fatalf("ApplyDir root = %q system = %q", ApplyDir("root", "/mnt"), ApplyDir(ModeSystem, "/mnt"))
-	}
-	if ApplyDir(ModeHome, home) != home {
-		t.Fatalf("ApplyDir home = %q", ApplyDir(ModeHome, home))
-	}
-	if got := Visible(ModeCodebase); len(got) != 1 || got[0] != ModeCodebase {
-		t.Fatalf("Visible codebase = %v", got)
+	if ApplyDir(ModeSystem, "/mnt") != "/mnt" {
+		t.Fatalf("system = %q", ApplyDir(ModeSystem, "/mnt"))
 	}
 }
 

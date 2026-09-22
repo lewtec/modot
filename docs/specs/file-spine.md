@@ -2,7 +2,7 @@
 
 `workspaced.file` is a closed map of profiles. Each profile is one compose tree from `github.com/lewtec/lewkit/x/fs/compose`. A flat key under `workspaced.file` is a schema error.
 
-Profiles are `home`, `codebase`, `etc`, `usr`, `root`, `var`, `bin`, and `system`.
+Profiles are `home`, `codebase`, and `system`.
 
 `pkg/filespine` selects the profiles a runtime mode emits (`NamespaceVisible`). The template expander renders a file whose name has a `.tmpl` suffix, including `file.tmpl.sh`. `internal/configcue` mounts the closed map with `mountFileProfiles`.
 
@@ -14,9 +14,9 @@ Profiles are `home`, `codebase`, `etc`, `usr`, `root`, `var`, `bin`, and `system
 |---|---|
 | `home` | `home` |
 | `codebase` | `codebase` |
-| `system` | `etc`, `usr`, `root`, `var`, `bin`, `system` |
+| `system` | `system` |
 
-`--prefix` is on the command context as an opened root. `home apply` defaults to `~`. `system apply` defaults to `/`. Profile directories stay relative to that root: `etc`, `usr`, `var`, and `usr/local/bin`. `home`, `codebase`, `root`, and `system` are the root itself.
+`--prefix` is a data directory on the command context. The default is `~` for home, `.` for codebase, and `/` for system. `etc`, `usr`, `var`, `bin`, and `root` are paths inside the system tree, not separate profiles. `bin` is `usr/local/bin`.
 
 `Open(name)` on a profile filesystem returns the combined file. `name` is an `fs.FS` path. It has no leading `/`, no `~`, and no `..`.
 

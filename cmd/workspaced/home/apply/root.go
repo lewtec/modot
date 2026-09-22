@@ -26,8 +26,8 @@ import (
 )
 
 type Command struct {
-	ShowNoop cmd.Flag          `long:"show-noop" help:"Also show files that would not change"`
-	Prefix   cmdarg.HomePrefix `long:"prefix" ctx:"prefix" help:"directory that receives home files"`
+	ShowNoop cmd.Flag      `long:"show-noop" help:"Also show files that would not change"`
+	Prefix   cmdarg.Prefix `long:"prefix" ctx:"prefix" default:"~" help:"directory that receives home files"`
 }
 
 func (Command) Description() string {

@@ -37,7 +37,7 @@ type destRequest struct {
 
 // composeApply merges visible CUE profiles with discovered files.
 // Each profile is one compose tree. The apply target receives the primary
-// profile. Fixed profiles keep NamespaceBase.
+// profile. The system tree holds etc, usr, var, and bin as paths.
 func composeApply(ctx context.Context, request destRequest) (*Tree, error) {
 	var built *Tree
 	err := taskgroup.GoIsolated(ctx, "compose", taskgroup.CPU, func(ctx context.Context, status *taskgroup.Status) error {

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
+	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/cmdwire"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/deployer"
@@ -20,7 +21,8 @@ import (
 )
 
 type Apply struct {
-	ShowNoop cmd.Flag `long:"show-noop" help:"Also show files that would not change"`
+	ShowNoop cmd.Flag      `long:"show-noop" help:"Also show files that would not change"`
+	Prefix   cmdarg.Prefix `long:"prefix" ctx:"prefix" default:"." help:"directory that receives codebase files"`
 }
 
 func (Apply) Description() string {
@@ -93,8 +95,12 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 		configDir := filepath.Join(workspaceRoot, ".workspaced", "config")
 		modulesDir := filepath.Join(workspaceRoot, "modules")
 
+		target := workspaceRoot
+		if prefix := cmdarg.PrefixPath(ctx); prefix != "" && prefix != "." {
+			target = prefix
+		}
 		stdOpts := source.StandardDotfilesOptions{
-			ConfigTreeTarget: workspaceRoot,
+			ConfigTreeTarget: target,
 			ModulesDir:       modulesDir,
 			ModulesCfg:       cfg,
 		}
@@ -114,8 +120,8 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 		// State lives in the repo next to the lock.
 		// Repo-local state for codebase operations. Never use the global
 		// ~/.config/workspaced state. Paths on disk are relative to workspace root.
-		statePath := filepath.Join(workspaceRoot, ".workspaced", "state.json")
-		stateStore, err := deployer.NewFileStateStore(statePath, workspaceRoot)
+		statePath := filepath.Join(target, ".workspaced", "state.json")
+		stateStore, err := deployer.NewFileStateStore(statePath, target)
 		if err != nil {
 			return fmt.Errorf("create state store: %w", err)
 		}

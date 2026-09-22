@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	lewpath "github.com/lewtec/lewkit/x/path"
 	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/module"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -61,19 +60,13 @@ func TestResolvePresetBases(t *testing.T) {
 func TestResolvePresetBaseUsesContextPrefix(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	root, err := lewpath.Open(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = root.Close() })
-	ctx := cmdarg.WithPrefix(t.Context(), root)
+	ctx := cmdarg.WithPrefix(t.Context(), dir)
 	got, err := resolvePresetBase(ctx, "etc", "/ws/modules")
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := dir + "/etc"
-	if got != want {
-		t.Fatalf("base=%q want %q", got, want)
+	if got != dir {
+		t.Fatalf("base=%q want %q", got, dir)
 	}
 }
 
@@ -114,9 +107,9 @@ func TestResolvePresetBase(t *testing.T) {
 	}{
 		{name: "home", preset: "home", modulesBaseDir: "/ws/modules", want: home},
 		{name: "codebase", preset: "codebase", modulesBaseDir: "/ws/modules", want: "/ws"},
-		{name: "etc", preset: "etc", modulesBaseDir: "/ws/modules", want: "etc"},
-		{name: "bin", preset: "bin", modulesBaseDir: "/ws/modules", want: "usr/local/bin"},
-		{name: "root", preset: "root", modulesBaseDir: "/ws/modules", want: "."},
+		{name: "etc", preset: "etc", modulesBaseDir: "/ws/modules", want: "/"},
+		{name: "bin", preset: "bin", modulesBaseDir: "/ws/modules", want: "/"},
+		{name: "root", preset: "root", modulesBaseDir: "/ws/modules", want: "/"},
 		{name: "unknown", preset: "nope", modulesBaseDir: "/ws/modules", wantErr: ErrUnknownPreset},
 	}
 	for _, tt := range tests {

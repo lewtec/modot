@@ -44,10 +44,13 @@ func resolvePresetBase(ctx context.Context, name, modulesBaseDir string) (string
 	case "codebase":
 		return filepath.Clean(filepath.Dir(modulesBaseDir)), nil
 	default:
-		if !filespine.IsNamespace(name) {
+		if filespine.SystemRel(name) == "" && name != "root" {
 			return "", fmt.Errorf("%w: %q", ErrUnknownPreset, name)
 		}
-		return filespine.ApplyDir(name, root), nil
+		if root == "" {
+			root = "/"
+		}
+		return root, nil
 	}
 }
 
@@ -88,7 +91,7 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) (modu
 		if req.Config != nil {
 			mode = req.Config.RuntimeMode()
 		}
-		if !filespine.NamespaceVisible(mode, presetName) {
+		if !filespine.PresetVisible(mode, presetName) {
 			continue
 		}
 
@@ -103,6 +106,9 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) (modu
 			rel, err := filepath.Rel(presetPath, path)
 			if err != nil {
 				return err
+			}
+			if prefix := filespine.SystemRel(presetName); prefix != "" && prefix != "." {
+				rel = filepath.Join(prefix, rel)
 			}
 			isSymlink := info.Mode()&os.ModeSymlink != 0
 			out = append(out, module.ResolvedFile{

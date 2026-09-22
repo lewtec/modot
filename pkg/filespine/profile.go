@@ -13,24 +13,11 @@ const (
 )
 
 // Profiles are the only legal keys under workspaced.file.
+// etc, usr, var, bin, and root are paths inside system, not profiles.
 var Profiles = []string{
-	"home",
-	"codebase",
-	"etc",
-	"usr",
-	"root",
-	"var",
-	"bin",
-	"system",
-}
-
-// NamespaceBase is the directory of a fixed profile, relative to the system root.
-// home, codebase, root, and system use that root itself.
-var NamespaceBase = map[string]string{
-	"etc": "etc",
-	"usr": "usr",
-	"var": "var",
-	"bin": "usr/local/bin",
+	ModeHome,
+	ModeCodebase,
+	ModeSystem,
 }
 
 // IsNamespace reports whether name is a dest profile.
@@ -49,38 +36,55 @@ func Visible(mode string) []string {
 	return out
 }
 
-// RelDir is the profile directory relative to the apply root.
-// home, codebase, root, and system are ".".
-func RelDir(profile string) string {
-	if base, ok := NamespaceBase[profile]; ok && base != "" {
-		return base
+// PresetVisible reports whether a module directory is read for mode.
+// System mode reads etc, usr, var, bin, root, and system into one tree.
+func PresetVisible(mode, preset string) bool {
+	switch mode {
+	case ModeCodebase:
+		return preset == ModeCodebase
+	case ModeSystem:
+		return SystemRel(preset) != "" || preset == ModeSystem || preset == "root"
+	default:
+		return preset == ModeHome
 	}
-	return "."
 }
 
-// ApplyDir joins RelDir onto root.
-// An empty root keeps the relative directory.
+// SystemRel is the path of a system preset inside the system root.
+// root and system are the root itself. An unknown name returns "".
+func SystemRel(preset string) string {
+	switch preset {
+	case "etc", "usr", "var":
+		return preset
+	case "bin":
+		return "usr/local/bin"
+	case "root", ModeSystem:
+		return "."
+	default:
+		return ""
+	}
+}
+
+// ApplyDir joins a profile onto root.
+// An empty root is ".". home, codebase, and system are the root itself.
 func ApplyDir(profile, root string) string {
-	rel := RelDir(profile)
-	if root == "" || root == "." {
-		return rel
+	if root == "" {
+		root = "."
 	}
-	if rel == "." {
-		return root
+	if profile != "" && !IsNamespace(profile) {
+		if rel := SystemRel(profile); rel != "" && rel != "." {
+			return lewpath.New(root, rel).String()
+		}
 	}
-	return lewpath.New(root, rel).String()
+	return root
 }
 
 // ProfileForTarget reports the profile whose apply directory is target.
 // An empty target, or target equal to primary, selects Primary(mode).
 func ProfileForTarget(mode, target, primary string) (string, bool) {
-	if target == "" || target == primary {
+	if target == "" || target == primary || target == "." {
 		return Primary(mode), true
 	}
 	for _, profile := range Visible(mode) {
-		if profile == Primary(mode) {
-			continue
-		}
 		if ApplyDir(profile, primary) == target {
 			return profile, true
 		}
@@ -102,13 +106,13 @@ func Primary(mode string) string {
 }
 
 // NamespaceVisible reports whether profile is emitted for mode.
-// An empty mode is home. etc, usr, root, var, and bin are system.
+// An empty mode is home.
 func NamespaceVisible(mode, profile string) bool {
 	switch mode {
 	case ModeCodebase:
 		return profile == ModeCodebase
 	case ModeSystem:
-		return IsNamespace(profile) && profile != ModeHome && profile != ModeCodebase
+		return profile == ModeSystem
 	default:
 		return profile == ModeHome
 	}

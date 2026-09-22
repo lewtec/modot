@@ -106,7 +106,7 @@ func applySystemFiles(ctx context.Context, prefix string, cfg *configcue.Config,
 
 type Apply struct {
 	action cmd.EnumArg[cmdarg.NixAction] `default:"switch"`
-	prefix cmdarg.SystemPrefix           `long:"prefix" ctx:"prefix" help:"system root for module files"`
+	prefix cmdarg.Prefix                 `long:"prefix" ctx:"prefix" default:"/" help:"system root for module files"`
 }
 
 func (Apply) Description() string {

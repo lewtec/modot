@@ -305,7 +305,7 @@ func TestFileSpineEtcUsesFixedBase(t *testing.T) {
 	if len(out) != 1 {
 		t.Fatalf("len=%d", len(out))
 	}
-	if out[0].TargetBase() != "/etc" || out[0].RelPath() != "hosts" {
+	if out[0].TargetBase() != "/" || out[0].RelPath() != "etc/hosts" {
 		t.Fatalf("target=%s rel=%s", out[0].TargetBase(), out[0].RelPath())
 	}
 }
@@ -351,9 +351,9 @@ func TestFileSpineSameRelPathOnTwoProfiles(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		got[f.TargetBase()] = string(body)
+		got[f.RelPath()] = string(body)
 	}
-	if got[prefix] != "home\n" || got[etcBase] != "etc\n" {
+	if got["hosts"] != "home\n" || got["etc/hosts"] != "etc\n" {
 		t.Fatalf("bodies=%v", got)
 	}
 }
