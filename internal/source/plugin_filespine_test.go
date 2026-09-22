@@ -167,6 +167,32 @@ func TestFileSpineStaticRef(t *testing.T) {
 	}
 }
 
+func TestFileSpineNestedTargetStaysInHome(t *testing.T) {
+	t.Parallel()
+	ctx := logging.NewWriterContext(t.Output())
+	home := t.TempDir()
+	p := NewFileSpinePlugin(&configcue.Config{}, home)
+	out, err := p.Process(ctx, []File{
+		&BufferFile{
+			BasicFile: BasicFile{
+				RelPathStr:    "dconf.marker",
+				TargetBaseDir: filepath.Join(home, ".config", "workspaced"),
+				FileMode:      0o644,
+			},
+			Content: []byte("abc"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("len=%d", len(out))
+	}
+	if out[0].TargetBase() != home || out[0].RelPath() != ".config/workspaced/dconf.marker" {
+		t.Fatalf("target=%s rel=%s", out[0].TargetBase(), out[0].RelPath())
+	}
+}
+
 func TestFileSpineKeepsSymlink(t *testing.T) {
 	t.Parallel()
 	ctx := logging.NewWriterContext(t.Output())

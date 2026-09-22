@@ -8,6 +8,9 @@ import (
 	"io"
 	"io/fs"
 	"iter"
+	"os"
+	"path/filepath"
+	"strings"
 
 	lewfs "github.com/lewtec/lewkit/x/fs"
 	"github.com/lewtec/lewkit/x/fs/compose"
@@ -53,16 +56,16 @@ func composeApply(ctx context.Context, request destRequest) (*Tree, error) {
 
 	grouped := map[string]*profileFiles{}
 	for _, file := range request.files {
-		name, ok := filespine.ProfileForTarget(mode, file.TargetBase(), request.targetBase)
-		if !ok {
-			return nil, fmt.Errorf("file %s: target %s: %w", file.RelPath(), file.TargetBase(), errNotProfileDir)
+		name, placed, err := placeInProfile(file, mode, request.targetBase)
+		if err != nil {
+			return nil, err
 		}
 		profile := grouped[name]
 		if profile == nil {
 			profile = &profileFiles{recorded: map[string]recordedFile{}}
 			grouped[name] = profile
 		}
-		if err := profile.add(file); err != nil {
+		if err := profile.add(placed); err != nil {
 			return nil, fmt.Errorf("file.%s: %w", name, err)
 		}
 	}
@@ -175,6 +178,61 @@ func applyFiles(tree *compose.Tree, base fs.FS, recorded map[string]recordedFile
 	}
 	return out, nil
 }
+
+// placeInProfile picks the visible profile whose directory contains the file target.
+// A target nested under that directory keeps the extra path on the relative name.
+func placeInProfile(file File, mode, primary string) (string, File, error) {
+	target := file.TargetBase()
+	if target == "" {
+		target = primary
+	}
+	var chosen string
+	var chosenDir string
+	var nested string
+	for _, name := range filespine.Visible(mode) {
+		dir := filespine.ApplyDir(name, primary)
+		sub, ok := insideDir(dir, target)
+		if !ok {
+			continue
+		}
+		if chosen == "" || len(dir) > len(chosenDir) {
+			chosen = name
+			chosenDir = dir
+			nested = sub
+		}
+	}
+	if chosen == "" {
+		return "", nil, fmt.Errorf("file %s: target %s: %w", file.RelPath(), file.TargetBase(), errNotProfileDir)
+	}
+	if nested == "" {
+		return chosen, file, nil
+	}
+	return chosen, rebasedFile{File: file, rel: lewpath.New(nested, file.RelPath()).String()}, nil
+}
+
+func insideDir(root, target string) (string, bool) {
+	if root == "" || target == "" {
+		return "", false
+	}
+	rel, err := filepath.Rel(root, target)
+	if err != nil {
+		return "", false
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", false
+	}
+	if rel == "." {
+		return "", true
+	}
+	return filepath.ToSlash(rel), true
+}
+
+type rebasedFile struct {
+	File
+	rel string
+}
+
+func (file rebasedFile) RelPath() string { return file.rel }
 
 func linkTarget(file compose.File) (string, bool) {
 	for _, slot := range file.Values {
