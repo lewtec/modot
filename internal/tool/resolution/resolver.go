@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/semver"
+	kittool "github.com/lewtec/lewkit/x/tool"
 	"github.com/lucasew/workspaced/pkg/logging"
 	"os"
 	"path/filepath"
@@ -95,18 +95,7 @@ func (r *Resolver) Resolve(ctx context.Context, toolName string) (string, error)
 }
 
 func (r *Resolver) checkBin(verDir, toolName string) string {
-	candidates := []string{
-		filepath.Join(verDir, "bin", toolName),
-		filepath.Join(verDir, "bin", toolName+".exe"),
-		filepath.Join(verDir, toolName),
-		filepath.Join(verDir, toolName+".exe"),
-	}
-	for _, path := range candidates {
-		if _, err := os.Stat(path); err == nil {
-			return path
-		}
-	}
-	return ""
+	return kittool.FindBinary(verDir, toolName)
 }
 
 func (r *Resolver) resolveVersion(ctx context.Context, toolName string) (string, error) {
@@ -197,6 +186,6 @@ func readToolVersion(ctx context.Context, path, toolName string) (string, error)
 
 func sortVersions(versions []string) {
 	sort.Slice(versions, func(i, j int) bool {
-		return semver.Parse(versions[i]).Less(semver.Parse(versions[j]))
+		return kittool.CompareVersions(versions[i], versions[j]) < 0
 	})
 }

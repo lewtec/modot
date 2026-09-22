@@ -3,7 +3,8 @@ package tool
 import (
 	"path/filepath"
 
-	"github.com/lucasew/workspaced/internal/tool/checks"
+	kittool "github.com/lewtec/lewkit/x/tool"
+
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 )
 
@@ -23,14 +24,12 @@ func workspacedShareDir(leaf string) (string, error) {
 	return filepath.Join(home, ".local", "share", "workspaced", leaf), nil
 }
 
-// FindBinary searches for a binary named cmdName in the standard candidate
-// locations under baseDir. See checks.FindBinary.
+// FindBinary searches for cmdName under baseDir (bin/ and the directory root).
 func FindBinary(baseDir, cmdName string) string {
-	return checks.FindBinary(baseDir, cmdName)
+	return kittool.FindBinary(baseDir, cmdName)
 }
 
-// BinaryCandidates returns the list of candidate paths for a binary in
-// the standard layout under baseDir. See checks.BinaryCandidates.
+// BinaryCandidates lists the paths FindBinary checks, in order.
 func BinaryCandidates(baseDir, cmdName string) []string {
-	return checks.BinaryCandidates(baseDir, cmdName)
+	return kittool.BinaryCandidates(baseDir, cmdName)
 }

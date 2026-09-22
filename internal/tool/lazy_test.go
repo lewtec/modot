@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
+	kittool "github.com/lewtec/lewkit/x/tool"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/modfile"
-	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
 	_ "github.com/lucasew/workspaced/pkg/driver/env/native"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
@@ -51,11 +51,11 @@ workspaced: {
 }
 `)
 
-	spec, err := parsespec.Parse("github:cli/cli")
+	spec, err := kittool.Parse("github:cli/cli")
 	if err != nil {
 		t.Fatalf("parse spec: %v", err)
 	}
-	binPath := filepath.Join(home, ".local", "share", "workspaced", "tools", spec.Dir(), "2.89.0", "bin", "gh")
+	binPath := filepath.Join(home, ".local", "share", "workspaced", "tools", spec.Directory(), "2.89.0", "bin", "gh")
 	writeTestFile(t, binPath, "#!/bin/sh\nexit 0\n")
 	if err := os.Chmod(binPath, 0o755); err != nil {
 		t.Fatalf("chmod bin: %v", err)
@@ -142,18 +142,12 @@ type staticEnrichTool struct {
 
 func (t staticEnrichTool) ListVersions(context.Context) ([]string, error) { return nil, nil }
 func (t staticEnrichTool) Install(context.Context, string, string) error  { return nil }
-func (t staticEnrichTool) EnrichLockfile(entry *modfile.RenovateDependency) {
-	if t.depName != "" {
-		entry.DepName = t.depName
-	}
-	if t.datasource != "" {
-		entry.Datasource = t.datasource
-	}
-	if t.versioning != "" {
-		entry.Versioning = t.versioning
-	}
-	if t.extractVers != "" {
-		entry.ExtractVersion = t.extractVers
+func (t staticEnrichTool) Pin() kittool.Pin {
+	return kittool.Pin{
+		Name:           t.depName,
+		Datasource:     t.datasource,
+		Versioning:     t.versioning,
+		ExtractVersion: t.extractVers,
 	}
 }
 

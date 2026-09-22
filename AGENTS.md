@@ -47,7 +47,7 @@ Register an impl by importing its package from the central prelude.
 ## When adding things
 
 - New driver category: `pkg/driver/<cat>/driver.go` (interface) + `facade.go`, one impl dir, import in `pkg/driver/prelude/prelude.go`, CLI under `cmd/workspaced/driver/<cat>/`.
-- New tool backend: `internal/tool/backend/<name>/`. Curated short names go in `internal/tool/backend/catalog/applications/`.
+- Tool backends, the curated catalog, and tool download drivers (fetchurl, httpclient) live in `github.com/lewtec/lewkit/x/tool` and `x/driver`. Workspaced keeps the store path, shims, lazy locks, and CLI. Add a backend in lewkit, then blank-import it from `internal/tool/prelude` (which loads `x/tool/prelude`).
 - New module source: implement under `internal/modfile/sourceprovider/`.
 - Anything else: `internal/<domain>/` unless another module should import it.
 

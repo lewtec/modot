@@ -1,269 +1,105 @@
+// Package tool installs external programs into ~/.local/share/workspaced/tools
+// and resolves lazy tools from the workspace lockfile.
+//
+// Fetching, catalogs, and version directories are github.com/lewtec/lewkit/x/tool.
+// This package chooses the store directory, shims, and Renovate lock rows.
 package tool
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
+	"os/exec"
 
-	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lucasew/workspaced/internal/atomicfile"
+	kittool "github.com/lewtec/lewkit/x/tool"
+
 	"github.com/lucasew/workspaced/internal/cmdctx"
-	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
-	"github.com/lucasew/workspaced/internal/tool/backend"
-	"github.com/lucasew/workspaced/pkg/logging"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 )
 
-// Manager orchestrates the lifecycle, installation, and storage mapping for external tools.
-// It maps abstract tool specs (e.g., "github:cli/cli@v2.0.0") to concrete local directories,
-// delegating artifact fetching to registered backend providers.
+var (
+	// ErrBinaryNotFound is returned when the binary is not in the install directory.
+	ErrBinaryNotFound = kittool.ErrBinaryNotFound
+	// ErrNoVersionsFound is returned when a backend lists no versions.
+	ErrNoVersionsFound = kittool.ErrNoVersionsFound
+	// ErrToolDirNotFound is returned when a version directory is missing.
+	ErrToolDirNotFound = kittool.ErrToolDirectoryNotFound
+)
+
+// InstalledTool is one version directory in the local store.
+type InstalledTool = kittool.Installed
+
+// Manager binds the workspaced tool directory to a lewkit store.
 type Manager struct {
-	toolsDir string
+	store *kittool.Store
 }
 
-// NewManager initializes a tool manager, determining the localized root directory
-// where all tool artifacts will be stored. Returns an error if the path cannot be resolved.
+// NewManager opens the store under GetToolsDir.
 func NewManager() (*Manager, error) {
 	toolsDir, err := GetToolsDir()
 	if err != nil {
 		return nil, err
 	}
-	return &Manager{
-		toolsDir: toolsDir,
-	}, nil
-}
-
-// Install parses the tool specification and persists the tool to the localized directory.
-// It fetches the artifact via the underlying provider, resolving "latest" versions against
-// upstream registries if needed.
-func (m *Manager) Install(ctx context.Context, toolSpecStr string) error {
-	return m.installWithHint(ctx, toolSpecStr, "")
-}
-
-// Ensure ensures the tool for the given spec is present on disk (installing it if the
-// resolved version directory is missing or empty). It handles "latest" by first resolving
-// it to a concrete version (which may query upstream), then checks the corresponding
-// on-disk directory. If a usable directory for that version already exists, it returns
-// quickly with no further network or extraction work. This is useful for "side" tools
-// listed in `tool with` where no specific binary name is known in advance.
-func (m *Manager) Ensure(ctx context.Context, toolSpecStr string) error {
-	spec, err := parsespec.Parse(toolSpecStr)
-	if err != nil {
-		return err
-	}
-
-	actualVersion := spec.Version
-	if spec.Version == "latest" {
-		resolved, err := m.ResolveLatestVersion(ctx, spec)
-		if err != nil {
-			return fmt.Errorf("resolve latest version: %w", err)
-		}
-		actualVersion = resolved
-	}
-
-	normalizedVersion := normalizeVersion(actualVersion)
-	versionDir := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
-
-	p, perr := Get(spec.Provider)
-	var tt backend.Tool
-	if perr == nil {
-		if t, toolErr := p.Tool(spec.Package); toolErr == nil {
-			tt = t
-		}
-	}
-
-	noCache := cmdctx.IsNoCache(ctx)
-	if entries, err := os.ReadDir(versionDir); err == nil && len(entries) > 0 && !noCache {
-		if tt != nil {
-			if err := fixAndCheck(ctx, tt, versionDir); err == nil {
-				return nil
-			}
-			// Broken tree removed by fixAndCheck; fall through to reinstall.
-		} else {
-			return nil
-		}
-	}
-	if noCache && cmdctx.IsDryRun(ctx) {
-		if entries, err := os.ReadDir(versionDir); err == nil && len(entries) > 0 {
-			logging.GetLogger(ctx).Debug("no-cache: would reinstall tool (dry-run)", "spec", toolSpecStr)
-			return nil
-		}
-	}
-	if noCache {
-		logging.GetLogger(ctx).Debug("no-cache: reinstalling tool", "spec", toolSpecStr)
-	}
-
-	// Missing, empty, failed checks, or no-cache: let Install perform the work.
-	// If we resolved a concrete version for a "latest" input, pass it pinned so
-	// Install skips its own re-resolution.
-	if actualVersion != spec.Version {
-		pinned := fmt.Sprintf("%s:%s@%s", spec.Provider, spec.Package, actualVersion)
-		return m.Install(ctx, pinned)
-	}
-	return m.Install(ctx, toolSpecStr)
-}
-
-// installWithHint executes the core installation flow, optionally taking a binaryHint
-// (such as an expected executable name). When a hint is provided, it attempts an optimized
-// artifact selection (via ArtifactTool) before falling back to standard backend.Tool logic.
-// The hint helps disambiguate platforms where an archive might contain multiple binaries.
-func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binaryHint string) error {
-	logger := logging.GetLogger(ctx)
-	logger.Debug("installing tool", "input", toolSpecStr)
-	spec, err := parsespec.Parse(toolSpecStr)
-	if err != nil {
-		return err
-	}
-	logger.Debug("parsed spec", "spec", spec)
-
-	p, err := Get(spec.Provider)
-	if err != nil {
-		return err
-	}
-
-	t, err := p.Tool(spec.Package)
-	if err != nil {
-		return err
-	}
-
-	// Resolve latest version if needed
-	version := spec.Version
-	if version == "latest" {
-		logger.Debug("resolving latest version", "pkg", spec.Package)
-		versions, err := t.ListVersions(ctx)
-		if err != nil {
-			return fmt.Errorf("list versions: %w", err)
-		}
-		if len(versions) == 0 {
-			return fmt.Errorf("no versions found for package %s", spec.Package)
-		}
-		version = versions[0]
-		logger.Debug("resolved latest version", "version", version)
-	}
-
-	normalizedVersion := normalizeVersion(version)
-	logger.Debug("normalized version", "original", version, "normalized", normalizedVersion)
-
-	finalPath := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
-	// Always materialize into a sibling temp dir, then atomic-swap into place.
-	workPath := finalPath + ".tmp"
-	if err := os.RemoveAll(workPath); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(workPath, 0755); err != nil {
-		return err
-	}
-	cleanupWork := true
-	defer func() {
-		if cleanupWork {
-			if rmErr := os.RemoveAll(workPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
-				logging.ReportError(ctx, rmErr, "path", workPath)
-			}
-		}
-	}()
-
-	// Named install shell is Control: httpclient.WithProgress takes Internet.
-	doInstall := func(ctx context.Context) error {
-		// Prefer the rich ArtifactTool path when we have a binary hint (better artifact scoring).
-		if binaryHint != "" {
-			if at, ok := t.(backend.ArtifactTool); ok {
-				artifacts, err := at.ListArtifacts(ctx, version)
-				if err == nil {
-					if chosen := backend.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, binaryHint); chosen != nil {
-						logger := logging.GetLogger(ctx)
-						logger.Debug("installing with artifact hint", "url", chosen.URL, "hint", binaryHint)
-						return at.InstallArtifact(ctx, *chosen, workPath)
-					}
-				}
-			}
-		}
-
-		// Normal path: let the Tool do the install (it will select a suitable artifact for the platform).
-		logger := logging.GetLogger(ctx)
-		logger.Debug("installing tool via Tool.Install", "dest", workPath)
-		return t.Install(ctx, version, workPath)
-	}
-
-	if err := taskgroup.GoIsolated(ctx, "install:"+spec.String(), taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-		s.Update("installing " + normalizedVersion)
-		return doInstall(ctx)
-	}); err != nil {
-		return fmt.Errorf("installation failed: %w", err)
-	}
-
-	if err := fixAndCheck(ctx, t, workPath); err != nil {
-		return err
-	}
-
-	if err := atomicReplaceDir(finalPath, workPath); err != nil {
-		return fmt.Errorf("install swap %s: %w", finalPath, err)
-	}
-	cleanupWork = false
-
-	logger.Info("tool installed successfully", "spec", spec, "normalized_version", normalizedVersion, "path", finalPath)
-	return nil
-}
-
-func atomicReplaceDir(dest, tmpDir string) error {
-	return atomicfile.ReplaceDir(dest, tmpDir)
-}
-
-// InstalledTool represents a discrete version of a tool that has been physically
-// persisted to the local system by the Manager.
-type InstalledTool struct {
-	Name    string
-	Version string
-	Path    string
-}
-
-// ListInstalled scans the localized tools directory and returns all present tool versions.
-// This is an offline operation based on directory structure, and may include versions
-// installed directly without a lockfile.
-func (m *Manager) ListInstalled() ([]InstalledTool, error) {
-	var tools []InstalledTool
-
-	entries, err := os.ReadDir(m.toolsDir)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
-	}
+	store, err := kittool.Open(toolsDir)
 	if err != nil {
 		return nil, err
 	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		toolName := entry.Name() // e.g., github-denoland-deno
-		toolPath := filepath.Join(m.toolsDir, toolName)
-
-		versions, err := os.ReadDir(toolPath)
-		if err != nil {
-			continue
-		}
-
-		for _, v := range versions {
-			if !v.IsDir() {
-				continue
-			}
-			tools = append(tools, InstalledTool{
-				Name:    toolName,
-				Version: v.Name(),
-				Path:    filepath.Join(toolPath, v.Name()),
-			})
-		}
-	}
-
-	return tools, nil
+	return &Manager{store: store}, nil
 }
 
-// normalizeVersion removes the 'v' prefix from versions for consistent storage
-func normalizeVersion(version string) string {
-	version = strings.TrimPrefix(version, "v")
-	// Replace slashes with dashes to avoid nested directories
-	return strings.ReplaceAll(version, "/", "-")
+// Install fetches toolSpecStr into the store.
+func (m *Manager) Install(ctx context.Context, toolSpecStr string) error {
+	return m.store.Install(storeContext(ctx), toolSpecStr)
+}
+
+// EnsureInstalled installs toolSpecStr when needed and returns the path of cmdName.
+func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName string) (string, error) {
+	return m.store.Ensure(storeContext(ctx), toolSpecStr, cmdName)
+}
+
+// ListInstalled returns version directories present on disk.
+func (m *Manager) ListInstalled() ([]InstalledTool, error) {
+	return m.store.ListInstalled()
+}
+
+// ResolveLatestVersion returns the newest version the backend lists for spec.
+func (m *Manager) ResolveLatestVersion(ctx context.Context, spec kittool.Spec) (string, error) {
+	backend, err := kittool.Get(spec.Backend)
+	if err != nil {
+		return "", err
+	}
+	installed, err := backend.Tool(spec.Package)
+	if err != nil {
+		return "", err
+	}
+	versions, err := installed.ListVersions(ctx)
+	if err != nil {
+		return "", err
+	}
+	if len(versions) == 0 {
+		return "", ErrNoVersionsFound
+	}
+	return versions[0], nil
+}
+
+// EnsureAndRun installs cmdName from toolSpecStr and returns a command ready to start.
+func EnsureAndRun(ctx context.Context, toolSpecStr, cmdName string, args ...string) (*exec.Cmd, error) {
+	manager, err := NewManager()
+	if err != nil {
+		return nil, fmt.Errorf("create tool manager: %w", err)
+	}
+	binPath, err := manager.EnsureInstalled(ctx, toolSpecStr, cmdName)
+	if err != nil {
+		return nil, fmt.Errorf("ensure tool installed: %w", err)
+	}
+	return execdriver.Run(ctx, binPath, args...)
+}
+
+func storeContext(ctx context.Context) context.Context {
+	if cmdctx.IsNoCache(ctx) {
+		ctx = kittool.WithNoCache(ctx)
+	}
+	if cmdctx.IsDryRun(ctx) {
+		ctx = kittool.WithDryRun(ctx)
+	}
+	return ctx
 }

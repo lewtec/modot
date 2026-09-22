@@ -10,11 +10,10 @@ import (
 	"strings"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
+	kittool "github.com/lewtec/lewkit/x/tool"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/git"
 	"github.com/lucasew/workspaced/internal/modfile"
-	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
-	"github.com/lucasew/workspaced/internal/tool/backend"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
@@ -341,10 +340,10 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	lt := lockedToolWithRenovate(lockRef, spec.Version, spec)
 
 	// Obtain the live Tool once so we can Enrich the real structure.
-	var liveTool backend.Tool
-	if p, err := Get(spec.Provider); err == nil {
-		if t, err := p.Tool(spec.Package); err == nil {
-			liveTool = t
+	var liveTool kittool.Tool
+	if backend, err := kittool.Get(spec.Backend); err == nil {
+		if installed, err := backend.Tool(spec.Package); err == nil {
+			liveTool = installed
 		}
 	}
 
@@ -396,7 +395,7 @@ func loadLazyTools(cfg *configcue.Config) map[string]lazyToolConfig {
 	return out
 }
 
-func lazyToolSpec(toolName string, toolCfg lazyToolConfig) (parsespec.Spec, string, error) {
+func lazyToolSpec(toolName string, toolCfg lazyToolConfig) (kittool.Spec, string, error) {
 	ref := strings.TrimSpace(toolCfg.Ref)
 	if ref == "" {
 		ref = strings.TrimSpace(toolCfg.Pkg)
@@ -413,17 +412,16 @@ func lazyToolSpec(toolName string, toolCfg lazyToolConfig) (parsespec.Spec, stri
 		specStr += "@" + strings.TrimSpace(toolCfg.Version)
 	}
 
-	spec, err := parsespec.Parse(specStr)
+	spec, err := kittool.Parse(specStr)
 	if err != nil {
-		return parsespec.Spec{}, "", err
+		return kittool.Spec{}, "", err
 	}
 	return spec, ref, nil
 }
 
 // applyLiveToolEnrichment finds the tool row keyed by lockRef (creating it
-// if missing), runs Tool.EnrichLockfile on that live struct, and reports
-// whether any persisted field changed.
-func applyLiveToolEnrichment(sum *modfile.SumFile, lockRef, version string, liveTool backend.Tool) bool {
+// if missing), copies Pin onto that row, and reports whether any persisted field changed.
+func applyLiveToolEnrichment(sum *modfile.SumFile, lockRef, version string, liveTool kittool.Tool) bool {
 	if sum == nil {
 		return false
 	}
@@ -457,10 +455,25 @@ func applyLiveToolEnrichment(sum *modfile.SumFile, lockRef, version string, live
 	if strings.TrimSpace(dep.CurrentValue) == "" && version != "" {
 		dep.CurrentValue = version
 	}
-	if liveTool != nil {
-		liveTool.EnrichLockfile(dep)
+	if pinner, ok := liveTool.(kittool.Pinner); ok {
+		applyPin(dep, pinner.Pin())
 	}
 	return created || !renovateDependencyEqual(before, *dep)
+}
+
+func applyPin(dep *modfile.RenovateDependency, pin kittool.Pin) {
+	if pin.Name != "" {
+		dep.DepName = pin.Name
+	}
+	if pin.Datasource != "" {
+		dep.Datasource = pin.Datasource
+	}
+	if pin.Versioning != "" {
+		dep.Versioning = pin.Versioning
+	}
+	if pin.ExtractVersion != "" {
+		dep.ExtractVersion = pin.ExtractVersion
+	}
 }
 
 func renovateDependencyEqual(a, b modfile.RenovateDependency) bool {
@@ -483,30 +496,21 @@ func renovateDependencyEqual(a, b modfile.RenovateDependency) bool {
 	return true
 }
 
-// lockedToolWithRenovate builds the lock entry. It obtains the live Tool
-// and calls EnrichLockfile on a temporary RenovateDependency (the structure
-// passed by reference). This gives the Tool full control to set/upgrade any
-// attributes (especially renovate metadata) based on the current Ref etc.
-//
-// Because EnrichLockfile mutates the entry in place, any changes to the
-// Tool's enrichment logic are automatically reflected in the lockfile the
-// next time this tool is resolved or refreshed.
-func lockedToolWithRenovate(lockRef string, version string, spec parsespec.Spec) modfile.LockedTool {
+// lockedToolWithRenovate builds the lock entry from the tool's Pin.
+func lockedToolWithRenovate(lockRef string, version string, spec kittool.Spec) modfile.LockedTool {
 	lt := modfile.LockedTool{
 		Ref:     lockRef,
 		Version: version,
 	}
-	p, perr := Get(spec.Provider)
-	if perr != nil {
+	backend, err := kittool.Get(spec.Backend)
+	if err != nil {
 		return lt
 	}
-	tt, terr := p.Tool(spec.Package)
-	if terr != nil {
+	installed, err := backend.Tool(spec.Package)
+	if err != nil {
 		return lt
 	}
 
-	// Create a skeleton of the actual structure that will live in the
-	// lockfile's dependencies list and let the Tool mutate it directly.
 	entry := modfile.RenovateDependency{
 		Kind: "tool",
 		Ref:  lockRef,
@@ -514,7 +518,9 @@ func lockedToolWithRenovate(lockRef string, version string, spec parsespec.Spec)
 	if entry.CurrentValue == "" {
 		entry.CurrentValue = version
 	}
-	tt.EnrichLockfile(&entry)
+	if pinner, ok := installed.(kittool.Pinner); ok {
+		applyPin(&entry, pinner.Pin())
+	}
 
 	lt.DepName = entry.DepName
 	lt.Datasource = entry.Datasource

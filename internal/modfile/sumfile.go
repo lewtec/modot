@@ -22,9 +22,8 @@ type LockedTool struct {
 	Ref     string `json:"ref"`
 	Version string `json:"version"`
 
-	// Renovate reference fields (populated by default via EnrichLockfile
-	// on the live Tool when locking). These are the "data apart from
-	// toolName and version" that instruct renovate how to fetch updates.
+	// Renovate reference fields copied from the tool Pin when locking.
+	// They tell Renovate how to fetch updates.
 	DepName     string `json:"depName,omitempty"`
 	Datasource  string `json:"datasource,omitempty"`
 	PackageName string `json:"packageName,omitempty"`

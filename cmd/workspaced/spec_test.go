@@ -20,13 +20,14 @@ func TestHomeHelp(t *testing.T) {
 	assert.Contains(t, got, "apply")
 }
 
-func TestRootUsageHasProfileDir(t *testing.T) {
+func TestRootUsageHasPprof(t *testing.T) {
 	text, err := cmd.Usage[cmd.App[cli]]("workspaced")
 	require.NoError(t, err)
-	assert.Contains(t, text, "--profile-dir")
+	assert.Contains(t, text, "--pprof")
 	assert.Contains(t, text, "--io")
 	assert.Contains(t, text, "--cpu")
 	assert.Contains(t, text, "--internet")
+	assert.NotContains(t, text, "--profile-dir")
 	assert.NotContains(t, text, "--cpuprofile")
 	assert.NotContains(t, text, "--memprofile")
 }

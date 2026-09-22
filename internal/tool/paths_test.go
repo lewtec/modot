@@ -42,24 +42,3 @@ func TestBinaryCandidates(t *testing.T) {
 		})
 	}
 }
-
-func TestNormalizeVersion(t *testing.T) {
-	tests := []struct {
-		name    string
-		version string
-		want    string
-	}{
-		{name: "v prefix", version: "v1.2.3", want: "1.2.3"},
-		{name: "no prefix", version: "1.2.3", want: "1.2.3"},
-		{name: "with slash", version: "refs/heads/main", want: "refs-heads-main"},
-		{name: "v prefix with slash", version: "v1.0/rc1", want: "1.0-rc1"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := normalizeVersion(tt.version)
-			if got != tt.want {
-				t.Errorf("normalizeVersion(%q) = %q, want %q", tt.version, got, tt.want)
-			}
-		})
-	}
-}
