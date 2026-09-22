@@ -11,13 +11,14 @@ import (
 
 // HomePrefix is home apply and home plan --prefix.
 // The default is ~, the user home directory.
+// Value is that directory opened as a rooted filesystem.
 type HomePrefix struct {
-	value string
+	root *lewpath.Root
 }
 
 func (HomePrefix) ArgDefault() string { return "~" }
 
-func (p HomePrefix) Value() string { return p.value }
+func (p HomePrefix) Value() *lewpath.Root { return p.root }
 
 func (p *HomePrefix) Parse(arg string) error {
 	home, err := os.UserHomeDir()
@@ -25,43 +26,72 @@ func (p *HomePrefix) Parse(arg string) error {
 		return fmt.Errorf("%w: %w", cmd.ErrInvalidArgument, err)
 	}
 	if arg == "" || arg == "~" {
-		p.value = home
-		return nil
+		arg = home
+	} else {
+		arg = envdriver.ExpandPathIn(arg, home)
 	}
-	return assignAbsolute(&p.value, envdriver.ExpandPathIn(arg, home))
+	return p.set(arg)
 }
 
 // SystemPrefix is system apply --prefix.
 // The default is /.
+// Value is that directory opened as a rooted filesystem.
 type SystemPrefix struct {
-	value string
+	root *lewpath.Root
 }
 
 func (SystemPrefix) ArgDefault() string { return "/" }
 
-func (p SystemPrefix) Value() string { return p.value }
+func (p SystemPrefix) Value() *lewpath.Root { return p.root }
 
 func (p *SystemPrefix) Parse(arg string) error {
 	if arg == "" {
 		arg = "/"
 	}
-	return assignAbsolute(&p.value, arg)
+	return p.set(arg)
 }
 
-func assignAbsolute(dest *string, arg string) error {
-	name := lewpath.New(arg)
-	if !name.IsAbs() {
-		return fmt.Errorf("%w: prefix must be absolute", cmd.ErrInvalidArgument)
+func (p *HomePrefix) set(arg string) error {
+	root, err := openPrefix(arg)
+	if err != nil {
+		return err
 	}
-	*dest = name.String()
+	if p.root != nil {
+		_ = p.root.Close()
+	}
+	p.root = root
 	return nil
 }
 
+func (p *SystemPrefix) set(arg string) error {
+	root, err := openPrefix(arg)
+	if err != nil {
+		return err
+	}
+	if p.root != nil {
+		_ = p.root.Close()
+	}
+	p.root = root
+	return nil
+}
+
+func openPrefix(arg string) (*lewpath.Root, error) {
+	name := lewpath.New(arg)
+	if !name.IsAbs() {
+		return nil, fmt.Errorf("%w: prefix must be absolute", cmd.ErrInvalidArgument)
+	}
+	root, err := lewpath.Open(name.String())
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", cmd.ErrInvalidArgument, err)
+	}
+	return root, nil
+}
+
 var (
-	_ cmd.Parser       = (*HomePrefix)(nil)
-	_ cmd.Parser       = (*SystemPrefix)(nil)
-	_ cmd.Arg[string]  = (*HomePrefix)(nil)
-	_ cmd.Arg[string]  = (*SystemPrefix)(nil)
-	_ cmd.ArgDefaulter = HomePrefix{}
-	_ cmd.ArgDefaulter = SystemPrefix{}
+	_ cmd.Parser             = (*HomePrefix)(nil)
+	_ cmd.Parser             = (*SystemPrefix)(nil)
+	_ cmd.Arg[*lewpath.Root] = (*HomePrefix)(nil)
+	_ cmd.Arg[*lewpath.Root] = (*SystemPrefix)(nil)
+	_ cmd.ArgDefaulter       = HomePrefix{}
+	_ cmd.ArgDefaulter       = SystemPrefix{}
 )

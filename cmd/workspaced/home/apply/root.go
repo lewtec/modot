@@ -23,6 +23,7 @@ import (
 	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	lewpath "github.com/lewtec/lewkit/x/path"
 )
 
 type Command struct {
@@ -44,7 +45,7 @@ func (c *Command) Run(ctx context.Context) error {
 // Schedule wires the home apply/plan work into the session.
 // Both "home apply" and "home plan" use this so the work always runs in-process
 // under the caller's session. The returned func prints the report after wait.
-func Schedule(ctx context.Context, dryRun, showNoop bool, prefix string) func() error {
+func Schedule(ctx context.Context, dryRun, showNoop bool, prefix *lewpath.Root) func() error {
 	taskName := "home:apply"
 	updateMsg := "applying configuration"
 	if dryRun {
@@ -75,7 +76,7 @@ func Schedule(ctx context.Context, dryRun, showNoop bool, prefix string) func() 
 			return fmt.Errorf("refresh workspace lockfile: %w", err)
 		}
 
-		home := prefix
+		home := prefix.Name()
 		liveHome, err := os.UserHomeDir()
 		if err != nil {
 			return fmt.Errorf("get home directory: %w", err)

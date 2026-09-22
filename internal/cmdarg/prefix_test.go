@@ -14,36 +14,36 @@ func TestHomePrefixDefault(t *testing.T) {
 	if err := prefix.Parse(prefix.ArgDefault()); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = prefix.Value().Close() })
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if prefix.Value() != home {
-		t.Fatalf("value = %q", prefix.Value())
+	if prefix.Value().Name() != home {
+		t.Fatalf("name = %q", prefix.Value().Name())
+	}
+	if _, err := prefix.Value().Stat("."); err != nil {
+		t.Fatal(err)
 	}
 }
 
 func TestHomePrefixExpandsTilde(t *testing.T) {
 	t.Parallel()
+	dir := t.TempDir()
 	var prefix HomePrefix
-	if err := prefix.Parse("~/stage"); err != nil {
+	if err := prefix.Parse(dir); err != nil {
 		t.Fatal(err)
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := home + "/stage"
-	if prefix.Value() != want {
-		t.Fatalf("value = %q, want %q", prefix.Value(), want)
+	t.Cleanup(func() { _ = prefix.Value().Close() })
+	if prefix.Value().Name() != dir {
+		t.Fatalf("name = %q", prefix.Value().Name())
 	}
 }
 
 func TestHomePrefixRejectsRelative(t *testing.T) {
 	t.Parallel()
 	var prefix HomePrefix
-	err := prefix.Parse("stage")
-	if err == nil {
+	if err := prefix.Parse("stage"); err == nil {
 		t.Fatal("expected error")
 	}
 }
@@ -57,22 +57,35 @@ func TestSystemPrefixDefault(t *testing.T) {
 	if err := prefix.Parse(prefix.ArgDefault()); err != nil {
 		t.Fatal(err)
 	}
-	if prefix.Value() != "/" {
-		t.Fatalf("value = %q", prefix.Value())
+	t.Cleanup(func() { _ = prefix.Value().Close() })
+	if prefix.Value().Name() != "/" {
+		t.Fatalf("name = %q", prefix.Value().Name())
+	}
+	if _, err := prefix.Value().Stat("."); err != nil {
+		t.Fatal(err)
 	}
 }
 
 func TestSystemPrefixCleans(t *testing.T) {
 	t.Parallel()
+	dir := t.TempDir()
 	var prefix SystemPrefix
-	if err := prefix.Parse("/mnt/"); err != nil {
+	if err := prefix.Parse(dir + "/"); err != nil {
 		t.Fatal(err)
 	}
-	if prefix.Value() != "/mnt" {
-		t.Fatalf("value = %q", prefix.Value())
+	t.Cleanup(func() { _ = prefix.Value().Close() })
+	if prefix.Value().Name() != dir {
+		t.Fatalf("name = %q", prefix.Value().Name())
 	}
-	err := prefix.Parse("mnt")
-	if err == nil {
+	if err := prefix.Parse("mnt"); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestPrefixMissingDirectory(t *testing.T) {
+	t.Parallel()
+	var prefix SystemPrefix
+	if err := prefix.Parse(t.TempDir() + "/missing"); err == nil {
 		t.Fatal("expected error")
 	}
 }

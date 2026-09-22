@@ -20,12 +20,10 @@ import (
 	lewpath "github.com/lewtec/lewkit/x/path"
 )
 
-func RunApply(ctx context.Context, action, prefix string) error {
+func RunApply(ctx context.Context, action string, prefix *lewpath.Root) error {
 	logger := logging.GetLogger(ctx)
 	dryRun := cmdctx.IsDryRun(ctx)
-	if prefix == "" {
-		prefix = "/"
-	}
+	root := prefix.Name()
 
 	dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 	if err != nil {
@@ -39,12 +37,12 @@ func RunApply(ctx context.Context, action, prefix string) error {
 	if _, err := tool.RefreshWorkspaceLocks(ctx, ws, cfg); err != nil {
 		return fmt.Errorf("refresh workspace lockfile: %w", err)
 	}
-	if err := applySystemFiles(ctx, prefix, cfg, ws.ModulesBaseDir(), dryRun); err != nil {
+	if err := applySystemFiles(ctx, root, cfg, ws.ModulesBaseDir(), dryRun); err != nil {
 		return err
 	}
 
-	if !envdriver.IsNixOS(ctx) || prefix != "/" {
-		logger.Info("skipping nixos rebuild", "prefix", prefix)
+	if !envdriver.IsNixOS(ctx) || root != "/" {
+		logger.Info("skipping nixos rebuild", "prefix", root)
 		return nil
 	}
 
