@@ -28,37 +28,23 @@ type Provider struct{}
 func (p *Provider) ID() string   { return "self" }
 func (p *Provider) Name() string { return "Workspace Module" }
 
-const (
-	presetHome      = "~"
-	presetWorkspace = "<workspace>"
-)
-
-var presetBases = map[string]string{
-	"home":     presetHome,
-	"codebase": presetWorkspace,
-	"etc":      "/etc",
-	"usr":      "/usr",
-	"root":     "/",
-	"var":      "/var",
-	"bin":      "/usr/local/bin",
-}
-
-func resolvePresetBase(name, modulesBaseDir string) (string, error) {
-	base, ok := presetBases[name]
-	if !ok {
-		return "", fmt.Errorf("%w: %q", ErrUnknownPreset, name)
-	}
-	switch base {
-	case presetHome:
+func resolvePresetBase(name, modulesBaseDir, prefix string) (string, error) {
+	switch name {
+	case "home":
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("get home directory: %w", err)
 		}
 		return home, nil
-	case presetWorkspace:
+	case "codebase":
 		return filepath.Clean(filepath.Dir(modulesBaseDir)), nil
+	case "system", "root":
+		return filespine.ApplyDir(name, prefix), nil
 	default:
-		return base, nil
+		if !filespine.IsNamespace(name) {
+			return "", fmt.Errorf("%w: %q", ErrUnknownPreset, name)
+		}
+		return filespine.ApplyDir(name, prefix), nil
 	}
 }
 
@@ -91,7 +77,7 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) (modu
 			return module.ResolveResult{}, fmt.Errorf("%w: %q in module %q", ErrStrictStructureViolation, name, req.Ref)
 		}
 		presetName := preset.Name()
-		targetBase, err := resolvePresetBase(presetName, req.ModulesBaseDir)
+		targetBase, err := resolvePresetBase(presetName, req.ModulesBaseDir, req.SystemPrefix)
 		if err != nil {
 			return module.ResolveResult{}, fmt.Errorf("%w in module %q", err, req.Ref)
 		}

@@ -4,7 +4,7 @@
 
 Profiles are `home`, `codebase`, `etc`, `usr`, `root`, `var`, `bin`, and `system`.
 
-`pkg/filespine` selects the profiles a runtime mode emits (`NamespaceVisible`) and the paths the template expander renders (`IsTemplatePath`). `internal/configcue` mounts the closed map with `mountFileProfiles`.
+`pkg/filespine` selects the profiles a runtime mode emits (`NamespaceVisible`). The template expander renders a file whose name has a `.tmpl` suffix, including `file.tmpl.sh`. `internal/configcue` mounts the closed map with `mountFileProfiles`.
 
 ## Mode
 
@@ -16,7 +16,7 @@ Profiles are `home`, `codebase`, `etc`, `usr`, `root`, `var`, `bin`, and `system
 | `codebase` | `codebase` |
 | `system` | `etc`, `usr`, `root`, `var`, `bin`, `system` |
 
-`home`, `codebase`, and `system` use the apply target directory. The other profiles use a fixed directory: `etc` is `/etc`, `usr` is `/usr`, `root` is `/`, `var` is `/var`, and `bin` is `/usr/local/bin`.
+`home` uses `~`. `codebase` uses the repo. The system root defaults to `/`. `system apply --prefix` selects another root. `root` and `system` are that root. `etc`, `usr`, `var`, and `bin` are `etc`, `usr`, `var`, and `usr/local/bin` under it.
 
 `Open(name)` on a profile filesystem returns the combined file. `name` is an `fs.FS` path. It has no leading `/`, no `~`, and no `..`.
 

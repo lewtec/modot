@@ -88,18 +88,21 @@ func TestResolvePresetBase(t *testing.T) {
 		name           string
 		preset         string
 		modulesBaseDir string
+		prefix         string
 		want           string
 		wantErr        error
 	}{
 		{name: "home", preset: "home", modulesBaseDir: "/ws/modules", want: home},
 		{name: "codebase", preset: "codebase", modulesBaseDir: "/ws/modules", want: "/ws"},
 		{name: "etc", preset: "etc", modulesBaseDir: "/ws/modules", want: "/etc"},
+		{name: "etc prefix", preset: "etc", modulesBaseDir: "/ws/modules", prefix: "/mnt", want: "/mnt/etc"},
+		{name: "bin prefix", preset: "bin", modulesBaseDir: "/ws/modules", prefix: "/mnt", want: "/mnt/usr/local/bin"},
 		{name: "unknown", preset: "nope", modulesBaseDir: "/ws/modules", wantErr: ErrUnknownPreset},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := resolvePresetBase(tt.preset, tt.modulesBaseDir)
+			got, err := resolvePresetBase(tt.preset, tt.modulesBaseDir, tt.prefix)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("err=%v want %v", err, tt.wantErr)
 			}

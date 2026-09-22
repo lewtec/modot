@@ -208,12 +208,11 @@ func TestFileSpineKeepsSymlink(t *testing.T) {
 func TestFileSpineEtcUsesFixedBase(t *testing.T) {
 	t.Parallel()
 	ctx := logging.NewWriterContext(t.Output())
-	home := t.TempDir()
 	src := filepath.Join(t.TempDir(), "hosts")
 	if err := os.WriteFile(src, []byte("127.0.0.1 localhost\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	p := NewFileSpinePlugin(systemConfig(t), home)
+	p := NewFileSpinePlugin(systemConfig(t), "/")
 	out, err := p.Process(ctx, []File{
 		&StaticFile{
 			BasicFile: BasicFile{RelPathStr: "hosts", TargetBaseDir: "/etc", FileType: TypeStatic},
@@ -234,7 +233,8 @@ func TestFileSpineEtcUsesFixedBase(t *testing.T) {
 func TestFileSpineSameRelPathOnTwoProfiles(t *testing.T) {
 	t.Parallel()
 	ctx := logging.NewWriterContext(t.Output())
-	home := t.TempDir()
+	prefix := t.TempDir()
+	etcBase := filespine.ApplyDir("etc", prefix)
 	homeSrc := filepath.Join(t.TempDir(), "hosts-home")
 	etcSrc := filepath.Join(t.TempDir(), "hosts-etc")
 	if err := os.WriteFile(homeSrc, []byte("home\n"), 0o644); err != nil {
@@ -243,14 +243,14 @@ func TestFileSpineSameRelPathOnTwoProfiles(t *testing.T) {
 	if err := os.WriteFile(etcSrc, []byte("etc\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	p := NewFileSpinePlugin(systemConfig(t), home)
+	p := NewFileSpinePlugin(systemConfig(t), prefix)
 	out, err := p.Process(ctx, []File{
 		&StaticFile{
-			BasicFile: BasicFile{RelPathStr: "hosts", TargetBaseDir: home, FileType: TypeStatic},
+			BasicFile: BasicFile{RelPathStr: "hosts", TargetBaseDir: prefix, FileType: TypeStatic},
 			AbsPath:   homeSrc,
 		},
 		&StaticFile{
-			BasicFile: BasicFile{RelPathStr: "hosts", TargetBaseDir: "/etc", FileType: TypeStatic},
+			BasicFile: BasicFile{RelPathStr: "hosts", TargetBaseDir: etcBase, FileType: TypeStatic},
 			AbsPath:   etcSrc,
 		},
 	})
@@ -273,7 +273,7 @@ func TestFileSpineSameRelPathOnTwoProfiles(t *testing.T) {
 		}
 		got[f.TargetBase()] = string(body)
 	}
-	if got[home] != "home\n" || got["/etc"] != "etc\n" {
+	if got[prefix] != "home\n" || got[etcBase] != "etc\n" {
 		t.Fatalf("bodies=%v", got)
 	}
 }

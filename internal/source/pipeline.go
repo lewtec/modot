@@ -77,6 +77,9 @@ type StandardDotfilesOptions struct {
 	ModulesDir string
 	// ModulesCfg is the config passed to the module scanner.
 	ModulesCfg *configcue.Config
+	// SystemPrefix is the system root for etc, usr, var, bin, root, and system.
+	// Empty means /.
+	SystemPrefix string
 
 	// Extra providers run before the config tree and module scanners.
 	Extra []Plugin
@@ -130,7 +133,9 @@ func standardProviders(opts StandardDotfilesOptions) ([]Plugin, error) {
 	// Module scanner even if ModulesDir is not on disk: core:place and similar
 	// do not need a local modules/ checkout.
 	if opts.ModulesDir != "" && opts.ModulesCfg != nil {
-		providers = append(providers, NewModuleScannerPlugin(opts.ModulesDir, opts.ModulesCfg, 100))
+		scanner := NewModuleScannerPlugin(opts.ModulesDir, opts.ModulesCfg, 100)
+		scanner.systemPrefix = opts.SystemPrefix
+		providers = append(providers, scanner)
 	}
 
 	return providers, nil

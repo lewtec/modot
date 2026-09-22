@@ -1,6 +1,10 @@
 package filespine
 
-import "slices"
+import (
+	"slices"
+
+	lewpath "github.com/lewtec/lewkit/x/path"
+)
 
 const (
 	ModeHome     = "home"
@@ -20,14 +24,13 @@ var Profiles = []string{
 	"system",
 }
 
-// NamespaceBase is the apply directory for a fixed profile.
-// home, codebase, and system use the apply target.
+// NamespaceBase is the directory of a fixed profile, relative to the system root.
+// home, codebase, root, and system use that root itself.
 var NamespaceBase = map[string]string{
-	"etc":  "/etc",
-	"usr":  "/usr",
-	"root": "/",
-	"var":  "/var",
-	"bin":  "/usr/local/bin",
+	"etc": "etc",
+	"usr": "usr",
+	"var": "var",
+	"bin": "usr/local/bin",
 }
 
 // IsNamespace reports whether name is a dest profile.
@@ -46,13 +49,24 @@ func Visible(mode string) []string {
 	return out
 }
 
-// ApplyDir is where profile is written.
-// home, codebase, and system use primary. The other profiles use NamespaceBase.
-func ApplyDir(profile, primary string) string {
-	if base, ok := NamespaceBase[profile]; ok {
-		return base
+// ApplyDir joins profile onto root.
+// root is ~ for home, the repo for codebase, and the system prefix for system.
+// An empty system root is /.
+func ApplyDir(profile, root string) string {
+	base, fixed := NamespaceBase[profile]
+	if !fixed {
+		if root == "" {
+			return "/"
+		}
+		return root
 	}
-	return primary
+	if root == "" {
+		root = "/"
+	}
+	if base == "" {
+		return root
+	}
+	return lewpath.New(root, base).String()
 }
 
 // ProfileForTarget reports the profile whose apply directory is target.
@@ -62,7 +76,10 @@ func ProfileForTarget(mode, target, primary string) (string, bool) {
 		return Primary(mode), true
 	}
 	for _, profile := range Visible(mode) {
-		if NamespaceBase[profile] == target {
+		if profile == Primary(mode) {
+			continue
+		}
+		if ApplyDir(profile, primary) == target {
 			return profile, true
 		}
 	}

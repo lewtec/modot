@@ -1,10 +1,8 @@
 package source
 
-import "github.com/lucasew/workspaced/pkg/filespine"
-
 func splitTemplateFiles(files []File) (static, tmpl []File) {
 	for _, f := range files {
-		if filespine.IsTemplatePath(f.RelPath()) {
+		if isTemplatePath(f.RelPath()) {
 			tmpl = append(tmpl, f)
 			continue
 		}

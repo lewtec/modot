@@ -41,9 +41,13 @@ func TestProfileForTarget(t *testing.T) {
 	if !ok || got != ModeHome {
 		t.Fatalf("home target = %q %v", got, ok)
 	}
-	got, ok = ProfileForTarget(ModeSystem, "/etc", home)
+	got, ok = ProfileForTarget(ModeSystem, "/etc", "/")
 	if !ok || got != "etc" {
 		t.Fatalf("etc target = %q %v", got, ok)
+	}
+	got, ok = ProfileForTarget(ModeSystem, "/mnt/etc", "/mnt")
+	if !ok || got != "etc" {
+		t.Fatalf("prefixed etc target = %q %v", got, ok)
 	}
 	if _, ok := ProfileForTarget(ModeHome, "/etc", home); ok {
 		t.Fatal("home mode accepted /etc")
@@ -54,8 +58,14 @@ func TestProfileForTarget(t *testing.T) {
 	if got, ok := ProfileForTarget(ModeHome, "", home); !ok || got != ModeHome {
 		t.Fatalf("empty target = %q %v", got, ok)
 	}
-	if ApplyDir("etc", home) != "/etc" {
-		t.Fatalf("ApplyDir etc = %q", ApplyDir("etc", home))
+	if ApplyDir("etc", "/") != "/etc" || ApplyDir("etc", "/mnt") != "/mnt/etc" {
+		t.Fatalf("ApplyDir etc = %q / %q", ApplyDir("etc", "/"), ApplyDir("etc", "/mnt"))
+	}
+	if ApplyDir("bin", "/") != "/usr/local/bin" {
+		t.Fatalf("ApplyDir bin = %q", ApplyDir("bin", "/"))
+	}
+	if ApplyDir("root", "/mnt") != "/mnt" || ApplyDir(ModeSystem, "/mnt") != "/mnt" {
+		t.Fatalf("ApplyDir root = %q system = %q", ApplyDir("root", "/mnt"), ApplyDir(ModeSystem, "/mnt"))
 	}
 	if ApplyDir(ModeHome, home) != home {
 		t.Fatalf("ApplyDir home = %q", ApplyDir(ModeHome, home))

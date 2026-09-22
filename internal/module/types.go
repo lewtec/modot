@@ -13,6 +13,8 @@ type ResolveRequest struct {
 	ModuleConfig   map[string]any
 	ModulesBaseDir string
 	Config         *configcue.Config
+	// SystemPrefix is the system root. Empty means /.
+	SystemPrefix string
 }
 
 type ResolvedFile struct {
