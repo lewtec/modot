@@ -96,7 +96,7 @@ func composeApply(ctx context.Context, request destRequest) (*Tree, error) {
 			return nil, fmt.Errorf("file.%s: %w", name, err)
 		}
 		filesystems = append(filesystems, filesystem)
-		applied, err := applyFiles(filesystem, recorded, filespine.ApplyDir(name, request.targetBase))
+		applied, err := applyFiles(tree, base, recorded, filespine.ApplyDir(name, request.targetBase))
 		if err != nil {
 			return nil, fmt.Errorf("file.%s: %w", name, err)
 		}
@@ -136,49 +136,53 @@ func (filesystem profileFilesystem) Open(name string) (fs.File, error) {
 	return nil, missing
 }
 
-func applyFiles(filesystem fs.FS, recorded map[string]recordedFile, targetBase string) ([]File, error) {
+func applyFiles(tree *compose.Tree, base fs.FS, recorded map[string]recordedFile, targetBase string) ([]File, error) {
 	var out []File
-	err := lewpath.New(".").WalkDir(filesystem, func(name string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if name == "." || entry.IsDir() {
-			return nil
-		}
-		info, err := entry.Info()
-		if err != nil {
-			return err
-		}
-		sourceInfo, module := recordedNote(recorded, name)
+	for name, declared := range tree.All() {
+		key := name.String()
+		sourceInfo, module := recordedNote(recorded, key)
 		basic := BasicFile{
-			RelPathStr:    name,
+			RelPathStr:    key,
 			TargetBaseDir: targetBase,
-			FileMode:      permission(info.Mode()),
+			FileMode:      permission(declared.Mode),
 			Info:          sourceInfo,
 			Module:        module,
 		}
-		if found, ok := recorded[name]; ok && found.linkTarget != "" {
+		if declared.Type == compose.TypeLink {
+			target, ok := linkTarget(declared)
+			if !ok {
+				return nil, fmt.Errorf("file %s: %w", key, compose.ErrSlot)
+			}
 			basic.FileType = TypeSymlink
-			out = append(out, &StaticFile{BasicFile: basic, AbsPath: found.absolutePath})
-			return nil
+			absolute := ""
+			if found, exists := recorded[key]; exists {
+				absolute = found.absolutePath
+			}
+			out = append(out, &StaticFile{BasicFile: basic, AbsPath: absolute, Link: target})
+			continue
 		}
-		if found, ok := recorded[name]; ok && found.absolutePath != "" {
+		if found, ok := recorded[key]; ok && found.absolutePath != "" && declared.Type == compose.TypeRef {
 			basic.FileType = TypeStatic
 			out = append(out, &StaticFile{BasicFile: basic, AbsPath: found.absolutePath})
-			return nil
+			continue
 		}
-		body, err := fs.ReadFile(filesystem, name)
+		body, err := compose.Encode(declared, base)
 		if err != nil {
-			return err
+			return nil, fmt.Errorf("file %s: %w", key, err)
 		}
 		basic.FileType = TypeStatic
 		out = append(out, &BufferFile{BasicFile: basic, Content: body})
-		return nil
-	})
-	if err != nil {
-		return nil, err
 	}
 	return out, nil
+}
+
+func linkTarget(file compose.File) (string, bool) {
+	for _, slot := range file.Values {
+		if target, ok := slot.Link(); ok {
+			return target, true
+		}
+	}
+	return "", false
 }
 
 func recordedNote(recorded map[string]recordedFile, name string) (string, string) {
@@ -262,13 +266,44 @@ func (profile *profileFiles) add(file File) error {
 }
 
 func (profile *profileFiles) filesystem(ctx context.Context) (fs.FS, error) {
-	return lewfs.New(ctx, func(yield func(lewfs.File, error) bool) {
+	base, err := lewfs.New(ctx, func(yield func(lewfs.File, error) bool) {
 		for _, file := range profile.members {
 			if !yield(file, nil) {
 				return
 			}
 		}
 	})
+	if err != nil {
+		return nil, err
+	}
+	links := map[string]string{}
+	for name, recorded := range profile.recorded {
+		if recorded.linkTarget != "" {
+			links[name] = recorded.linkTarget
+		}
+	}
+	if len(links) == 0 {
+		return base, nil
+	}
+	return linkSource{FS: base, links: links}, nil
+}
+
+// linkSource is the source listing plus the symlink targets Squash reads.
+type linkSource struct {
+	fs.FS
+	links map[string]string
+}
+
+func (source linkSource) ReadLink(name string) (string, error) {
+	target, ok := source.links[name]
+	if !ok {
+		return "", &fs.PathError{Op: "readlink", Path: name, Err: fs.ErrInvalid}
+	}
+	return target, nil
+}
+
+func (source linkSource) Lstat(name string) (fs.FileInfo, error) {
+	return fs.Stat(source.FS, name)
 }
 
 func fileMember(name lewpath.Path, file File) (recordedFile, lewfs.File, error) {
@@ -318,6 +353,7 @@ func fileMember(name lewpath.Path, file File) (recordedFile, lewfs.File, error) 
 			return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
 		}
 		recorded.linkTarget = target.String()
+		return recorded, lewfs.File{Name: name, Mode: mode | fs.ModeSymlink, Reader: bytes.NewReader(nil)}, nil
 	}
 	opened, err := base.Open(root)
 	if err != nil {

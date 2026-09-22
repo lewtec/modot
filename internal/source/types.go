@@ -95,6 +95,9 @@ func (f *BasicFile) LinkTarget() (string, error) {
 type StaticFile struct {
 	BasicFile
 	AbsPath string
+	// Link is the symlink target from the compose vector.
+	// Empty falls back to reading AbsPath.
+	Link string
 }
 
 func (f *StaticFile) Reader() (io.ReadCloser, error) {
@@ -104,6 +107,9 @@ func (f *StaticFile) Reader() (io.ReadCloser, error) {
 func (f *StaticFile) LinkTarget() (string, error) {
 	if f.FileType != TypeSymlink {
 		return "", ErrNotSymlink
+	}
+	if f.Link != "" {
+		return f.Link, nil
 	}
 	return os.Readlink(f.AbsPath)
 }
