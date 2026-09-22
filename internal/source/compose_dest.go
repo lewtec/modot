@@ -11,10 +11,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	lewfs "github.com/lewtec/lewkit/x/fs"
 	"github.com/lewtec/lewkit/x/fs/compose"
 	lewpath "github.com/lewtec/lewkit/x/path"
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/pkg/filespine"
 )
@@ -37,6 +39,16 @@ type destRequest struct {
 // Each profile is one compose tree. The apply target receives the primary
 // profile. Fixed profiles keep NamespaceBase.
 func composeApply(ctx context.Context, request destRequest) (*Tree, error) {
+	var built *Tree
+	err := taskgroup.GoIsolated(ctx, "compose", taskgroup.CPU, func(ctx context.Context, status *taskgroup.Status) error {
+		var err error
+		built, err = composeTracked(ctx, status, request)
+		return err
+	})
+	return built, err
+}
+
+func composeTracked(ctx context.Context, status *taskgroup.Status, request destRequest) (*Tree, error) {
 	mode := filespine.ModeHome
 	var profiles map[string]*compose.Tree
 	var err error
@@ -54,10 +66,21 @@ func composeApply(ctx context.Context, request destRequest) (*Tree, error) {
 		}
 	}
 
+	cuePaths := map[string]pathSet{}
+	for _, name := range filespine.Visible(mode) {
+		cuePaths[name] = indexTree(profiles[name])
+	}
+	total := int64(len(request.files))
+	if status != nil {
+		status.Progress(0, total)
+	}
 	grouped := map[string]*profileFiles{}
-	for _, file := range request.files {
+	for i, file := range request.files {
 		if err := ctx.Err(); err != nil {
 			return nil, err
+		}
+		if status != nil && (i%256 == 0 || int64(i) == total-1) {
+			status.Progress(int64(i), total)
 		}
 		name, placed, err := placeInProfile(file, mode, request.targetBase)
 		if err != nil {
@@ -68,9 +91,20 @@ func composeApply(ctx context.Context, request destRequest) (*Tree, error) {
 			profile = &profileFiles{recorded: map[string]recordedFile{}}
 			grouped[name] = profile
 		}
-		if err := profile.add(placed); err != nil {
+		// Plain copies do not enter Tree.Add. That scan is quadratic, and a
+		// bundle fingerprint in SourceInfo is what lets plan skip per-file hashes.
+		if needsMerge(placed.RelPath(), cuePaths[name]) {
+			if err := profile.add(placed); err != nil {
+				return nil, fmt.Errorf("file.%s: %w", name, err)
+			}
+			continue
+		}
+		if err := profile.addDirect(placed); err != nil {
 			return nil, fmt.Errorf("file.%s: %w", name, err)
 		}
+	}
+	if status != nil {
+		status.Progress(total, total)
 	}
 
 	var apply []File
@@ -84,6 +118,9 @@ func composeApply(ctx context.Context, request destRequest) (*Tree, error) {
 		var base fs.FS
 		var recorded map[string]recordedFile
 		if profile != nil {
+			if err := profile.absorbLineTargets(); err != nil {
+				return nil, fmt.Errorf("file.%s: %w", name, err)
+			}
 			base, err = profile.filesystem(ctx)
 			if err != nil {
 				return nil, fmt.Errorf("file.%s: %w", name, err)
@@ -107,8 +144,40 @@ func composeApply(ctx context.Context, request destRequest) (*Tree, error) {
 			return nil, fmt.Errorf("file.%s: %w", name, err)
 		}
 		apply = append(apply, applied...)
+		for _, file := range profileDirect(profile, filespine.ApplyDir(name, request.targetBase)) {
+			apply = append(apply, file)
+		}
 	}
-	return &Tree{dest: profileFilesystem{filesystems: filesystems}, targetBase: request.targetBase, files: apply}, nil
+	return &Tree{dest: profileFilesystem{filesystems: filesystems, direct: directOpen(grouped, mode, request.targetBase)}, targetBase: request.targetBase, files: apply}, nil
+}
+
+func profileDirect(profile *profileFiles, base string) []File {
+	if profile == nil {
+		return nil
+	}
+	out := make([]File, 0, len(profile.direct))
+	for rel, file := range profile.direct {
+		if file.RelPath() == rel && file.TargetBase() == base {
+			out = append(out, file)
+			continue
+		}
+		out = append(out, rootedFile{File: file, rel: rel, base: base})
+	}
+	return out
+}
+
+func directOpen(grouped map[string]*profileFiles, mode, primary string) map[string]File {
+	out := map[string]File{}
+	for _, name := range filespine.Visible(mode) {
+		profile := grouped[name]
+		if profile == nil {
+			continue
+		}
+		for rel, file := range profile.direct {
+			out[rel] = rootedFile{File: file, rel: rel, base: filespine.ApplyDir(name, primary)}
+		}
+	}
+	return out
 }
 
 // profileFilesystem opens the first profile filesystem that has name.
@@ -116,6 +185,7 @@ func composeApply(ctx context.Context, request destRequest) (*Tree, error) {
 // Files keeps both. Open returns the first match.
 type profileFilesystem struct {
 	filesystems []fs.FS
+	direct      map[string]File
 }
 
 func (filesystem profileFilesystem) Open(name string) (fs.File, error) {
@@ -135,6 +205,22 @@ func (filesystem profileFilesystem) Open(name string) (fs.File, error) {
 			continue
 		}
 		return nil, err
+	}
+	if file, ok := filesystem.direct[name]; ok {
+		reader, err := file.Reader()
+		if err != nil {
+			return nil, err
+		}
+		body, err := io.ReadAll(reader)
+		closeErr := reader.Close()
+		if err != nil {
+			return nil, err
+		}
+		if closeErr != nil {
+			return nil, closeErr
+		}
+		info := sourceInfo{name: lewpath.New(name).Name(), mode: permission(file.Mode()), size: int64(len(body))}
+		return &sourceFile{info: info, Reader: bytes.NewReader(body)}, nil
 	}
 	if missing == nil {
 		missing = &fs.PathError{Op: "open", Path: name, Err: fs.ErrNotExist}
@@ -440,6 +526,152 @@ func (recorded recordedFile) same(other recordedFile) bool {
 type profileFiles struct {
 	members  []lewfs.File
 	recorded map[string]recordedFile
+	direct   map[string]File
+	paths    pathSet
+}
+
+func indexTree(tree *compose.Tree) pathSet {
+	var set pathSet
+	if tree == nil {
+		return set
+	}
+	for name := range tree.All() {
+		set.add(name.String())
+	}
+	return set
+}
+
+func needsMerge(rel string, cue pathSet) bool {
+	if strings.Contains(rel, ".d.tmpl/") || strings.HasSuffix(rel, ".d.tmpl") {
+		return true
+	}
+	return cue.overlaps(rel)
+}
+
+func linesDest(rel string) (string, bool) {
+	const marker = ".d.tmpl"
+	index := strings.Index(rel, marker)
+	if index <= 0 {
+		return "", false
+	}
+	return rel[:index], true
+}
+
+type pathSet struct {
+	files map[string]struct{}
+	dirs  map[string]struct{}
+}
+
+func (set *pathSet) add(path string) {
+	if set.files == nil {
+		set.files = map[string]struct{}{}
+		set.dirs = map[string]struct{}{}
+	}
+	set.files[path] = struct{}{}
+	for parent := pathParent(path); parent != ""; parent = pathParent(parent) {
+		set.dirs[parent] = struct{}{}
+	}
+}
+
+func (set *pathSet) overlaps(path string) bool {
+	if set == nil || set.files == nil {
+		return false
+	}
+	if _, ok := set.files[path]; ok {
+		return true
+	}
+	if _, ok := set.dirs[path]; ok {
+		return true
+	}
+	for parent := pathParent(path); parent != ""; parent = pathParent(parent) {
+		if _, ok := set.files[parent]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func pathParent(path string) string {
+	index := strings.LastIndex(path, "/")
+	if index <= 0 {
+		return ""
+	}
+	return path[:index]
+}
+
+type rootedFile struct {
+	File
+	rel  string
+	base string
+}
+
+func (file rootedFile) RelPath() string    { return file.rel }
+func (file rootedFile) TargetBase() string { return file.base }
+
+func (profile *profileFiles) addDirect(file File) error {
+	rel := file.RelPath()
+	if profile.direct == nil {
+		profile.direct = map[string]File{}
+	}
+	if _, ok := profile.direct[rel]; ok {
+		return fmt.Errorf("file %s: %w", rel, errPathConflict)
+	}
+	if profile.paths.overlaps(rel) {
+		return fmt.Errorf("file %s: %w", rel, compose.ErrPath)
+	}
+	profile.direct[rel] = markSymlink(file)
+	profile.paths.add(rel)
+	return nil
+}
+
+func markSymlink(file File) File {
+	static, ok := unwrapStatic(file)
+	if !ok || static.AbsPath == "" || static.Type() == TypeSymlink {
+		return file
+	}
+	info, err := os.Lstat(static.AbsPath)
+	if err != nil || info.Mode()&os.ModeSymlink == 0 {
+		return file
+	}
+	target, err := os.Readlink(static.AbsPath)
+	if err != nil {
+		return file
+	}
+	clone := *static
+	clone.FileType = TypeSymlink
+	clone.Link = target
+	return &clone
+}
+
+func unwrapStatic(file File) (*StaticFile, bool) {
+	switch file := file.(type) {
+	case *StaticFile:
+		return file, true
+	case rebasedFile:
+		return unwrapStatic(file.File)
+	case rootedFile:
+		return unwrapStatic(file.File)
+	default:
+		return nil, false
+	}
+}
+
+func (profile *profileFiles) absorbLineTargets() error {
+	for rel := range profile.recorded {
+		dest, ok := linesDest(rel)
+		if !ok {
+			continue
+		}
+		file, exists := profile.direct[dest]
+		if !exists {
+			continue
+		}
+		delete(profile.direct, dest)
+		if err := profile.add(file); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (profile *profileFiles) add(file File) error {
@@ -567,6 +799,28 @@ func fileMember(name lewpath.Path, file File) (recordedFile, lewfs.File, error) 
 	}
 	return recorded, lewfs.File{Name: name, Mode: mode, Size: openedInfo.Size(), Reader: opened}, nil
 }
+
+type sourceFile struct {
+	info fs.FileInfo
+	*bytes.Reader
+}
+
+func (file *sourceFile) Stat() (fs.FileInfo, error) { return file.info, nil }
+
+func (file *sourceFile) Close() error { return nil }
+
+type sourceInfo struct {
+	name string
+	mode fs.FileMode
+	size int64
+}
+
+func (info sourceInfo) Name() string       { return info.name }
+func (info sourceInfo) Size() int64        { return info.size }
+func (info sourceInfo) Mode() fs.FileMode  { return info.mode }
+func (info sourceInfo) ModTime() time.Time { return time.Time{} }
+func (info sourceInfo) IsDir() bool        { return info.mode.IsDir() }
+func (info sourceInfo) Sys() any           { return nil }
 
 func permission(mode fs.FileMode) fs.FileMode {
 	mode = mode.Perm()

@@ -169,6 +169,39 @@ func TestFileSpineStaticRef(t *testing.T) {
 	}
 }
 
+func TestPlainFileKeepsBundleInfo(t *testing.T) {
+	t.Parallel()
+	ctx := logging.NewWriterContext(t.Output())
+	home := t.TempDir()
+	src := filepath.Join(t.TempDir(), "icon.svg")
+	if err := os.WriteFile(src, []byte("<svg/>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := composeApply(ctx, destRequest{
+		targetBase: home,
+		files: []File{
+			&StaticFile{
+				BasicFile: BasicFile{
+					RelPathStr:    "icon.svg",
+					TargetBaseDir: home,
+					Info:          "module:icons bundle:abc (icon.svg)",
+					FileType:      TypeStatic,
+				},
+				AbsPath: src,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Files()) != 1 {
+		t.Fatalf("len=%d", len(out.Files()))
+	}
+	if out.Files()[0].SourceInfo() != "module:icons bundle:abc (icon.svg)" {
+		t.Fatalf("info=%q", out.Files()[0].SourceInfo())
+	}
+}
+
 func TestComposeApplyStopsWhenCancelled(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(logging.NewWriterContext(t.Output()))
