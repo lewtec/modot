@@ -13,7 +13,7 @@ import (
 	"sync"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	kittool "github.com/lewtec/lewkit/x/tool"
+	lewtool "github.com/lewtec/lewkit/x/tool"
 	githubprov "github.com/lewtec/lewkit/x/tool/github"
 	"github.com/lucasew/workspaced/internal/miseutil"
 	"github.com/lucasew/workspaced/internal/selfbin"
@@ -204,7 +204,7 @@ func updateFromGitHub(ctx context.Context, force bool, s *taskgroup.Status) erro
 	}
 
 	// Use ArtifactTool + the shared SelectArtifact for platform selection.
-	at, ok := t.(kittool.ArtifactTool)
+	at, ok := t.(lewtool.ArtifactTool)
 	if !ok {
 		return ErrArtifactToolRequired
 	}
@@ -217,7 +217,7 @@ func updateFromGitHub(ctx context.Context, force bool, s *taskgroup.Status) erro
 	// Standard platform selection (same logic used by tool installs etc.).
 	// The "workspaced" hint helps disambiguate when a release has multiple
 	// assets for the same OS/arch.
-	artifact := kittool.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, "workspaced")
+	artifact := lewtool.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, "workspaced")
 	if artifact == nil {
 		available := []string{}
 		for _, a := range artifacts {

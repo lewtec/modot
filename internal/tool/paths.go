@@ -1,10 +1,14 @@
+// Package tool chooses the workspaced tool directory, shims, and lock rows.
+// Versioned installs are github.com/lewtec/lewkit/x/tool.
 package tool
 
 import (
+	"context"
 	"path/filepath"
 
-	kittool "github.com/lewtec/lewkit/x/tool"
+	lewtool "github.com/lewtec/lewkit/x/tool"
 
+	"github.com/lucasew/workspaced/internal/cmdctx"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 )
 
@@ -24,12 +28,14 @@ func workspacedShareDir(leaf string) (string, error) {
 	return filepath.Join(home, ".local", "share", "workspaced", leaf), nil
 }
 
-// FindBinary searches for cmdName under baseDir (bin/ and the directory root).
-func FindBinary(baseDir, cmdName string) string {
-	return kittool.FindBinary(baseDir, cmdName)
-}
-
-// BinaryCandidates lists the paths FindBinary checks, in order.
-func BinaryCandidates(baseDir, cmdName string) []string {
-	return kittool.BinaryCandidates(baseDir, cmdName)
+// WithCmdFlags copies --no-cache and --dry-run onto ctx for lewtool.Store.
+// Plan can flip dry-run after setup, so this is read at the call, not at startup.
+func WithCmdFlags(ctx context.Context) context.Context {
+	if cmdctx.IsNoCache(ctx) {
+		ctx = lewtool.WithNoCache(ctx)
+	}
+	if cmdctx.IsDryRun(ctx) {
+		ctx = lewtool.WithDryRun(ctx)
+	}
+	return ctx
 }

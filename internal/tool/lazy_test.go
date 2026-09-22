@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	kittool "github.com/lewtec/lewkit/x/tool"
+	lewtool "github.com/lewtec/lewkit/x/tool"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/modfile"
 	_ "github.com/lucasew/workspaced/pkg/driver/env/native"
@@ -51,7 +51,7 @@ workspaced: {
 }
 `)
 
-	spec, err := kittool.Parse("github:cli/cli")
+	spec, err := lewtool.Parse("github:cli/cli")
 	if err != nil {
 		t.Fatalf("parse spec: %v", err)
 	}
@@ -142,8 +142,8 @@ type staticEnrichTool struct {
 
 func (t staticEnrichTool) ListVersions(context.Context) ([]string, error) { return nil, nil }
 func (t staticEnrichTool) Install(context.Context, string, string) error  { return nil }
-func (t staticEnrichTool) Pin() kittool.Pin {
-	return kittool.Pin{
+func (t staticEnrichTool) Pin() lewtool.Pin {
+	return lewtool.Pin{
 		Name:           t.depName,
 		Datasource:     t.datasource,
 		Versioning:     t.versioning,

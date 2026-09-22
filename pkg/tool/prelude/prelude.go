@@ -1,6 +1,6 @@
 // Package prelude registers lewkit tool backends so
-// github.com/lucasew/workspaced/pkg/tool.EnsureInstalled can resolve specs
-// such as registry:mise without the CLI process.
+// github.com/lewtec/lewkit/x/tool can resolve specs such as registry:mise
+// without the CLI process.
 //
 // Blank-import this package from external programs. The workspaced CLI loads
 // the same lewkit prelude from cmd/workspaced/root.go via internal/tool/prelude.

@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	kittool "github.com/lewtec/lewkit/x/tool"
+	lewtool "github.com/lewtec/lewkit/x/tool"
 	"github.com/lewtec/lewkit/x/tool/github"
 	"github.com/lewtec/lewkit/x/tool/registry"
 	apps "github.com/lewtec/lewkit/x/tool/registry/applications"
@@ -68,7 +68,7 @@ func TestRegistryInstallChecksDeclared(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewTool(%q): %v", name, err)
 			}
-			checker, ok := installed.(kittool.Checker)
+			checker, ok := installed.(lewtool.Checker)
 			if !ok {
 				return
 			}
@@ -98,7 +98,7 @@ func TestRegistryInstall(t *testing.T) {
 				reportInstallFailure(name, fmt.Sprintf("NewTool: %v", err))
 				t.Fatalf("NewTool(%q): %v", name, err)
 			}
-			checker, ok := installed.(kittool.Checker)
+			checker, ok := installed.(lewtool.Checker)
 			if !ok || len(checker.InstallChecks()) == 0 {
 				t.Skip("no install checks")
 			}
@@ -124,13 +124,13 @@ func TestRegistryInstall(t *testing.T) {
 				reportInstallFailure(name, fmt.Sprintf("Install(%q): %v", versions[0], err))
 				t.Fatalf("Install(%q): %v", versions[0], err)
 			}
-			if fixer, ok := installed.(kittool.Fixer); ok {
+			if fixer, ok := installed.(lewtool.Fixer); ok {
 				if err := fixer.Fix(ctx, dest); err != nil {
 					reportInstallFailure(name, fmt.Sprintf("Fix: %v", err))
 					t.Fatalf("Fix: %v", err)
 				}
 			}
-			if err := kittool.RunChecks(ctx, dest, installed); err != nil {
+			if err := lewtool.RunChecks(ctx, dest, installed); err != nil {
 				reportInstallFailure(name, fmt.Sprintf("RunChecks: %v", err))
 				t.Fatalf("RunChecks: %v", err)
 			}

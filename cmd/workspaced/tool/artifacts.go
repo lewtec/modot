@@ -11,7 +11,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	kittool "github.com/lewtec/lewkit/x/tool"
+	lewtool "github.com/lewtec/lewkit/x/tool"
 )
 
 type Artifacts struct {
@@ -29,7 +29,7 @@ var errNotArtifactTool = errors.New("resolved tool does not implement ArtifactTo
 
 func (a *Artifacts) Run(ctx context.Context) error {
 	specStr := a.spec.Value()
-	spec, err := kittool.Parse(specStr)
+	spec, err := lewtool.Parse(specStr)
 	if err != nil {
 		return err
 	}
@@ -39,7 +39,7 @@ func (a *Artifacts) Run(ctx context.Context) error {
 		version = a.version.Value()
 	}
 
-	backend, err := kittool.Get(spec.Backend)
+	backend, err := lewtool.Get(spec.Backend)
 	if err != nil {
 		return err
 	}
@@ -48,7 +48,7 @@ func (a *Artifacts) Run(ctx context.Context) error {
 		return err
 	}
 
-	artifactTool, ok := installed.(kittool.ArtifactTool)
+	artifactTool, ok := installed.(lewtool.ArtifactTool)
 	if !ok {
 		return fmt.Errorf("%w: %q", errNotArtifactTool, specStr)
 	}
@@ -64,7 +64,7 @@ func (a *Artifacts) Run(ctx context.Context) error {
 	}
 
 	type entry struct {
-		kittool.Artifact
+		lewtool.Artifact
 
 		Score int
 	}
@@ -73,7 +73,7 @@ func (a *Artifacts) Run(ctx context.Context) error {
 	for i, art := range artifacts {
 		entries[i] = entry{
 			Artifact: art,
-			Score:    kittool.ScoreArtifact(art, runtime.GOOS, runtime.GOARCH, effectiveHint),
+			Score:    lewtool.ScoreArtifact(art, runtime.GOOS, runtime.GOARCH, effectiveHint),
 		}
 	}
 

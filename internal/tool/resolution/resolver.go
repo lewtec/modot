@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	kittool "github.com/lewtec/lewkit/x/tool"
+	lewtool "github.com/lewtec/lewkit/x/tool"
 	"github.com/lucasew/workspaced/pkg/logging"
 	"os"
 	"path/filepath"
@@ -95,7 +95,7 @@ func (r *Resolver) Resolve(ctx context.Context, toolName string) (string, error)
 }
 
 func (r *Resolver) checkBin(verDir, toolName string) string {
-	return kittool.FindBinary(verDir, toolName)
+	return lewtool.FindBinary(verDir, toolName)
 }
 
 func (r *Resolver) resolveVersion(ctx context.Context, toolName string) (string, error) {
@@ -186,6 +186,6 @@ func readToolVersion(ctx context.Context, path, toolName string) (string, error)
 
 func sortVersions(versions []string) {
 	sort.Slice(versions, func(i, j int) bool {
-		return kittool.CompareVersions(versions[i], versions[j]) < 0
+		return lewtool.CompareVersions(versions[i], versions[j]) < 0
 	})
 }

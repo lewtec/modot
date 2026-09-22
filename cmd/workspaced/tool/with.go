@@ -8,6 +8,7 @@ import (
 
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lewtec/lewkit/x/taskgroup"
+	lewtool "github.com/lewtec/lewkit/x/tool"
 	"github.com/lucasew/workspaced/internal/afterwait"
 	"github.com/lucasew/workspaced/internal/tool"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
@@ -57,7 +58,11 @@ func (w *With) Run(ctx context.Context) error {
 	commandArgs := cmdLine[1:]
 
 	taskgroup.Go(ctx, "tool:with:"+strings.Join(toolSpecs, "+"), taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-		m, err := tool.NewManager()
+		dir, err := tool.GetToolsDir()
+		if err != nil {
+			return err
+		}
+		store, err := lewtool.Open(dir)
 		if err != nil {
 			return err
 		}
@@ -83,7 +88,7 @@ func (w *With) Run(ctx context.Context) error {
 			TaskName: func(_ int, it specItem) string { return "ensure:" + it.spec },
 			Fn: func(ctx context.Context, st *taskgroup.Status, it specItem) (binOutcome, error) {
 				st.Update(it.spec)
-				bp, err := m.EnsureInstalled(ctx, it.spec, command)
+				bp, err := store.Ensure(tool.WithCmdFlags(ctx), it.spec, command)
 				if err == nil {
 					return binOutcome{index: it.index, binPath: bp}, nil
 				}
@@ -120,5 +125,5 @@ func (w *With) Run(ctx context.Context) error {
 }
 
 func isBinaryNotFound(err error) bool {
-	return errors.Is(err, tool.ErrBinaryNotFound)
+	return errors.Is(err, lewtool.ErrBinaryNotFound)
 }
