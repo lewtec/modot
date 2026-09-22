@@ -5,7 +5,6 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
-	"github.com/lucasew/workspaced/pkg/filespine"
 )
 
 func TestFileSpineSchema(t *testing.T) {
@@ -19,7 +18,7 @@ func TestFileSpineSchema(t *testing.T) {
 	if err := schema.Err(); err != nil {
 		t.Fatalf("schema: %v", err)
 	}
-	schema, err = filespine.ConstrainRoot(schema, "workspaced.file")
+	schema, err = mountFileProfiles(schema)
 	if err != nil {
 		t.Fatalf("mount: %v", err)
 	}
@@ -46,7 +45,7 @@ func TestFileSpineSchema(t *testing.T) {
 		t.Parallel()
 		err := unify(t, `
 package workspaced
-workspaced: file: {
+workspaced: file: home: {
 	"a.json": {type: "json", values: {port: 8080, name: "x"}}
 	"a.toml": {type: "toml", values: {port: 8080}}
 	"a.yaml": {type: "yaml", values: {nested: {a: true}}}
@@ -63,7 +62,7 @@ workspaced: file: {
 		t.Parallel()
 		err := unify(t, `
 package workspaced
-workspaced: file: {
+workspaced: file: home: {
 	".bashrc": {
 		type: "lines"
 		values: {
@@ -77,7 +76,7 @@ workspaced: file: {
 	}
 	"blob": {
 		type: "ref"
-		values: {src: {kind: "ref", ref: "/tmp/x"}}
+		values: {src: {kind: "ref", ref: "blob"}}
 	}
 }
 `)
@@ -90,7 +89,7 @@ workspaced: file: {
 		t.Parallel()
 		err := unify(t, `
 package workspaced
-workspaced: file: "x": {
+workspaced: file: home: "x": {
 	type: "text"
 	values: {a: {kind: "env", env: "EDITOR"}}
 }
@@ -100,12 +99,30 @@ workspaced: file: "x": {
 		}
 	})
 
-	t.Run("accepts namespaced and flat dests", func(t *testing.T) {
+	t.Run("rejects flat key", func(t *testing.T) {
 		t.Parallel()
 		err := unify(t, `
 package workspaced
 workspaced: file: {
 	".codex/config.toml": {type: "toml", values: {model: "x"}}
+	codebase: {
+		".gitignore": {type: "text", values: {content: "bin/"}}
+	}
+}
+`)
+		if err == nil {
+			t.Fatal("expected schema error")
+		}
+	})
+
+	t.Run("accepts profiles", func(t *testing.T) {
+		t.Parallel()
+		err := unify(t, `
+package workspaced
+workspaced: file: {
+	home: {
+		".codex/config.toml": {type: "toml", values: {model: "x"}}
+	}
 	codebase: {
 		".gitignore": {type: "text", values: {content: "bin/"}}
 	}
@@ -120,7 +137,7 @@ workspaced: file: {
 		t.Parallel()
 		err := unify(t, `
 package workspaced
-workspaced: file: "x": {
+workspaced: file: home: "x": {
 	type: "plist"
 	values: {a: "{}"}
 }

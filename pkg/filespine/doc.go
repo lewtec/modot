@@ -1,10 +1,6 @@
-// Package filespine composes dest files from providers into an fs.FS.
-// Open returns the combined file.
-//
-// Providers add full dest decls and/or keyed slots. Compose merges them.
-//
-// CUE hosts mount the dest schema with Mount or Constrain, then Parse
-// the value at that path. Workspaced mounts at workspaced.file.
-//
-// Spec: docs/specs/file-spine.md.
+// Package filespine is the workspaced dest profile policy.
+// File bytes are github.com/lewtec/lewkit/x/fs/compose.
+// Profiles lists the legal keys under workspaced.file.
+// NamespaceVisible selects the profiles a runtime mode emits.
+// IsTemplatePath reports a path the workspaced template expander renders.
 package filespine

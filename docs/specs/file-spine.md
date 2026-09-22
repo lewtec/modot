@@ -1,81 +1,68 @@
 # File spine
 
-`workspaced.file` is the dest tree. Enabled modules may declare `module.file`
-in `module.cue`; those maps unify into `workspaced.file`. Module templates
-also lower into it. Apply reads a dest `fs.FS`. `Open(name)` returns the
-combined file.
+`workspaced.file` is a closed map of profiles. Each profile is one compose tree from `github.com/lewtec/lewkit/x/fs/compose`. A flat key under `workspaced.file` is a schema error.
 
-Implementation: `pkg/filespine`. CUE schema is `pkg/filespine/file.cue`; hosts mount it (`filespine.Mount` / `Constrain`). Workspaced mounts at `workspaced.file`.
+Profiles are `home`, `codebase`, `etc`, `usr`, `root`, `var`, `bin`, and `system`.
 
-## Path
+`pkg/filespine` selects the profiles a runtime mode emits (`NamespaceVisible`) and the paths the template expander renders (`IsTemplatePath`). `internal/configcue` mounts the closed map with `mountFileProfiles`.
 
-`fs.FS` name. No leading `/`. No `~`. No `..`.
+## Mode
 
-| Command | CUE tree | `Open(".bashrc")` |
-|---|---|---|
-| `home apply` | flat keys + `file.home` (and `file.etc` / …) | `$HOME/.bashrc` |
-| `codebase apply` | `file.codebase` | `<repo>/.bashrc` |
+`workspaced.runtime.mode` is `home`, `codebase`, or `system`. A missing mode is `home`.
 
-`workspaced.runtime.mode` is `"home"`, `"codebase"`, or `"system"`. Flat dests (`file.".codex/config.toml"`) are home. Namespaces match module presets: `file.home`, `file.codebase`, `file.etc`, …
+| Mode | Profiles |
+|---|---|
+| `home` | `home`, `etc`, `usr`, `root`, `var`, `bin` |
+| `codebase` | `codebase` |
+| `system` | `system` |
+
+`home`, `codebase`, and `system` use the apply target directory. The other profiles use a fixed directory: `etc` is `/etc`, `usr` is `/usr`, `root` is `/`, `var` is `/var`, and `bin` is `/usr/local/bin`.
+
+`Open(name)` on a profile filesystem returns the combined file. `name` is an `fs.FS` path. It has no leading `/`, no `~`, and no `..`.
 
 ## File types
 
-| `type` | After unify | Encode |
+| `type` | `values` | Encode |
 |---|---|---|
-| `lines` | all `values` keys | sort keys, join with `\n` |
-| `text` | exactly one key | that slot |
-| `ref` | exactly one key, kind `ref` | bytes from the source path |
-| `json` / `toml` / `yaml` / `ini` / `xml` | `values` is a map | marshal that map |
+| `lines` | any number of slots | sort the keys, join with a newline |
+| `text` | one slot | that slot |
+| `ref` | one ref slot | bytes from the profile filesystem |
+| `json`, `toml`, `yaml`, `ini`, `xml` | one map | marshal that map |
 
-Same path, different `type` → error.
-
-## Slots
+A second type on one path is an error. The same slot key with a different body is an error. A ref is a relative name in the profile filesystem. An absolute ref is an error.
 
 ```cue
-#Slot: string | #SlotText | #SlotRef
-#SlotText: close({kind: "text", text: string})
-#SlotRef:  close({kind: "ref",  ref: string})
+#Slot: string | close({kind: "text", text: string}) | close({kind: "ref", ref: string})
 ```
 
-Bare string is text. Structs need `kind`. Same key must unify.
+A bare string is a text slot. There is no `{kind: "env"}`.
 
-There is no `runtime.env` and no `{kind: "env"}`.
+## Module file
 
-## Module `file`
-
-In `module.cue` (`package module`):
+`module.file` in `module.cue` uses the same profile map. Enabled modules contribute. The host value and the module value unify in CUE. Parse runs once after that unify.
 
 ```cue
-module: file: {
-	".config/foo.toml": {
-		type: "toml"
-		values: {theme: "base16"}
-	}
+module: file: home: ".config/foo.toml": {
+	type: "toml"
+	values: {theme: "base16"}
 }
 ```
 
-`module.file` can read `workspaced.*` (runtime, other module config). Only
-enabled modules contribute. Host `workspaced.file` still works and unifies
-with the same keys. Nested `module.file.home` / `module.file.codebase` lift
-into those namespaces; a flat map is home.
+`module.file` can read `workspaced.*` (runtime, other module config).
 
 ## Lowering
 
-| Source | Slot |
+Render templates first. `IsTemplatePath` is true when any suffix is `.tmpl`, so `file.tmpl.sh` is a template. Compose squash only checks the last suffix.
+
+Squash each visible profile, then merge that tree into the parsed profile.
+
+| Source under the profile | Result |
 |---|---|
-| `.bashrc.d.tmpl/20-alias.sh` | `file.".bashrc"` `lines` / `values."20-alias.sh"` |
-| `.bashrc.tmpl` | `file.".bashrc"` `text` / `values.content` |
-| static file | `file."<path>"` `ref` / `values.src` |
+| `.bashrc.d.tmpl/20-alias.sh` | `lines` slot `20-alias.sh` on `.bashrc` |
+| `.bashrc.tmpl` | one file `.bashrc` |
+| `.gitconfig` | `ref` opened from the profile filesystem |
 
-CUE can add or override the same key. Go walks the CUE value. Dest `Open`
-does not take a slot key.
-
-Structured types (`json`, `toml`, `yaml`, `ini`, `xml`) take a map in `values` and
-write that map. Root lists are not allowed. `ini` allows one section level
-(`values.core.bare = true` → `[core]\nbare = true`). `xml` needs exactly one
-root key (`values.cfg.name = "x"` → `<cfg><name>x</name></cfg>`). Nested maps
-become child elements. Lists become repeated tags. There are no attributes
-and no namespaces. A `.json.tmpl` on disk still lowers as `text`, not as `json`.
+A directory under `.d.tmpl` is an error. A symlink in the profile filesystem stays a symlink at the apply target. Plan text uses the scanner's module name and relative path.
 
 ## Example
 
@@ -84,19 +71,11 @@ workspaced: file: home: ".bashrc": {
 	type: "lines"
 	values: {
 		"00-umask": "umask 022"
-		"10-path":  {kind: "text", text: "export PATH=$HOME/bin:$PATH"}
+		"10-path":  "export PATH=$HOME/bin:$PATH"
 	}
 }
 
-// Same dest; flat keys are home (compatible with older cue).
-workspaced: file: ".bashrc": {
-	type: "lines"
-	values: {
-		"00-umask": "umask 022"
-	}
-}
-
-workspaced: file: ".config/foo.json": {
+workspaced: file: home: ".config/foo.json": {
 	type: "json"
 	values: {
 		port: 8080
@@ -107,5 +86,5 @@ workspaced: file: ".config/foo.json": {
 
 ## Out of scope
 
-- writable dest FS
+- writable dest filesystem
 - `runtime.env`

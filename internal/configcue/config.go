@@ -35,16 +35,6 @@ func (c *Config) Cue() cue.Value {
 	return c.cueVal
 }
 
-// FileMap is workspaced.file after unify, filtered by runtime.mode.
-// Flat keys and file.home are home. file.codebase is the repo tree.
-func (c *Config) FileMap() (map[string]filespine.File, error) {
-	if c == nil {
-		return map[string]filespine.File{}, nil
-	}
-	fileVal := c.Cue().LookupPath(cue.ParsePath("file"))
-	return filespine.ParseRoot(fileVal, filespine.ParseRootOptions{Mode: c.RuntimeMode()})
-}
-
 // RuntimeMode is workspaced.runtime.mode. Missing mode is home.
 func (c *Config) RuntimeMode() string {
 	if c == nil {

@@ -67,7 +67,7 @@ func TestBuilderTreeMergesCueLines(t *testing.T) {
 	cuePath := filepath.Join(t.TempDir(), "workspaced.cue")
 	if err := os.WriteFile(cuePath, []byte(`package workspaced
 workspaced: {
-	file: ".bashrc": {
+	file: home: ".bashrc": {
 		type: "lines"
 		values: {"00-cue": "from-cue"}
 	}

@@ -264,9 +264,9 @@ func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtime
 	if err := v.Err(); err != nil {
 		return cue.Value{}, fmt.Errorf("compile embedded cue schema: %w\n%s", err, cueerrors.Details(err, nil))
 	}
-	v, err = filespine.ConstrainRoot(v, "workspaced.file")
+	v, err = mountFileProfiles(v)
 	if err != nil {
-		return cue.Value{}, fmt.Errorf("mount filespine: %w", err)
+		return cue.Value{}, fmt.Errorf("mount file profiles: %w", err)
 	}
 
 	preludeCommonLayer := ctx.CompileString(string(preludeCommonBytes), cue.Filename("prelude_common.cue"))

@@ -120,7 +120,7 @@ workspaced: {
 		[string]: #Input
 	}
 	runtime?: #Runtime
-	// dest tree: pkg/filespine Mount("workspaced.file")
+	// dest profiles: workspaced.file.<profile> is a compose #Tree
 	modules: {
 		[string]: #ModuleRef
 	}
