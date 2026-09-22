@@ -2,18 +2,18 @@ package source
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
-	"slices"
 	"strings"
-	"time"
 
+	lewfs "github.com/lewtec/lewkit/x/fs"
 	"github.com/lewtec/lewkit/x/fs/compose"
+	lewpath "github.com/lewtec/lewkit/x/path"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/pkg/filespine"
 )
@@ -22,42 +22,46 @@ var (
 	errInvalidRelPath = errors.New("invalid path")
 	errStaticNoSource = errors.New("static file has no source path")
 	errPathConflict   = errors.New("conflict")
-	errPathClash      = errors.New("path clash")
 	errNotProfileDir  = errors.New("target is not a profile directory")
 )
+
+// destRequest is one compose of cue profiles and discovered files.
+type destRequest struct {
+	cfg        *configcue.Config
+	targetBase string
+	files      []File
+}
 
 // composeApply merges visible CUE profiles with discovered files.
 // Each profile is one compose tree. The apply target receives the primary
 // profile. Fixed profiles keep NamespaceBase.
-func composeApply(cfg *configcue.Config, targetBase string, discovered []File) (*Tree, error) {
+func composeApply(ctx context.Context, req destRequest) (*Tree, error) {
 	mode := filespine.ModeHome
 	var profiles map[string]*compose.Tree
 	var err error
-	if cfg != nil {
-		mode = cfg.RuntimeMode()
-		profiles, err = cfg.FileProfiles()
+	if req.cfg != nil {
+		mode = req.cfg.RuntimeMode()
+		profiles, err = req.cfg.FileProfiles()
 		if err != nil {
 			return nil, err
 		}
 	}
-	if profiles == nil {
+	if len(profiles) == 0 {
 		profiles = map[string]*compose.Tree{}
-		for _, name := range filespine.Profiles {
-			if filespine.NamespaceVisible(mode, name) {
-				profiles[name] = compose.New()
-			}
+		for _, name := range filespine.Visible(mode) {
+			profiles[name] = compose.New()
 		}
 	}
 
-	grouped := map[string]*sourceFS{}
-	for _, f := range discovered {
-		name, err := profileFor(f, mode, targetBase)
-		if err != nil {
-			return nil, err
+	grouped := map[string]*bucket{}
+	for _, f := range req.files {
+		name, ok := filespine.ProfileForTarget(mode, f.TargetBase(), req.targetBase)
+		if !ok {
+			return nil, fmt.Errorf("file %s: target %s: %w", f.RelPath(), f.TargetBase(), errNotProfileDir)
 		}
 		src := grouped[name]
 		if src == nil {
-			src = newSourceFS()
+			src = &bucket{origins: map[string]origin{}}
 			grouped[name] = src
 		}
 		if err := src.add(f); err != nil {
@@ -67,14 +71,21 @@ func composeApply(cfg *configcue.Config, targetBase string, discovered []File) (
 
 	var apply []File
 	var views []fs.FS
-	for _, name := range filespine.Profiles {
+	for _, name := range filespine.Visible(mode) {
 		tree := profiles[name]
 		if tree == nil {
 			continue
 		}
 		src := grouped[name]
+		var base fs.FS
+		var origins map[string]origin
 		if src != nil {
-			squashed, err := compose.Squash(src)
+			base, err = src.fs(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("file.%s: %w", name, err)
+			}
+			origins = src.origins
+			squashed, err := compose.Squash(base)
 			if err != nil {
 				return nil, fmt.Errorf("file.%s: %w", name, err)
 			}
@@ -82,22 +93,18 @@ func composeApply(cfg *configcue.Config, targetBase string, discovered []File) (
 				return nil, fmt.Errorf("file.%s: %w", name, err)
 			}
 		}
-		var base fs.FS
-		if src != nil {
-			base = src
-		}
 		fsys, err := tree.FS(base)
 		if err != nil {
 			return nil, fmt.Errorf("file.%s: %w", name, err)
 		}
 		views = append(views, fsys)
-		got, err := filesFrom(fsys, src, profileBase(name, targetBase))
+		got, err := filesFrom(fsys, origins, filespine.ApplyDir(name, req.targetBase))
 		if err != nil {
 			return nil, fmt.Errorf("file.%s: %w", name, err)
 		}
 		apply = append(apply, got...)
 	}
-	return &Tree{dest: multiFS{views: views}, targetBase: targetBase, files: apply}, nil
+	return &Tree{dest: multiFS{views: views}, targetBase: req.targetBase, files: apply}, nil
 }
 
 // multiFS opens the first profile filesystem that has name.
@@ -131,34 +138,9 @@ func (m multiFS) Open(name string) (fs.File, error) {
 	return nil, missing
 }
 
-func profileFor(f File, mode, primaryBase string) (string, error) {
-	base := filepath.Clean(f.TargetBase())
-	primary := filepath.Clean(primaryBase)
-	if f.TargetBase() == "" || base == primary {
-		return filespine.Primary(mode), nil
-	}
-	for _, name := range filespine.Profiles {
-		fixed, ok := filespine.NamespaceBase[name]
-		if !ok || !filespine.NamespaceVisible(mode, name) {
-			continue
-		}
-		if filepath.Clean(fixed) == base {
-			return name, nil
-		}
-	}
-	return "", fmt.Errorf("file %s: target %s: %w", f.RelPath(), f.TargetBase(), errNotProfileDir)
-}
-
-func profileBase(name, primaryBase string) string {
-	if base, ok := filespine.NamespaceBase[name]; ok {
-		return base
-	}
-	return primaryBase
-}
-
-func filesFrom(fsys fs.FS, src *sourceFS, targetBase string) ([]File, error) {
+func filesFrom(fsys fs.FS, origins map[string]origin, targetBase string) ([]File, error) {
 	var out []File
-	err := fs.WalkDir(fsys, ".", func(name string, entry fs.DirEntry, walkErr error) error {
+	err := lewpath.New(".").WalkDir(fsys, func(name string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -173,53 +155,31 @@ func filesFrom(fsys fs.FS, src *sourceFS, targetBase string) ([]File, error) {
 		if mode == 0 {
 			mode = 0o644
 		}
-		originInfo, module := originOf(src, name)
+		note, module := originNote(origins, name)
 		rel := filepath.FromSlash(name)
-		if src != nil {
-			if node, ok := src.node(name); ok && node.link != "" {
-				out = append(out, &StaticFile{
-					BasicFile: BasicFile{
-						RelPathStr:    rel,
-						TargetBaseDir: targetBase,
-						FileMode:      mode,
-						Info:          originInfo,
-						FileType:      TypeSymlink,
-						Module:        module,
-					},
-					AbsPath: node.abs,
-				})
-				return nil
-			}
-			if node, ok := src.node(name); ok && node.abs != "" {
-				out = append(out, &StaticFile{
-					BasicFile: BasicFile{
-						RelPathStr:    rel,
-						TargetBaseDir: targetBase,
-						FileMode:      mode,
-						Info:          originInfo,
-						FileType:      TypeStatic,
-						Module:        module,
-					},
-					AbsPath: node.abs,
-				})
-				return nil
-			}
+		basic := BasicFile{
+			RelPathStr:    rel,
+			TargetBaseDir: targetBase,
+			FileMode:      mode,
+			Info:          note,
+			Module:        module,
+		}
+		if src, ok := origins[name]; ok && src.link != "" {
+			basic.FileType = TypeSymlink
+			out = append(out, &StaticFile{BasicFile: basic, AbsPath: src.abs})
+			return nil
+		}
+		if src, ok := origins[name]; ok && src.abs != "" {
+			basic.FileType = TypeStatic
+			out = append(out, &StaticFile{BasicFile: basic, AbsPath: src.abs})
+			return nil
 		}
 		body, err := fs.ReadFile(fsys, name)
 		if err != nil {
 			return err
 		}
-		out = append(out, &BufferFile{
-			BasicFile: BasicFile{
-				RelPathStr:    rel,
-				TargetBaseDir: targetBase,
-				FileMode:      mode,
-				Info:          originInfo,
-				FileType:      TypeStatic,
-				Module:        module,
-			},
-			Content: body,
-		})
+		basic.FileType = TypeStatic
+		out = append(out, &BufferFile{BasicFile: basic, Content: body})
 		return nil
 	})
 	if err != nil {
@@ -228,315 +188,136 @@ func filesFrom(fsys fs.FS, src *sourceFS, targetBase string) ([]File, error) {
 	return out, nil
 }
 
-func originOf(src *sourceFS, name string) (string, string) {
-	if src != nil {
-		if info, module, ok := src.meta(name); ok {
-			if info == "" {
-				info = "filespine:" + name
-			}
-			return info, module
+func originNote(origins map[string]origin, name string) (string, string) {
+	if src, ok := origins[name]; ok {
+		if src.info == "" {
+			return "filespine:" + name, src.module
+		}
+		return src.info, src.module
+	}
+	prefix := name + ".d.tmpl/"
+	var bestPath string
+	var best origin
+	for pathName, src := range origins {
+		if strings.HasPrefix(pathName, prefix) && (bestPath == "" || pathName < bestPath) {
+			bestPath = pathName
+			best = src
 		}
 	}
-	return "filespine:" + name, ""
+	if bestPath == "" {
+		return "filespine:" + name, ""
+	}
+	if best.info == "" {
+		return "filespine:" + name, best.module
+	}
+	return best.info, best.module
 }
 
-type sourceNode struct {
+type origin struct {
 	body   []byte
 	abs    string
 	link   string
-	mode   fs.FileMode
 	info   string
 	module string
 }
 
-type sourceFS struct {
-	files map[string]sourceNode
+func (o origin) same(other origin) bool {
+	return o.abs == other.abs && o.link == other.link && bytes.Equal(o.body, other.body)
 }
 
-func newSourceFS() *sourceFS {
-	return &sourceFS{files: map[string]sourceNode{}}
+type bucket struct {
+	files   []lewfs.File
+	origins map[string]origin
 }
 
-func (s *sourceFS) add(f File) error {
-	name := path.Clean(filepath.ToSlash(f.RelPath()))
-	if !fs.ValidPath(name) || name == "." {
+func (b *bucket) add(f File) error {
+	name := lewpath.New(filepath.ToSlash(f.RelPath()))
+	if !name.Valid() || name.IsAbs() || name.String() == "." {
 		return fmt.Errorf("file %s: %w", f.RelPath(), errInvalidRelPath)
 	}
-	node := sourceNode{
-		mode:   f.Mode().Perm(),
-		info:   f.SourceInfo(),
-		module: moduleNameOf(f),
+	key := name.String()
+	next, member, err := memberOf(name, f)
+	if err != nil {
+		return err
 	}
-	if node.mode == 0 {
-		node.mode = 0o644
+	if prev, ok := b.origins[key]; ok {
+		if !prev.same(next) {
+			return fmt.Errorf("file %s: %w", key, errPathConflict)
+		}
+		return nil
+	}
+	b.origins[key] = next
+	b.files = append(b.files, member)
+	return nil
+}
+
+func (b *bucket) fs(ctx context.Context) (fs.FS, error) {
+	return lewfs.New(ctx, func(yield func(lewfs.File, error) bool) {
+		for _, file := range b.files {
+			if !yield(file, nil) {
+				return
+			}
+		}
+	})
+}
+
+func memberOf(name lewpath.Path, f File) (origin, lewfs.File, error) {
+	next := origin{info: f.SourceInfo(), module: moduleNameOf(f)}
+	mode := f.Mode().Perm()
+	if mode == 0 {
+		mode = 0o644
 	}
 	if sf, ok := f.(*StaticFile); ok {
 		if sf.AbsPath == "" {
-			return fmt.Errorf("file %s: %w", name, errStaticNoSource)
+			return origin{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, errStaticNoSource)
 		}
 		st, err := os.Lstat(sf.AbsPath)
 		if err != nil {
-			return fmt.Errorf("file %s: %w", name, err)
+			return origin{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
 		}
-		node.abs = sf.AbsPath
-		node.mode = st.Mode().Perm()
-		if node.mode == 0 {
-			node.mode = 0o644
+		next.abs = sf.AbsPath
+		mode = st.Mode().Perm()
+		if mode == 0 {
+			mode = 0o644
 		}
 		if st.Mode()&os.ModeSymlink != 0 {
 			link, err := os.Readlink(sf.AbsPath)
 			if err != nil {
-				return fmt.Errorf("file %s: %w", name, err)
+				return origin{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
 			}
-			node.link = link
+			next.link = link
 		}
-		return s.put(name, node)
+		opened, err := os.Open(sf.AbsPath)
+		if err != nil {
+			if next.link == "" {
+				return origin{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
+			}
+			return next, lewfs.File{Name: name, Mode: mode, Reader: bytes.NewReader(nil)}, nil
+		}
+		fst, err := opened.Stat()
+		if err != nil {
+			opened.Close()
+			return origin{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
+		}
+		return next, lewfs.File{Name: name, Mode: mode, Size: fst.Size(), Reader: opened}, nil
 	}
 	reader, err := f.Reader()
 	if err != nil {
-		return fmt.Errorf("file %s: %w", name, err)
+		return origin{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
 	}
 	body, err := io.ReadAll(reader)
 	closeErr := reader.Close()
 	if err != nil {
-		return fmt.Errorf("file %s: %w", name, err)
+		return origin{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
 	}
 	if closeErr != nil {
-		return fmt.Errorf("file %s: %w", name, closeErr)
+		return origin{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, closeErr)
 	}
-	node.body = body
-	return s.put(name, node)
-}
-
-func (s *sourceFS) put(name string, node sourceNode) error {
-	for existing := range s.files {
-		if existing == name {
-			prev := s.files[existing]
-			if prev.abs != node.abs || prev.link != node.link || !bytes.Equal(prev.body, node.body) {
-				return fmt.Errorf("file %s: %w", name, errPathConflict)
-			}
-			return nil
-		}
-		if strings.HasPrefix(existing, name+"/") || strings.HasPrefix(name, existing+"/") {
-			return fmt.Errorf("file %s: path clash with %s: %w", name, existing, errPathClash)
-		}
-	}
-	if s.files == nil {
-		s.files = map[string]sourceNode{}
-	}
-	s.files[name] = node
-	return nil
-}
-
-func (s *sourceFS) node(name string) (sourceNode, bool) {
-	if s == nil {
-		return sourceNode{}, false
-	}
-	node, ok := s.files[name]
-	return node, ok
-}
-
-func (s *sourceFS) meta(name string) (string, string, bool) {
-	if s == nil {
-		return "", "", false
-	}
-	if node, ok := s.files[name]; ok {
-		return node.info, node.module, true
-	}
-	prefix := name + ".d.tmpl/"
-	var bestPath string
-	var best sourceNode
-	for pathName, node := range s.files {
-		if strings.HasPrefix(pathName, prefix) && (bestPath == "" || pathName < bestPath) {
-			bestPath = pathName
-			best = node
-		}
-	}
-	if bestPath == "" {
-		return "", "", false
-	}
-	return best.info, best.module, true
-}
-
-func (s *sourceFS) Open(name string) (fs.File, error) {
-	if !fs.ValidPath(name) {
-		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrInvalid}
-	}
-	if s.isDir(name) {
-		return &sourceDir{name: name, entries: s.children(name)}, nil
-	}
-	node, ok := s.files[name]
-	if !ok {
-		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrNotExist}
-	}
-	if node.abs != "" {
-		opened, err := os.Open(node.abs)
-		if err != nil {
-			return nil, err
-		}
-		return opened, nil
-	}
-	return &sourceFile{
-		info:   sourceInfo{name: path.Base(name), mode: fileTypeMode(node), size: int64(len(node.body))},
-		Reader: bytes.NewReader(node.body),
+	next.body = body
+	return next, lewfs.File{
+		Name:   name,
+		Mode:   mode,
+		Size:   int64(len(body)),
+		Reader: bytes.NewReader(body),
 	}, nil
-}
-
-func (s *sourceFS) ReadDir(name string) ([]fs.DirEntry, error) {
-	if !fs.ValidPath(name) {
-		return nil, &fs.PathError{Op: "readdir", Path: name, Err: fs.ErrInvalid}
-	}
-	if !s.isDir(name) {
-		if _, ok := s.files[name]; ok {
-			return nil, &fs.PathError{Op: "readdir", Path: name, Err: fs.ErrInvalid}
-		}
-		return nil, &fs.PathError{Op: "readdir", Path: name, Err: fs.ErrNotExist}
-	}
-	return s.children(name), nil
-}
-
-func (s *sourceFS) isDir(name string) bool {
-	if name == "." {
-		return true
-	}
-	prefix := name + "/"
-	for pathName := range s.files {
-		if strings.HasPrefix(pathName, prefix) {
-			return true
-		}
-	}
-	return false
-}
-
-func (s *sourceFS) children(name string) []fs.DirEntry {
-	prefix := ""
-	if name != "." {
-		prefix = name + "/"
-	}
-	type child struct {
-		dir  bool
-		node sourceNode
-	}
-	kids := map[string]child{}
-	for pathName, node := range s.files {
-		rest := pathName
-		if prefix != "" {
-			if !strings.HasPrefix(pathName, prefix) {
-				continue
-			}
-			rest = strings.TrimPrefix(pathName, prefix)
-		}
-		elem, _, found := strings.Cut(rest, "/")
-		if elem == "" {
-			continue
-		}
-		if found {
-			kids[elem] = child{dir: true}
-			continue
-		}
-		if prev, ok := kids[elem]; ok && prev.dir {
-			continue
-		}
-		kids[elem] = child{node: node}
-	}
-	names := make([]string, 0, len(kids))
-	for name := range kids {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-	out := make([]fs.DirEntry, 0, len(names))
-	for _, name := range names {
-		item := kids[name]
-		if item.dir {
-			out = append(out, sourceEntry{name: name, mode: fs.ModeDir | 0o755})
-			continue
-		}
-		out = append(out, sourceEntry{
-			name: name,
-			mode: fileTypeMode(item.node),
-			size: int64(len(item.node.body)),
-		})
-	}
-	return out
-}
-
-func fileTypeMode(node sourceNode) fs.FileMode {
-	mode := node.mode.Perm()
-	if mode == 0 {
-		mode = 0o644
-	}
-	if node.link != "" {
-		mode |= fs.ModeSymlink
-	}
-	return mode
-}
-
-type sourceEntry struct {
-	name string
-	mode fs.FileMode
-	size int64
-}
-
-func (e sourceEntry) Name() string      { return e.name }
-func (e sourceEntry) IsDir() bool       { return e.mode.IsDir() }
-func (e sourceEntry) Type() fs.FileMode { return e.mode.Type() }
-func (e sourceEntry) Info() (fs.FileInfo, error) {
-	return sourceInfo{name: e.name, mode: e.mode, size: e.size}, nil
-}
-
-type sourceInfo struct {
-	name string
-	mode fs.FileMode
-	size int64
-}
-
-func (i sourceInfo) Name() string       { return i.name }
-func (i sourceInfo) Size() int64        { return i.size }
-func (i sourceInfo) Mode() fs.FileMode  { return i.mode }
-func (i sourceInfo) ModTime() time.Time { return time.Time{} }
-func (i sourceInfo) IsDir() bool        { return i.mode.IsDir() }
-func (i sourceInfo) Sys() any           { return nil }
-
-type sourceFile struct {
-	info fs.FileInfo
-	*bytes.Reader
-}
-
-func (f *sourceFile) Stat() (fs.FileInfo, error) { return f.info, nil }
-
-func (f *sourceFile) Close() error { return nil }
-
-type sourceDir struct {
-	name    string
-	entries []fs.DirEntry
-}
-
-func (d *sourceDir) Stat() (fs.FileInfo, error) {
-	return sourceInfo{name: path.Base(d.name), mode: fs.ModeDir | 0o755}, nil
-}
-
-func (d *sourceDir) Read([]byte) (int, error) {
-	return 0, &fs.PathError{Op: "read", Path: d.name, Err: fs.ErrInvalid}
-}
-
-func (d *sourceDir) Close() error { return nil }
-
-func (d *sourceDir) ReadDir(n int) ([]fs.DirEntry, error) {
-	if n == 0 {
-		return nil, nil
-	}
-	if len(d.entries) == 0 {
-		if n > 0 {
-			return nil, io.EOF
-		}
-		return nil, nil
-	}
-	if n < 0 || n > len(d.entries) {
-		out := d.entries
-		d.entries = nil
-		return out, nil
-	}
-	out := d.entries[:n]
-	d.entries = d.entries[n:]
-	return out, nil
 }

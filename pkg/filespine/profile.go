@@ -1,5 +1,7 @@
 package filespine
 
+import "path/filepath"
+
 const (
 	ModeHome     = "home"
 	ModeCodebase = "codebase"
@@ -36,6 +38,42 @@ func IsNamespace(name string) bool {
 		}
 	}
 	return false
+}
+
+// Visible profiles for mode, in Profiles order.
+func Visible(mode string) []string {
+	out := make([]string, 0, len(Profiles))
+	for _, profile := range Profiles {
+		if NamespaceVisible(mode, profile) {
+			out = append(out, profile)
+		}
+	}
+	return out
+}
+
+// ApplyDir is where profile is written.
+// home, codebase, and system use primary. The other profiles use NamespaceBase.
+func ApplyDir(profile, primary string) string {
+	if base, ok := NamespaceBase[profile]; ok {
+		return base
+	}
+	return primary
+}
+
+// ProfileForTarget reports the profile whose apply directory is target.
+// An empty target, or target equal to primary, selects Primary(mode).
+func ProfileForTarget(mode, target, primary string) (string, bool) {
+	if target == "" || filepath.Clean(target) == filepath.Clean(primary) {
+		return Primary(mode), true
+	}
+	cleaned := filepath.Clean(target)
+	for _, profile := range Visible(mode) {
+		base, ok := NamespaceBase[profile]
+		if ok && filepath.Clean(base) == cleaned {
+			return profile, true
+		}
+	}
+	return "", false
 }
 
 // Primary is the profile that receives files aimed at the apply target.

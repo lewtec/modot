@@ -72,7 +72,7 @@ func (b Builder) Tree(ctx context.Context) (*Tree, error) {
 	discovered := make([]File, 0, len(static)+len(rendered))
 	discovered = append(discovered, static...)
 	discovered = append(discovered, rendered...)
-	tree, err := composeApply(b.Config, b.TargetBase, discovered)
+	tree, err := composeApply(ctx, destRequest{cfg: b.Config, targetBase: b.TargetBase, files: discovered})
 	if err != nil {
 		return nil, err
 	}

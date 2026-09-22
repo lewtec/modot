@@ -59,10 +59,7 @@ func (c *Config) FileProfiles() (map[string]*compose.Tree, error) {
 	if hasCue {
 		fileVal = root.LookupPath(cue.ParsePath("file"))
 	}
-	for _, name := range filespine.Profiles {
-		if !filespine.NamespaceVisible(mode, name) {
-			continue
-		}
+	for _, name := range filespine.Visible(mode) {
 		if !hasCue {
 			out[name] = compose.New()
 			continue

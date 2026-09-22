@@ -31,6 +31,34 @@ func TestNamespaceVisible(t *testing.T) {
 	}
 }
 
+func TestProfileForTarget(t *testing.T) {
+	t.Parallel()
+	home := "/home/user"
+	got, ok := ProfileForTarget(ModeHome, home, home)
+	if !ok || got != ModeHome {
+		t.Fatalf("home target = %q %v", got, ok)
+	}
+	got, ok = ProfileForTarget(ModeHome, "/etc", home)
+	if !ok || got != "etc" {
+		t.Fatalf("etc target = %q %v", got, ok)
+	}
+	if _, ok := ProfileForTarget(ModeCodebase, "/etc", "/repo"); ok {
+		t.Fatal("codebase mode accepted /etc")
+	}
+	if got, ok := ProfileForTarget(ModeHome, "", home); !ok || got != ModeHome {
+		t.Fatalf("empty target = %q %v", got, ok)
+	}
+	if ApplyDir("etc", home) != "/etc" {
+		t.Fatalf("ApplyDir etc = %q", ApplyDir("etc", home))
+	}
+	if ApplyDir(ModeHome, home) != home {
+		t.Fatalf("ApplyDir home = %q", ApplyDir(ModeHome, home))
+	}
+	if got := Visible(ModeCodebase); len(got) != 1 || got[0] != ModeCodebase {
+		t.Fatalf("Visible codebase = %v", got)
+	}
+}
+
 func TestPrimary(t *testing.T) {
 	t.Parallel()
 	if got := Primary(""); got != ModeHome {
