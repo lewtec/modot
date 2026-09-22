@@ -56,6 +56,9 @@ func composeApply(ctx context.Context, request destRequest) (*Tree, error) {
 
 	grouped := map[string]*profileFiles{}
 	for _, file := range request.files {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		name, placed, err := placeInProfile(file, mode, request.targetBase)
 		if err != nil {
 			return nil, err
@@ -86,7 +89,7 @@ func composeApply(ctx context.Context, request destRequest) (*Tree, error) {
 				return nil, fmt.Errorf("file.%s: %w", name, err)
 			}
 			recorded = profile.recorded
-			squashed, err := compose.Squash(base)
+			squashed, err := squashContext(ctx, base)
 			if err != nil {
 				return nil, fmt.Errorf("file.%s: %w", name, err)
 			}
@@ -99,7 +102,7 @@ func composeApply(ctx context.Context, request destRequest) (*Tree, error) {
 			return nil, fmt.Errorf("file.%s: %w", name, err)
 		}
 		filesystems = append(filesystems, filesystem)
-		applied, err := applyFiles(tree, base, recorded, filespine.ApplyDir(name, request.targetBase))
+		applied, err := applyFiles(ctx, tree, base, recorded, filespine.ApplyDir(name, request.targetBase))
 		if err != nil {
 			return nil, fmt.Errorf("file.%s: %w", name, err)
 		}
@@ -139,9 +142,12 @@ func (filesystem profileFilesystem) Open(name string) (fs.File, error) {
 	return nil, missing
 }
 
-func applyFiles(tree *compose.Tree, base fs.FS, recorded map[string]recordedFile, targetBase string) ([]File, error) {
+func applyFiles(ctx context.Context, tree *compose.Tree, base fs.FS, recorded map[string]recordedFile, targetBase string) ([]File, error) {
 	var out []File
 	for name, declared := range tree.All() {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		key := name.String()
 		sourceInfo, module := recordedNote(recorded, key)
 		basic := BasicFile{
@@ -233,6 +239,140 @@ type rebasedFile struct {
 }
 
 func (file rebasedFile) RelPath() string { return file.rel }
+
+// squashContext is compose.Squash that returns when ctx is cancelled.
+// The library walk does not look at a context, so a large tree would
+// keep merging after the session stops.
+func squashContext(ctx context.Context, fsys fs.FS) (*compose.Tree, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if fsys == nil {
+		return compose.New(), nil
+	}
+	tree := compose.New()
+	err := lewpath.New(".").WalkDir(fsys, func(name string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		current := lewpath.New(name)
+		if current.String() == "." {
+			return nil
+		}
+		if dotDirectory(current) {
+			if !entry.IsDir() {
+				return fmt.Errorf("file %s: %w", current, compose.ErrPath)
+			}
+			if err := addDotDirectory(ctx, tree, fsys, current); err != nil {
+				return err
+			}
+			return fs.SkipDir
+		}
+		if entry.IsDir() || current.Suffix() == ".tmpl" {
+			return nil
+		}
+		if entry.Type()&fs.ModeSymlink != 0 {
+			return addLink(tree, fsys, current)
+		}
+		return addRef(tree, current, entry)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return tree, nil
+}
+
+func addDotDirectory(ctx context.Context, tree *compose.Tree, fsys fs.FS, directory lewpath.Path) error {
+	destination, err := linesPath(directory)
+	if err != nil {
+		return fmt.Errorf("file %s: %w", directory, err)
+	}
+	entries, err := fs.ReadDir(fsys, directory.String())
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		child := directory.Join(entry.Name())
+		if entry.IsDir() {
+			return fmt.Errorf("file %s: %w", child, compose.ErrPath)
+		}
+		if child.Suffix() == ".tmpl" {
+			continue
+		}
+		body, err := fs.ReadFile(fsys, child.String())
+		if err != nil {
+			return err
+		}
+		err = tree.Add(destination, compose.File{
+			Type:   compose.TypeLines,
+			Values: map[string]compose.Slot{child.Name(): compose.Text(string(body))},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func dotDirectory(name lewpath.Path) bool {
+	suffixes := name.Suffixes()
+	count := len(suffixes)
+	return count >= 2 && suffixes[count-2] == ".d" && suffixes[count-1] == ".tmpl"
+}
+
+func linesPath(directory lewpath.Path) (lewpath.Path, error) {
+	if !dotDirectory(directory) {
+		return lewpath.Path{}, compose.ErrPath
+	}
+	trimmed := directory.WithSuffix("").WithSuffix("")
+	base := trimmed.Name()
+	if base == "" || base == "." || base == ".." {
+		return lewpath.Path{}, compose.ErrPath
+	}
+	return trimmed, nil
+}
+
+func addLink(tree *compose.Tree, fsys fs.FS, name lewpath.Path) error {
+	target, err := name.ReadLink(fsys)
+	if err != nil {
+		return err
+	}
+	return tree.Add(name, compose.File{
+		Type:   compose.TypeLink,
+		Mode:   lstatPerm(fsys, name),
+		Values: map[string]compose.Slot{"target": compose.Link(target.String())},
+	})
+}
+
+func addRef(tree *compose.Tree, name lewpath.Path, entry fs.DirEntry) error {
+	return tree.Add(name, compose.File{
+		Type:   compose.TypeRef,
+		Mode:   entryPerm(entry),
+		Values: map[string]compose.Slot{"src": compose.Ref(name.String())},
+	})
+}
+
+func lstatPerm(fsys fs.FS, name lewpath.Path) fs.FileMode {
+	info, err := name.Lstat(fsys)
+	if err != nil {
+		return 0o644
+	}
+	return permission(info.Mode())
+}
+
+func entryPerm(entry fs.DirEntry) fs.FileMode {
+	info, err := entry.Info()
+	if err != nil {
+		return 0o644
+	}
+	return permission(info.Mode())
+}
 
 func linkTarget(file compose.File) (string, bool) {
 	for _, slot := range file.Values {

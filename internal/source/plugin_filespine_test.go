@@ -1,6 +1,8 @@
 package source
 
 import (
+	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -164,6 +166,25 @@ func TestFileSpineStaticRef(t *testing.T) {
 	}
 	if string(got) != "[user]\n" {
 		t.Fatalf("content=%q", got)
+	}
+}
+
+func TestComposeApplyStopsWhenCancelled(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(logging.NewWriterContext(t.Output()))
+	cancel()
+	home := t.TempDir()
+	_, err := composeApply(ctx, destRequest{
+		targetBase: home,
+		files: []File{
+			&BufferFile{
+				BasicFile: BasicFile{RelPathStr: "plain.txt", TargetBaseDir: home},
+				Content:   []byte("x"),
+			},
+		},
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v", err)
 	}
 }
 
