@@ -40,7 +40,6 @@ func TestResolvePresetBases(t *testing.T) {
 	}
 
 	want := []module.ResolvedFile{
-		{RelPath: "nginx/nginx.conf", TargetBase: "/etc"},
 		{RelPath: ".bashrc", TargetBase: home},
 	}
 	opts := []cmp.Option{

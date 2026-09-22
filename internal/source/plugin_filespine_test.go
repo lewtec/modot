@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/pkg/filespine"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
@@ -212,7 +213,7 @@ func TestFileSpineEtcUsesFixedBase(t *testing.T) {
 	if err := os.WriteFile(src, []byte("127.0.0.1 localhost\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	p := NewFileSpinePlugin(&configcue.Config{}, home)
+	p := NewFileSpinePlugin(systemConfig(t), home)
 	out, err := p.Process(ctx, []File{
 		&StaticFile{
 			BasicFile: BasicFile{RelPathStr: "hosts", TargetBaseDir: "/etc", FileType: TypeStatic},
@@ -242,7 +243,7 @@ func TestFileSpineSameRelPathOnTwoProfiles(t *testing.T) {
 	if err := os.WriteFile(etcSrc, []byte("etc\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	p := NewFileSpinePlugin(&configcue.Config{}, home)
+	p := NewFileSpinePlugin(systemConfig(t), home)
 	out, err := p.Process(ctx, []File{
 		&StaticFile{
 			BasicFile: BasicFile{RelPathStr: "hosts", TargetBaseDir: home, FileType: TypeStatic},
@@ -275,6 +276,20 @@ func TestFileSpineSameRelPathOnTwoProfiles(t *testing.T) {
 	if got[home] != "home\n" || got["/etc"] != "etc\n" {
 		t.Fatalf("bodies=%v", got)
 	}
+}
+
+func systemConfig(t *testing.T) *configcue.Config {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "workspaced.cue")
+	if err := os.WriteFile(path, []byte("package workspaced\nworkspaced: {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := configcue.LoadFilesMode(logging.NewWriterContext(t.Output()), []string{path}, filespine.ModeSystem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cfg
 }
 
 func TestFileSpineRejectsNestedDotD(t *testing.T) {

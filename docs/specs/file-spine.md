@@ -12,9 +12,9 @@ Profiles are `home`, `codebase`, `etc`, `usr`, `root`, `var`, `bin`, and `system
 
 | Mode | Profiles |
 |---|---|
-| `home` | `home`, `etc`, `usr`, `root`, `var`, `bin` |
+| `home` | `home` |
 | `codebase` | `codebase` |
-| `system` | `system` |
+| `system` | `etc`, `usr`, `root`, `var`, `bin`, `system` |
 
 `home`, `codebase`, and `system` use the apply target directory. The other profiles use a fixed directory: `etc` is `/etc`, `usr` is `/usr`, `root` is `/`, `var` is `/var`, and `bin` is `/usr/local/bin`.
 

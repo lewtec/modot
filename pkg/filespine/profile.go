@@ -83,14 +83,14 @@ func Primary(mode string) string {
 }
 
 // NamespaceVisible reports whether profile is emitted for mode.
-// An empty mode is home.
+// An empty mode is home. etc, usr, root, var, and bin are system.
 func NamespaceVisible(mode, profile string) bool {
 	switch mode {
 	case ModeCodebase:
 		return profile == ModeCodebase
 	case ModeSystem:
-		return profile == ModeSystem
+		return IsNamespace(profile) && profile != ModeHome && profile != ModeCodebase
 	default:
-		return profile != ModeCodebase && profile != ModeSystem
+		return profile == ModeHome
 	}
 }

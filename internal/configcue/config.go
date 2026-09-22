@@ -197,10 +197,18 @@ func LoadForWorkspace(ctx context.Context, root string) (*Config, error) {
 }
 
 func LoadFiles(ctx context.Context, paths []string) (*Config, error) {
+	return LoadFilesMode(ctx, paths, filespine.ModeHome)
+}
+
+// LoadFilesMode evaluates paths with workspaced.runtime.mode set to mode.
+func LoadFilesMode(ctx context.Context, paths []string, mode string) (*Config, error) {
 	if len(paths) == 0 {
 		return Load(ctx)
 	}
-	configValue, err := buildWorkspacedValue(ctx, paths, nil, DiscoverOptions{Mode: filespine.ModeHome})
+	if mode == "" {
+		mode = filespine.ModeHome
+	}
+	configValue, err := buildWorkspacedValue(ctx, paths, nil, DiscoverOptions{Mode: mode})
 	if err != nil {
 		return nil, err
 	}

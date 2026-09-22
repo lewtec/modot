@@ -10,16 +10,19 @@ func TestNamespaceVisible(t *testing.T) {
 		want    bool
 	}{
 		{mode: ModeHome, profile: ModeHome, want: true},
-		{mode: ModeHome, profile: "etc", want: true},
-		{mode: ModeHome, profile: "bin", want: true},
+		{mode: ModeHome, profile: "etc", want: false},
+		{mode: ModeHome, profile: "bin", want: false},
 		{mode: ModeHome, profile: ModeCodebase, want: false},
 		{mode: ModeHome, profile: ModeSystem, want: false},
 		{mode: "", profile: ModeHome, want: true},
+		{mode: "", profile: "etc", want: false},
 		{mode: "", profile: ModeCodebase, want: false},
 		{mode: ModeCodebase, profile: ModeCodebase, want: true},
 		{mode: ModeCodebase, profile: ModeHome, want: false},
 		{mode: ModeSystem, profile: ModeSystem, want: true},
-		{mode: ModeSystem, profile: "etc", want: false},
+		{mode: ModeSystem, profile: "etc", want: true},
+		{mode: ModeSystem, profile: "bin", want: true},
+		{mode: ModeSystem, profile: ModeHome, want: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.mode+"/"+tt.profile, func(t *testing.T) {
@@ -38,9 +41,12 @@ func TestProfileForTarget(t *testing.T) {
 	if !ok || got != ModeHome {
 		t.Fatalf("home target = %q %v", got, ok)
 	}
-	got, ok = ProfileForTarget(ModeHome, "/etc", home)
+	got, ok = ProfileForTarget(ModeSystem, "/etc", home)
 	if !ok || got != "etc" {
 		t.Fatalf("etc target = %q %v", got, ok)
+	}
+	if _, ok := ProfileForTarget(ModeHome, "/etc", home); ok {
+		t.Fatal("home mode accepted /etc")
 	}
 	if _, ok := ProfileForTarget(ModeCodebase, "/etc", "/repo"); ok {
 		t.Fatal("codebase mode accepted /etc")
