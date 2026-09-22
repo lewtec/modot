@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/module"
 	"github.com/lucasew/workspaced/internal/modulecue"
 	"github.com/lucasew/workspaced/pkg/filespine"
@@ -28,11 +29,12 @@ type Provider struct{}
 func (p *Provider) ID() string   { return "self" }
 func (p *Provider) Name() string { return "Workspace Module" }
 
-func resolvePresetBase(name, modulesBaseDir, prefix string) (string, error) {
+func resolvePresetBase(ctx context.Context, name, modulesBaseDir string) (string, error) {
+	root := cmdarg.PrefixPath(ctx)
 	switch name {
 	case "home":
-		if prefix != "" && prefix != "~" {
-			return prefix, nil
+		if root != "" {
+			return root, nil
 		}
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -41,13 +43,11 @@ func resolvePresetBase(name, modulesBaseDir, prefix string) (string, error) {
 		return home, nil
 	case "codebase":
 		return filepath.Clean(filepath.Dir(modulesBaseDir)), nil
-	case "system", "root":
-		return filespine.ApplyDir(name, prefix), nil
 	default:
 		if !filespine.IsNamespace(name) {
 			return "", fmt.Errorf("%w: %q", ErrUnknownPreset, name)
 		}
-		return filespine.ApplyDir(name, prefix), nil
+		return filespine.ApplyDir(name, root), nil
 	}
 }
 
@@ -80,7 +80,7 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) (modu
 			return module.ResolveResult{}, fmt.Errorf("%w: %q in module %q", ErrStrictStructureViolation, name, req.Ref)
 		}
 		presetName := preset.Name()
-		targetBase, err := resolvePresetBase(presetName, req.ModulesBaseDir, req.Prefix)
+		targetBase, err := resolvePresetBase(ctx, presetName, req.ModulesBaseDir)
 		if err != nil {
 			return module.ResolveResult{}, fmt.Errorf("%w in module %q", err, req.Ref)
 		}

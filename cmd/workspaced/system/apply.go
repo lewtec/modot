@@ -20,10 +20,13 @@ import (
 	lewpath "github.com/lewtec/lewkit/x/path"
 )
 
-func RunApply(ctx context.Context, action string, prefix *lewpath.Root) error {
+func RunApply(ctx context.Context, action string) error {
 	logger := logging.GetLogger(ctx)
 	dryRun := cmdctx.IsDryRun(ctx)
-	root := prefix.Name()
+	root := cmdarg.PrefixPath(ctx)
+	if root == "" {
+		root = "/"
+	}
 
 	dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 	if err != nil {
@@ -76,7 +79,6 @@ func applySystemFiles(ctx context.Context, prefix string, cfg *configcue.Config,
 		ConfigTreeTarget: prefix,
 		ModulesDir:       modulesDir,
 		ModulesCfg:       cfg,
-		Prefix:           prefix,
 	}.Builder(cfg)
 	if err != nil {
 		return err
@@ -104,7 +106,7 @@ func applySystemFiles(ctx context.Context, prefix string, cfg *configcue.Config,
 
 type Apply struct {
 	action cmd.EnumArg[cmdarg.NixAction] `default:"switch"`
-	prefix cmdarg.SystemPrefix           `long:"prefix" help:"system root for module files"`
+	prefix cmdarg.SystemPrefix           `long:"prefix" ctx:"prefix" help:"system root for module files"`
 }
 
 func (Apply) Description() string {
@@ -112,5 +114,5 @@ func (Apply) Description() string {
 }
 
 func (a *Apply) Run(ctx context.Context) error {
-	return RunApply(ctx, a.action.Value().String(), a.prefix.Value())
+	return RunApply(ctx, a.action.Value().String())
 }

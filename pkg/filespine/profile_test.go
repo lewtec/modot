@@ -58,6 +58,12 @@ func TestProfileForTarget(t *testing.T) {
 	if got, ok := ProfileForTarget(ModeHome, "", home); !ok || got != ModeHome {
 		t.Fatalf("empty target = %q %v", got, ok)
 	}
+	if RelDir("etc") != "etc" || RelDir("bin") != "usr/local/bin" || RelDir(ModeHome) != "." {
+		t.Fatalf("RelDir etc=%q bin=%q home=%q", RelDir("etc"), RelDir("bin"), RelDir(ModeHome))
+	}
+	if ApplyDir("etc", "") != "etc" {
+		t.Fatalf("ApplyDir etc relative = %q", ApplyDir("etc", ""))
+	}
 	if ApplyDir("etc", "/") != "/etc" || ApplyDir("etc", "/mnt") != "/mnt/etc" {
 		t.Fatalf("ApplyDir etc = %q / %q", ApplyDir("etc", "/"), ApplyDir("etc", "/mnt"))
 	}

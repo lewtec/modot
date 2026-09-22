@@ -23,12 +23,11 @@ import (
 	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	lewpath "github.com/lewtec/lewkit/x/path"
 )
 
 type Command struct {
 	ShowNoop cmd.Flag          `long:"show-noop" help:"Also show files that would not change"`
-	Prefix   cmdarg.HomePrefix `long:"prefix" help:"directory that receives home files"`
+	Prefix   cmdarg.HomePrefix `long:"prefix" ctx:"prefix" help:"directory that receives home files"`
 }
 
 func (Command) Description() string {
@@ -36,16 +35,13 @@ func (Command) Description() string {
 }
 
 func (c *Command) Run(ctx context.Context) error {
-	prefix := c.Prefix.Value()
-	return cmdwire.RunAfterWait(ctx, false, c.ShowNoop.Value(), func(ctx context.Context, dryRun, showNoop bool) func() error {
-		return Schedule(ctx, dryRun, showNoop, prefix)
-	})
+	return cmdwire.RunAfterWait(ctx, false, c.ShowNoop.Value(), Schedule)
 }
 
 // Schedule wires the home apply/plan work into the session.
 // Both "home apply" and "home plan" use this so the work always runs in-process
 // under the caller's session. The returned func prints the report after wait.
-func Schedule(ctx context.Context, dryRun, showNoop bool, prefix *lewpath.Root) func() error {
+func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 	taskName := "home:apply"
 	updateMsg := "applying configuration"
 	if dryRun {
@@ -76,7 +72,14 @@ func Schedule(ctx context.Context, dryRun, showNoop bool, prefix *lewpath.Root) 
 			return fmt.Errorf("refresh workspace lockfile: %w", err)
 		}
 
-		home := prefix.Name()
+		home := cmdarg.PrefixPath(ctx)
+		if home == "" {
+			var err error
+			home, err = os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("get home directory: %w", err)
+			}
+		}
 		liveHome, err := os.UserHomeDir()
 		if err != nil {
 			return fmt.Errorf("get home directory: %w", err)
@@ -90,7 +93,6 @@ func Schedule(ctx context.Context, dryRun, showNoop bool, prefix *lewpath.Root) 
 			ConfigTreeTarget: home,
 			ModulesDir:       modulesDir,
 			ModulesCfg:       cfg,
-			Prefix:           home,
 			Extra:            []source.Plugin{&apply.DconfPlugin{}},
 		}.Builder(cfg)
 		if err != nil {

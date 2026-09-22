@@ -49,24 +49,26 @@ func Visible(mode string) []string {
 	return out
 }
 
-// ApplyDir joins profile onto root.
-// root is ~ for home, the repo for codebase, and the system prefix for system.
-// An empty system root is /.
+// RelDir is the profile directory relative to the apply root.
+// home, codebase, root, and system are ".".
+func RelDir(profile string) string {
+	if base, ok := NamespaceBase[profile]; ok && base != "" {
+		return base
+	}
+	return "."
+}
+
+// ApplyDir joins RelDir onto root.
+// An empty root keeps the relative directory.
 func ApplyDir(profile, root string) string {
-	base, fixed := NamespaceBase[profile]
-	if !fixed {
-		if root == "" {
-			return "/"
-		}
+	rel := RelDir(profile)
+	if root == "" || root == "." {
+		return rel
+	}
+	if rel == "." {
 		return root
 	}
-	if root == "" {
-		root = "/"
-	}
-	if base == "" {
-		return root
-	}
-	return lewpath.New(root, base).String()
+	return lewpath.New(root, rel).String()
 }
 
 // ProfileForTarget reports the profile whose apply directory is target.

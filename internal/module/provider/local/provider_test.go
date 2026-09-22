@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	lewpath "github.com/lewtec/lewkit/x/path"
+	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/module"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
@@ -56,6 +58,25 @@ func TestResolvePresetBases(t *testing.T) {
 	}
 }
 
+func TestResolvePresetBaseUsesContextPrefix(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	root, err := lewpath.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = root.Close() })
+	ctx := cmdarg.WithPrefix(t.Context(), root)
+	got, err := resolvePresetBase(ctx, "etc", "/ws/modules")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := dir + "/etc"
+	if got != want {
+		t.Fatalf("base=%q want %q", got, want)
+	}
+}
+
 func TestResolveUnknownPreset(t *testing.T) {
 	t.Parallel()
 
@@ -88,22 +109,20 @@ func TestResolvePresetBase(t *testing.T) {
 		name           string
 		preset         string
 		modulesBaseDir string
-		prefix         string
 		want           string
 		wantErr        error
 	}{
 		{name: "home", preset: "home", modulesBaseDir: "/ws/modules", want: home},
-		{name: "home prefix", preset: "home", modulesBaseDir: "/ws/modules", prefix: "/tmp/stage", want: "/tmp/stage"},
 		{name: "codebase", preset: "codebase", modulesBaseDir: "/ws/modules", want: "/ws"},
-		{name: "etc", preset: "etc", modulesBaseDir: "/ws/modules", want: "/etc"},
-		{name: "etc prefix", preset: "etc", modulesBaseDir: "/ws/modules", prefix: "/mnt", want: "/mnt/etc"},
-		{name: "bin prefix", preset: "bin", modulesBaseDir: "/ws/modules", prefix: "/mnt", want: "/mnt/usr/local/bin"},
+		{name: "etc", preset: "etc", modulesBaseDir: "/ws/modules", want: "etc"},
+		{name: "bin", preset: "bin", modulesBaseDir: "/ws/modules", want: "usr/local/bin"},
+		{name: "root", preset: "root", modulesBaseDir: "/ws/modules", want: "."},
 		{name: "unknown", preset: "nope", modulesBaseDir: "/ws/modules", wantErr: ErrUnknownPreset},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := resolvePresetBase(tt.preset, tt.modulesBaseDir, tt.prefix)
+			got, err := resolvePresetBase(t.Context(), tt.preset, tt.modulesBaseDir)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("err=%v want %v", err, tt.wantErr)
 			}

@@ -1,6 +1,7 @@
 package cmdarg
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -8,6 +9,35 @@ import (
 	lewpath "github.com/lewtec/lewkit/x/path"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 )
+
+type prefixKey struct{}
+
+// WithPrefix stores root for callers that are not a command.
+// A command field tagged ctx:"prefix" is the usual path.
+func WithPrefix(ctx context.Context, root *lewpath.Root) context.Context {
+	return context.WithValue(ctx, prefixKey{}, root)
+}
+
+// Prefix is the apply root opened by --prefix.
+func Prefix(ctx context.Context) *lewpath.Root {
+	if ctx == nil {
+		return nil
+	}
+	if root, ok := cmd.Lookup[*lewpath.Root](ctx, "prefix"); ok && root != nil {
+		return root
+	}
+	root, _ := ctx.Value(prefixKey{}).(*lewpath.Root)
+	return root
+}
+
+// PrefixPath is Prefix.Name, or empty when no root is on ctx.
+func PrefixPath(ctx context.Context) string {
+	root := Prefix(ctx)
+	if root == nil {
+		return ""
+	}
+	return root.Name()
+}
 
 // HomePrefix is home apply and home plan --prefix.
 // The default is ~, the user home directory.
