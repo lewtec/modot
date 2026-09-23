@@ -3,9 +3,8 @@ package codebase
 import (
 	"context"
 	"fmt"
-	"os"
 
-	"github.com/lewtec/lewkit/x/path"
+	lewpath "github.com/lewtec/lewkit/x/path"
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/cmdwire"
@@ -52,7 +51,13 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 
 		// Locking uses the same mechanism as home apply:
 		// LoadForWorkspace, then RefreshWorkspaceLocks (not force=true mod lock).
-		root := cmdarg.PrefixPath(ctx)
+		workspace, err := lewpath.Open(cmdarg.PrefixPath(ctx))
+		if err != nil {
+			return fmt.Errorf("open prefix: %w", err)
+		}
+		defer workspace.Close()
+		root := workspace.Name()
+
 		cfg, err := configcue.LoadForWorkspace(ctx, root)
 		if err != nil {
 			return fmt.Errorf("load config: %w", err)
@@ -63,15 +68,25 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 			return fmt.Errorf("refresh workspace lockfile: %w", err)
 		}
 
-		configDir := path.New(root, ".workspaced", "config").String()
-		modulesDir := path.New(root, "modules").String()
+		configDir := Prefix{}.ConfigDir()
+		modulesDir := Prefix{}.ModulesDir()
+		modulePath, err := directory(workspace, modulesDir)
+		if err != nil {
+			return err
+		}
 		stdOpts := source.StandardDotfilesOptions{
 			ConfigTreeTarget: root,
-			ModulesDir:       modulesDir,
+			ModulesDir:       modulePath,
 			ModulesCfg:       cfg,
 		}
-		if _, err := os.Stat(configDir); err == nil {
-			stdOpts.ConfigTreeDir = configDir
+		if ok, err := configDir.IsDir(workspace); err != nil {
+			return err
+		} else if ok {
+			configPath, err := directory(workspace, configDir)
+			if err != nil {
+				return err
+			}
+			stdOpts.ConfigTreeDir = configPath
 		}
 
 		b, err := stdOpts.Builder(cfg)
@@ -84,8 +99,7 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 		}
 
 		// Repo-local state. Never use the global ~/.config/workspaced state.
-		statePath := stateFile(root)
-		stateStore, err := deployer.NewFileStateStore(statePath, root)
+		stateStore, err := deployer.NewFileStateStoreIn(root, Prefix{}.StatePath())
 		if err != nil {
 			return fmt.Errorf("create state store: %w", err)
 		}

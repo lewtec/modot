@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+
+	lewpath "github.com/lewtec/lewkit/x/path"
 )
 
 // StateStore is the interface for state persistence.
@@ -32,11 +34,22 @@ type FileStateStore struct {
 	root string
 }
 
+// NewFileStateStoreIn stores state at rel under root.
+// rel is a path inside the workspace, not a host path.
+func NewFileStateStoreIn(root string, rel lewpath.Path) (*FileStateStore, error) {
+	return NewFileStateStore(filepath.FromSlash(rel.String()), root)
+}
+
 // NewFileStateStore creates a FileStateStore.
 // root is the apply target base (e.g. $HOME or the workspace root); paths in
 // the state file are stored relative to it. Empty root keeps absolute keys.
+// A relative path is joined onto root.
+
 func NewFileStateStore(path, root string) (*FileStateStore, error) {
 	expanded := envdriver.ExpandPath(path)
+	if root != "" && !filepath.IsAbs(expanded) {
+		expanded = filepath.Join(root, expanded)
+	}
 
 	dir := filepath.Dir(expanded)
 	if err := os.MkdirAll(dir, 0755); err != nil {

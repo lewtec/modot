@@ -2,6 +2,7 @@ package codebase
 
 import (
 	"log/slog"
+	"path/filepath"
 
 	"github.com/lewtec/lewkit/x/cmd"
 	lewpath "github.com/lewtec/lewkit/x/path"
@@ -13,7 +14,7 @@ import (
 
 // Prefix is codebase --prefix. It embeds the data-directory flag.
 // The default is the workspace that holds workspaced.cue, then the git root.
-// StatePath is the codebase state file under that directory.
+// StatePath, ConfigDir, and ModulesDir are paths inside that directory.
 type Prefix struct {
 	cmdarg.Prefix
 }
@@ -31,13 +32,38 @@ func (Prefix) ArgDefault() string {
 	return ws.Root
 }
 
-// StatePath is <prefix>/.workspaced/state.json.
-func (p Prefix) StatePath() string {
-	return stateFile(p.Value())
+// StatePath is the codebase state file, relative to the prefix root.
+func (Prefix) StatePath() lewpath.Path {
+	return lewpath.New(".workspaced", "state.json")
 }
 
-func stateFile(dir string) string {
-	return lewpath.New(dir, ".workspaced", "state.json").String()
+// ConfigDir is the direct config tree, relative to the prefix root.
+func (Prefix) ConfigDir() lewpath.Path {
+	return lewpath.New(".workspaced", "config")
+}
+
+// ModulesDir is the module tree, relative to the prefix root.
+func (Prefix) ModulesDir() lewpath.Path {
+	return lewpath.New("modules")
+}
+
+// directory opens rel under workspace when it exists.
+// A missing directory is the root name plus the relative path.
+func directory(workspace *lewpath.Root, rel lewpath.Path) (string, error) {
+	ok, err := rel.IsDir(workspace)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return filepath.Join(workspace.Name(), filepath.FromSlash(rel.String())), nil
+	}
+	opened, err := rel.OpenRoot(workspace)
+	if err != nil {
+		return "", err
+	}
+	name := opened.Name()
+	err = opened.Close()
+	return name, err
 }
 
 var (

@@ -24,9 +24,9 @@ func TestPrefixFlagWins(t *testing.T) {
 	if got.Prefix.Value() != dir {
 		t.Fatalf("value = %q", got.Prefix.Value())
 	}
-	want := lewpath.New(dir, ".workspaced", "state.json").String()
+	want := lewpath.New(".workspaced", "state.json")
 	if got.Prefix.StatePath() != want {
-		t.Fatalf("state = %q", got.Prefix.StatePath())
+		t.Fatalf("state = %s", got.Prefix.StatePath())
 	}
 }
 
