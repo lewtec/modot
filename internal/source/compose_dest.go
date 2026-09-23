@@ -9,7 +9,6 @@ import (
 	"io/fs"
 	"iter"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -280,7 +279,7 @@ func placeInProfile(file File, mode, primary string) (string, File, error) {
 	}
 	var chosen string
 	var chosenDir string
-	var nested string
+	var nested lewpath.Path
 	for _, name := range filespine.Visible(mode) {
 		dir := filespine.ApplyDir(name, primary)
 		sub, ok := insideDir(dir, target)
@@ -296,27 +295,26 @@ func placeInProfile(file File, mode, primary string) (string, File, error) {
 	if chosen == "" {
 		return "", nil, fmt.Errorf("file %s: target %s: %w", file.RelPath(), file.TargetBase(), errNotProfileDir)
 	}
-	if nested == "" {
+	if nested == lewpath.New(".") {
 		return chosen, file, nil
 	}
-	return chosen, rebasedFile{File: file, rel: filepath.ToSlash(filepath.Join(nested, file.RelPath()))}, nil
+	combined := nested.Join(file.RelPath())
+	return chosen, rebasedFile{File: file, rel: strings.Join(combined.Parts(), "/")}, nil
 }
 
-func insideDir(root, target string) (string, bool) {
+func insideDir(root, target string) (lewpath.Path, bool) {
 	if root == "" || target == "" {
-		return "", false
+		return lewpath.Path{}, false
 	}
-	rel, err := filepath.Rel(root, target)
+	rel, err := lewpath.New(target).Rel(lewpath.New(root))
 	if err != nil {
-		return "", false
+		return lewpath.Path{}, false
 	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-		return "", false
+	parts := rel.Parts()
+	if len(parts) > 0 && parts[0] == ".." {
+		return lewpath.Path{}, false
 	}
-	if rel == "." {
-		return "", true
-	}
-	return filepath.ToSlash(rel), true
+	return rel, true
 }
 
 type rebasedFile struct {
@@ -801,12 +799,13 @@ func fileMember(name lewpath.Path, file File) (recordedFile, lewfs.File, error) 
 	if staticFile.AbsPath == "" {
 		return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", file.RelPath(), errStaticNoSource)
 	}
-	root, err := lewpath.Open(filepath.Dir(staticFile.AbsPath))
+	abs := lewpath.New(staticFile.AbsPath)
+	root, err := filespine.OpenDir(abs.Parent())
 	if err != nil {
 		return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", file.RelPath(), err)
 	}
 	defer root.Close()
-	base := lewpath.New(filepath.Base(staticFile.AbsPath))
+	base := lewpath.New(abs.Name())
 	linkInfo, err := base.Lstat(root)
 	if err != nil {
 		return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", file.RelPath(), err)

@@ -2,13 +2,13 @@ package codebase
 
 import (
 	"log/slog"
-	"path/filepath"
 
 	"github.com/lewtec/lewkit/x/cmd"
 	lewpath "github.com/lewtec/lewkit/x/path"
 	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/modfile"
+	"github.com/lucasew/workspaced/pkg/filespine"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
@@ -23,7 +23,9 @@ func (Prefix) ArgDefault() string {
 	// Flag defaults run during parse, before the command context exists.
 	ctx := logging.NewRootContext(slog.Default())
 	if cue, err := configcue.ResolveWorkspaceCuePath(ctx, ""); err == nil && cue != "" {
-		return filepath.Dir(cue)
+		if dir, err := parentDir(cue); err == nil {
+			return dir
+		}
 	}
 	ws, err := modfile.DetectWorkspace(ctx, "")
 	if err != nil || ws == nil || ws.Root == "" {
@@ -48,30 +50,32 @@ func (Prefix) ModulesDir() lewpath.Path {
 }
 
 // directory is the host path of rel inside workspace.
-// An existing directory uses the opened root name. A missing one walks parents.
+// An existing directory is the opened root name. A missing one stays a relative Path on that root.
 func directory(workspace *lewpath.Root, rel lewpath.Path) (string, error) {
 	ok, err := rel.IsDir(workspace)
 	if err != nil {
 		return "", err
 	}
-	if ok {
-		opened, err := rel.OpenRoot(workspace)
-		if err != nil {
-			return "", err
-		}
-		name := opened.Name()
-		err = opened.Close()
-		return name, err
+	if !ok {
+		return filespine.HostPath(workspace.Name(), rel), nil
 	}
-	parent := rel.Parent()
-	if parent == lewpath.New(".") {
-		return filepath.Join(workspace.Name(), rel.Name()), nil
-	}
-	parentName, err := directory(workspace, parent)
+	opened, err := rel.OpenRoot(workspace)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(parentName, rel.Name()), nil
+	name := opened.Name()
+	err = opened.Close()
+	return name, err
+}
+
+func parentDir(file string) (string, error) {
+	opened, err := filespine.OpenDir(lewpath.New(file).Parent())
+	if err != nil {
+		return "", err
+	}
+	name := opened.Name()
+	err = opened.Close()
+	return name, err
 }
 
 var (

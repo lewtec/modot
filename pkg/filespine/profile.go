@@ -1,8 +1,9 @@
 package filespine
 
 import (
-	"path/filepath"
 	"slices"
+
+	lewpath "github.com/lewtec/lewkit/x/path"
 )
 
 const (
@@ -71,7 +72,7 @@ func ApplyDir(profile, root string) string {
 	}
 	if profile != "" && !IsNamespace(profile) {
 		if rel := SystemRel(profile); rel != "" && rel != "." {
-			return filepath.Join(root, filepath.FromSlash(rel))
+			return HostPath(root, lewpath.New(rel))
 		}
 	}
 	return root

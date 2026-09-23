@@ -1,7 +1,6 @@
 package codebase
 
 import (
-	"path/filepath"
 	"testing"
 
 	"github.com/lewtec/lewkit/x/cmd"
@@ -41,13 +40,30 @@ func TestPrefixDefaultIsWorkspaceRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := logging.NewWriterContext(t.Output())
-	want := "."
-	if cue, err := configcue.ResolveWorkspaceCuePath(ctx, ""); err == nil && cue != "" {
-		want = filepath.Dir(cue)
-	} else if ws, err := modfile.DetectWorkspace(ctx, ""); err == nil && ws != nil && ws.Root != "" {
-		want = ws.Root
+	cue, err := configcue.ResolveWorkspaceCuePath(ctx, "")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got.Prefix.Value() != want {
-		t.Fatalf("default = %q want %q", got.Prefix.Value(), want)
+	if cue != "" {
+		root, err := lewpath.Open(got.Prefix.Value())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer root.Close()
+		ok, err := lewpath.New("workspaced.cue").IsFile(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !ok {
+			t.Fatalf("default %q has no workspaced.cue", got.Prefix.Value())
+		}
+		return
+	}
+	ws, err := modfile.DetectWorkspace(ctx, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Prefix.Value() != ws.Root {
+		t.Fatalf("default = %q want %q", got.Prefix.Value(), ws.Root)
 	}
 }
