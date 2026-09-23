@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	lewtool "github.com/lewtec/lewkit/x/tool"
 	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/tool"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
@@ -82,7 +83,7 @@ func ResolveBinPath(ctx context.Context, binName, toolSpec string) (string, erro
 		return "", err
 	}
 
-	if binPath := tool.FindBinary(root, binName); binPath != "" {
+	if binPath := lewtool.FindBinary(root, binName); binPath != "" {
 		return binPath, nil
 	}
 

@@ -10,11 +10,10 @@ import (
 	"strings"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
+	lewtool "github.com/lewtec/lewkit/x/tool"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/git"
 	"github.com/lucasew/workspaced/internal/modfile"
-	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
-	"github.com/lucasew/workspaced/internal/tool/backend"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
@@ -111,10 +110,6 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 	sort.Strings(names)
 
 	updated := 0
-	mgr, err := NewManager()
-	if err != nil {
-		return 0, err
-	}
 	logger := logging.GetLogger(ctx)
 
 	// Collect tools that actually need work (no good version locked yet).
@@ -156,7 +151,7 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 				s.Update("resolving latest for " + name)
 				l := logging.GetLogger(ctx)
 				l.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
-				v, err := mgr.ResolveLatestVersion(ctx, spec)
+				v, err := latestVersion(ctx, spec)
 				if err != nil {
 					return update{}, fmt.Errorf("resolve latest for %q: %w", name, err)
 				}
@@ -322,16 +317,11 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 		spec.Version = strings.TrimSpace(locked.Version)
 	}
 
-	mgr, err := NewManager()
-	if err != nil {
-		return "", err
-	}
-
 	if spec.Version == "" || spec.Version == "latest" {
 		// Home/lazy tools: resolved from lockfile if present.
 		// If not in lockfile, fill with latest from upstream (not from installed
 		// versions, to keep home tools reproducible via the lockfile).
-		version, err := mgr.ResolveLatestVersion(ctx, spec)
+		version, err := latestVersion(ctx, spec)
 		if err != nil {
 			return "", fmt.Errorf("resolve version for %q: %w", toolName, err)
 		}
@@ -341,10 +331,10 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	lt := lockedToolWithRenovate(lockRef, spec.Version, spec)
 
 	// Obtain the live Tool once so we can Enrich the real structure.
-	var liveTool backend.Tool
-	if p, err := Get(spec.Provider); err == nil {
-		if t, err := p.Tool(spec.Package); err == nil {
-			liveTool = t
+	var liveTool lewtool.Tool
+	if backend, err := lewtool.Get(spec.Backend); err == nil {
+		if installed, err := backend.Tool(spec.Package); err == nil {
+			liveTool = installed
 		}
 	}
 
@@ -364,7 +354,34 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 		logger.Debug("lazy tool lock already up to date", "tool", toolName, "workspace", ws.Root, "ref", lockRef, "version", spec.Version)
 	}
 
-	return mgr.EnsureInstalled(ctx, spec.String(), binName)
+	dir, err := GetToolsDir()
+	if err != nil {
+		return "", err
+	}
+	store, err := lewtool.Open(dir)
+	if err != nil {
+		return "", err
+	}
+	return store.Ensure(WithCmdFlags(ctx), spec.String(), binName)
+}
+
+func latestVersion(ctx context.Context, spec lewtool.Spec) (string, error) {
+	backend, err := lewtool.Get(spec.Backend)
+	if err != nil {
+		return "", err
+	}
+	installed, err := backend.Tool(spec.Package)
+	if err != nil {
+		return "", err
+	}
+	versions, err := installed.ListVersions(ctx)
+	if err != nil {
+		return "", err
+	}
+	if len(versions) == 0 {
+		return "", lewtool.ErrNoVersionsFound
+	}
+	return versions[0], nil
 }
 
 func findLazyTool(cfg *configcue.Config, query string) (string, lazyToolConfig, bool) {
@@ -396,7 +413,7 @@ func loadLazyTools(cfg *configcue.Config) map[string]lazyToolConfig {
 	return out
 }
 
-func lazyToolSpec(toolName string, toolCfg lazyToolConfig) (parsespec.Spec, string, error) {
+func lazyToolSpec(toolName string, toolCfg lazyToolConfig) (lewtool.Spec, string, error) {
 	ref := strings.TrimSpace(toolCfg.Ref)
 	if ref == "" {
 		ref = strings.TrimSpace(toolCfg.Pkg)
@@ -413,17 +430,16 @@ func lazyToolSpec(toolName string, toolCfg lazyToolConfig) (parsespec.Spec, stri
 		specStr += "@" + strings.TrimSpace(toolCfg.Version)
 	}
 
-	spec, err := parsespec.Parse(specStr)
+	spec, err := lewtool.Parse(specStr)
 	if err != nil {
-		return parsespec.Spec{}, "", err
+		return lewtool.Spec{}, "", err
 	}
 	return spec, ref, nil
 }
 
 // applyLiveToolEnrichment finds the tool row keyed by lockRef (creating it
-// if missing), runs Tool.EnrichLockfile on that live struct, and reports
-// whether any persisted field changed.
-func applyLiveToolEnrichment(sum *modfile.SumFile, lockRef, version string, liveTool backend.Tool) bool {
+// if missing), copies Pin onto that row, and reports whether any persisted field changed.
+func applyLiveToolEnrichment(sum *modfile.SumFile, lockRef, version string, liveTool lewtool.Tool) bool {
 	if sum == nil {
 		return false
 	}
@@ -457,10 +473,25 @@ func applyLiveToolEnrichment(sum *modfile.SumFile, lockRef, version string, live
 	if strings.TrimSpace(dep.CurrentValue) == "" && version != "" {
 		dep.CurrentValue = version
 	}
-	if liveTool != nil {
-		liveTool.EnrichLockfile(dep)
+	if pinner, ok := liveTool.(lewtool.Pinner); ok {
+		applyPin(dep, pinner.Pin())
 	}
 	return created || !renovateDependencyEqual(before, *dep)
+}
+
+func applyPin(dep *modfile.RenovateDependency, pin lewtool.Pin) {
+	if pin.Name != "" {
+		dep.DepName = pin.Name
+	}
+	if pin.Datasource != "" {
+		dep.Datasource = pin.Datasource
+	}
+	if pin.Versioning != "" {
+		dep.Versioning = pin.Versioning
+	}
+	if pin.ExtractVersion != "" {
+		dep.ExtractVersion = pin.ExtractVersion
+	}
 }
 
 func renovateDependencyEqual(a, b modfile.RenovateDependency) bool {
@@ -483,30 +514,21 @@ func renovateDependencyEqual(a, b modfile.RenovateDependency) bool {
 	return true
 }
 
-// lockedToolWithRenovate builds the lock entry. It obtains the live Tool
-// and calls EnrichLockfile on a temporary RenovateDependency (the structure
-// passed by reference). This gives the Tool full control to set/upgrade any
-// attributes (especially renovate metadata) based on the current Ref etc.
-//
-// Because EnrichLockfile mutates the entry in place, any changes to the
-// Tool's enrichment logic are automatically reflected in the lockfile the
-// next time this tool is resolved or refreshed.
-func lockedToolWithRenovate(lockRef string, version string, spec parsespec.Spec) modfile.LockedTool {
+// lockedToolWithRenovate builds the lock entry from the tool's Pin.
+func lockedToolWithRenovate(lockRef string, version string, spec lewtool.Spec) modfile.LockedTool {
 	lt := modfile.LockedTool{
 		Ref:     lockRef,
 		Version: version,
 	}
-	p, perr := Get(spec.Provider)
-	if perr != nil {
+	backend, err := lewtool.Get(spec.Backend)
+	if err != nil {
 		return lt
 	}
-	tt, terr := p.Tool(spec.Package)
-	if terr != nil {
+	installed, err := backend.Tool(spec.Package)
+	if err != nil {
 		return lt
 	}
 
-	// Create a skeleton of the actual structure that will live in the
-	// lockfile's dependencies list and let the Tool mutate it directly.
 	entry := modfile.RenovateDependency{
 		Kind: "tool",
 		Ref:  lockRef,
@@ -514,7 +536,9 @@ func lockedToolWithRenovate(lockRef string, version string, spec parsespec.Spec)
 	if entry.CurrentValue == "" {
 		entry.CurrentValue = version
 	}
-	tt.EnrichLockfile(&entry)
+	if pinner, ok := installed.(lewtool.Pinner); ok {
+		applyPin(&entry, pinner.Pin())
+	}
 
 	lt.DepName = entry.DepName
 	lt.Datasource = entry.Datasource
