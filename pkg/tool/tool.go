@@ -1,24 +1,27 @@
-// Package tool is the public library surface for ensuring and resolving tool
-// binaries (same ensure path as `workspaced tool which` / `tool with`).
+// Package tool ensures a binary in the workspaced tool store.
+// The install itself is github.com/lewtec/lewkit/x/tool.
 package tool
 
 import (
 	"context"
 
+	lewtool "github.com/lewtec/lewkit/x/tool"
+
 	itool "github.com/lucasew/workspaced/internal/tool"
 )
 
-// EnsureInstalled ensures toolSpec is on disk (installing if needed) and returns
-// the absolute path to binary inside that install. Same semantics as the CLI:
+// EnsureInstalled ensures toolSpec is on disk and returns the absolute path
+// of binary. Same path as `workspaced tool which`.
 //
-//	workspaced tool which <tool-spec> <binary>
-//
-// Import package prelude (or otherwise register tool backends) before calling,
-// or use EnsureInstalledWithBackends which loads the standard registry set.
+// Blank-import prelude so the lewtool backends are registered.
 func EnsureInstalled(ctx context.Context, toolSpec, binary string) (string, error) {
-	m, err := itool.NewManager()
+	dir, err := itool.GetToolsDir()
 	if err != nil {
 		return "", err
 	}
-	return m.EnsureInstalled(ctx, toolSpec, binary)
+	store, err := lewtool.Open(dir)
+	if err != nil {
+		return "", err
+	}
+	return store.Ensure(itool.WithCmdFlags(ctx), toolSpec, binary)
 }

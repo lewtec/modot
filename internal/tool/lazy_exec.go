@@ -3,8 +3,11 @@ package tool
 import (
 	"context"
 	"fmt"
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"os/exec"
+
+	lewtool "github.com/lewtec/lewkit/x/tool"
+
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 )
 
 // EnsureAndRunLazy handles the lifecycle for a tool configured dynamically in a workspace.
@@ -40,7 +43,23 @@ func EnsureAndRunLazyWithFallback(ctx context.Context, lazyName, binName, fallba
 	if fallbackSpec == "" {
 		return nil, err
 	}
-	return EnsureAndRun(ctx, fallbackSpec, binName, args...)
+	return ensureAndRun(ctx, fallbackSpec, binName, args...)
+}
+
+func ensureAndRun(ctx context.Context, toolSpecStr, cmdName string, args ...string) (*exec.Cmd, error) {
+	dir, err := GetToolsDir()
+	if err != nil {
+		return nil, fmt.Errorf("tool directory: %w", err)
+	}
+	store, err := lewtool.Open(dir)
+	if err != nil {
+		return nil, err
+	}
+	binPath, err := store.Ensure(WithCmdFlags(ctx), toolSpecStr, cmdName)
+	if err != nil {
+		return nil, fmt.Errorf("ensure tool installed: %w", err)
+	}
+	return execdriver.Run(ctx, binPath, args...)
 }
 
 // EnsureAndRunLazyWithFallbackAt is like EnsureAndRunLazyWithFallback but forces
@@ -53,5 +72,5 @@ func EnsureAndRunLazyWithFallbackAt(ctx context.Context, wd, lazyName, binName, 
 	if fallbackSpec == "" {
 		return nil, err
 	}
-	return EnsureAndRun(ctx, fallbackSpec, binName, args...)
+	return ensureAndRun(ctx, fallbackSpec, binName, args...)
 }

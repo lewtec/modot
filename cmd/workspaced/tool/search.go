@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
+	"github.com/lewtec/lewkit/x/tool/registry"
 )
 
 type Search struct {
@@ -23,7 +23,7 @@ func (s *Search) Run(ctx context.Context) error {
 	if s.query != nil {
 		query = strings.ToLower(strings.TrimSpace(s.query.Value()))
 	}
-	for _, name := range catalog.ListTools() {
+	for _, name := range registry.ListTools() {
 		if query == "" || strings.Contains(strings.ToLower(name), query) {
 			fmt.Fprintln(os.Stdout, name)
 		}

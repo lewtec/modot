@@ -74,7 +74,12 @@ func Token(ctx context.Context) string {
 }
 
 func probeEnvActive() bool {
-	return strings.TrimSpace(os.Getenv(githubTokenProbeEnv)) == githubTokenProbeVal
+	if strings.TrimSpace(os.Getenv(githubTokenProbeEnv)) == githubTokenProbeVal {
+		return true
+	}
+	// lewkit x/tool/github sets this on `gh auth token`. A PATH shim that
+	// re-enters workspaced must not probe again.
+	return strings.TrimSpace(os.Getenv("LEWKIT_GITHUB_TOKEN_PROBE")) == "1"
 }
 
 func resolveToken(ctx context.Context) string {

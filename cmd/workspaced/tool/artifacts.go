@@ -2,6 +2,7 @@ package tool
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,10 +11,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lucasew/workspaced/internal/tool"
-	"github.com/lucasew/workspaced/internal/tool/backend"
-
-	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
+	lewtool "github.com/lewtec/lewkit/x/tool"
 )
 
 type Artifacts struct {
@@ -23,12 +21,15 @@ type Artifacts struct {
 }
 
 func (Artifacts) Description() string {
-	return "List artifacts for a tool and rank them by ScoreArtifact weight for the current platform"
+	return "List artifacts for a tool and rank them by ScoreArtifact " +
+		"weight for the current platform"
 }
+
+var errNotArtifactTool = errors.New("resolved tool does not implement ArtifactTool")
 
 func (a *Artifacts) Run(ctx context.Context) error {
 	specStr := a.spec.Value()
-	spec, err := parsespec.Parse(specStr)
+	spec, err := lewtool.Parse(specStr)
 	if err != nil {
 		return err
 	}
@@ -38,21 +39,21 @@ func (a *Artifacts) Run(ctx context.Context) error {
 		version = a.version.Value()
 	}
 
-	p, err := tool.Get(spec.Provider)
+	backend, err := lewtool.Get(spec.Backend)
 	if err != nil {
 		return err
 	}
-	t, err := p.Tool(spec.Package)
+	installed, err := backend.Tool(spec.Package)
 	if err != nil {
 		return err
 	}
 
-	at, ok := t.(backend.ArtifactTool)
+	artifactTool, ok := installed.(lewtool.ArtifactTool)
 	if !ok {
-		return fmt.Errorf("the resolved tool for %q does not implement ArtifactTool (cannot list raw artifacts)", specStr)
+		return fmt.Errorf("%w: %q", errNotArtifactTool, specStr)
 	}
 
-	artifacts, err := at.ListArtifacts(ctx, version)
+	artifacts, err := artifactTool.ListArtifacts(ctx, version)
 	if err != nil {
 		return err
 	}
@@ -63,7 +64,8 @@ func (a *Artifacts) Run(ctx context.Context) error {
 	}
 
 	type entry struct {
-		backend.Artifact
+		lewtool.Artifact
+
 		Score int
 	}
 
@@ -71,7 +73,7 @@ func (a *Artifacts) Run(ctx context.Context) error {
 	for i, art := range artifacts {
 		entries[i] = entry{
 			Artifact: art,
-			Score:    backend.ScoreArtifact(art, runtime.GOOS, runtime.GOARCH, effectiveHint),
+			Score:    lewtool.ScoreArtifact(art, runtime.GOOS, runtime.GOARCH, effectiveHint),
 		}
 	}
 

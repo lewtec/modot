@@ -6,9 +6,7 @@ import (
 	"os"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lucasew/workspaced/internal/tool"
-
-	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
+	lewtool "github.com/lewtec/lewkit/x/tool"
 )
 
 type Versions struct {
@@ -31,17 +29,17 @@ func (v *Versions) Run(ctx context.Context) error {
 }
 
 func listVersions(ctx context.Context, specStr string) ([]string, error) {
-	spec, err := parsespec.Parse(specStr)
+	spec, err := lewtool.Parse(specStr)
 	if err != nil {
 		return nil, err
 	}
-	p, err := tool.Get(spec.Provider)
+	backend, err := lewtool.Get(spec.Backend)
 	if err != nil {
 		return nil, err
 	}
-	t, err := p.Tool(spec.Package)
+	installed, err := backend.Tool(spec.Package)
 	if err != nil {
 		return nil, err
 	}
-	return t.ListVersions(ctx)
+	return installed.ListVersions(ctx)
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lewtec/lewkit/x/taskgroup"
+	lewtool "github.com/lewtec/lewkit/x/tool"
 	"github.com/lucasew/workspaced/internal/afterwait"
 	"github.com/lucasew/workspaced/internal/tool"
 )
@@ -24,7 +25,11 @@ func (w *Which) Run(ctx context.Context) error {
 	spec := w.spec.Value()
 	binary := w.binary.Value()
 
-	m, err := tool.NewManager()
+	dir, err := tool.GetToolsDir()
+	if err != nil {
+		return err
+	}
+	store, err := lewtool.Open(dir)
 	if err != nil {
 		return err
 	}
@@ -32,7 +37,7 @@ func (w *Which) Run(ctx context.Context) error {
 	var binPath string
 	taskgroup.Go(ctx, "tool:which:"+spec+":"+binary, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update("ensuring " + spec)
-		bp, err := m.EnsureInstalled(ctx, spec, binary)
+		bp, err := store.Ensure(tool.WithCmdFlags(ctx), spec, binary)
 		if err != nil {
 			return err
 		}
