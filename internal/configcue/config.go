@@ -26,7 +26,7 @@ type Config struct {
 	cueVal cue.Value
 }
 
-// Cue returns the evaluated workspaced CUE value. Zero if the config was
+// Cue returns the evaluated config value. Zero if the config was
 // decoded from JSON only.
 func (c *Config) Cue() cue.Value {
 	if c == nil {
@@ -35,7 +35,7 @@ func (c *Config) Cue() cue.Value {
 	return c.cueVal
 }
 
-// RuntimeMode is workspaced.runtime.mode. Missing mode is home.
+// RuntimeMode is runtime.mode. Missing mode is home.
 func (c *Config) RuntimeMode() string {
 	if c == nil {
 		return filespine.ModeHome
@@ -200,7 +200,7 @@ func LoadFiles(ctx context.Context, paths []string) (*Config, error) {
 	return LoadFilesMode(ctx, paths, filespine.ModeHome)
 }
 
-// LoadFilesMode evaluates paths with workspaced.runtime.mode set to mode.
+// LoadFilesMode evaluates paths with runtime.mode set to mode.
 func LoadFilesMode(ctx context.Context, paths []string, mode string) (*Config, error) {
 	if len(paths) == 0 {
 		return Load(ctx)

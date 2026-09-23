@@ -6,9 +6,8 @@ Workspaced loads CUE configuration from different places depending on which
 command family you run and where you are. "I edited cue and nothing happened" is
 very often the wrong file or wrong root, not invalid CUE.
 
-There is usually a top-level `workspaced: { … }` (or equivalent evaluated
-shape). Inside: hosts, modules, driver weights, inputs, and anything else the
-schema/preambles define. Authoring style is open; see `cue.md`.
+Hosts, modules, driver weights, inputs, and the other schema fields sit at
+the package root of `workspaced.cue`. Authoring style is open; see `cue.md`.
 
 Inspect commands exist under config subtrees, e.g. `home config …` and
 `codebase config …` (`get`, `eval`, `dump`, `layers`, … — use `--help`).

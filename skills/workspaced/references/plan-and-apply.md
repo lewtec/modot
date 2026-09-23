@@ -55,7 +55,7 @@ unless that really is the user's goal.
 
 | Area | Role |
 |------|------|
-| lint / format | Run CUE-defined checks (`workspaced.lint` / `formatter`; may pull tools lazily). `lint --review` → GHA annotations on the relevant diff |
+| lint / format | Run CUE-defined checks (`lint` / `formatter`; may pull tools lazily). `lint --review` → GHA annotations on the relevant diff |
 | config | Inspect codebase workspaced config |
 | ci-status etc. | Ancillary project helpers |
 

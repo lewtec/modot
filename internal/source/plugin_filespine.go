@@ -6,7 +6,7 @@ import (
 	"github.com/lucasew/workspaced/internal/configcue"
 )
 
-// FileSpinePlugin lowers pipeline files into workspaced.file profiles and
+// FileSpinePlugin lowers pipeline files into file profiles and
 // emits dest files. Open on the dest FS is the combined file.
 type FileSpinePlugin struct {
 	cfg        *configcue.Config

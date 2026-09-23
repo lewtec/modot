@@ -29,7 +29,7 @@ func TestPlaceModuleConfigSchema(t *testing.T) {
 			return err
 		}
 		// Same hardness as export: concrete JSON of modules.
-		mod := v.LookupPath(cue.ParsePath("workspaced.modules"))
+		mod := v.LookupPath(cue.ParsePath("modules"))
 		if err := mod.Err(); err != nil {
 			return err
 		}
@@ -41,7 +41,7 @@ func TestPlaceModuleConfigSchema(t *testing.T) {
 		t.Parallel()
 		err := unifyUser(t, `
 package workspaced
-workspaced: modules: best_practices: {
+modules: best_practices: {
 	from: "core:place"
 	config: {
 		items: {"skills/bp/go": "/tmp/go"}
@@ -60,7 +60,7 @@ workspaced: modules: best_practices: {
 		t.Parallel()
 		err := unifyUser(t, `
 package workspaced
-workspaced: modules: best_practices: {
+modules: best_practices: {
 	from: "core:place"
 	config: {
 		steps: {x: {op: "reject"}}
@@ -78,7 +78,7 @@ workspaced: modules: best_practices: {
 		t.Parallel()
 		err := unifyUser(t, `
 package workspaced
-workspaced: modules: best_practices: {
+modules: best_practices: {
 	from: "core:place"
 	config: {
 		steps: {x: {op: "move", to: "entry.md"}}
@@ -92,7 +92,7 @@ workspaced: modules: best_practices: {
 		t.Parallel()
 		err := unifyUser(t, `
 package workspaced
-workspaced: modules: other: {
+modules: other: {
 	from: "self"
 	config: {anything: true, nested: {x: 1}}
 }
@@ -105,7 +105,7 @@ workspaced: modules: other: {
 		// Regression: if from == "core:place" must not require optional from.
 		err := unifyUser(t, `
 package workspaced
-workspaced: modules: fontconfig: {
+modules: fontconfig: {
 	input: "self"
 	path:  "fontconfig"
 	config: {enable: true}

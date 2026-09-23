@@ -38,7 +38,7 @@ Conceptually:
 2. Evaluate/unify toward a config object.
 3. Decode slices (modules, inputs, `file`, …) for apply, tools, drivers, etc.
 
-`workspaced.file` is the dest tree. Templates lower into it. `Open` on the dest
+`file` is the dest tree. Templates lower into it. `Open` on the dest
 `fs.FS` returns the combined file. Contract: `docs/specs/file-spine.md`.
 
 Clever authoring is fine when the result still has the fields and shapes those
@@ -117,14 +117,12 @@ issue, not insufficient CUE cleverness.
 Init-style module enablement (one possible form):
 
 ```cue
-workspaced: {
-	modules: {
-		example: {
-			input: "self"
-			path:  "modules/example"
-			config: {
-				enable: true
-			}
+modules: {
+	example: {
+		input: "self"
+		path:  "modules/example"
+		config: {
+			enable: true
 		}
 	}
 }

@@ -112,63 +112,61 @@ package workspaced
 
 #BackupAction: #BackupActionGitRepoSync | #BackupActionRsync | #BackupActionArchive
 
-workspaced: {
-	inputs: {
-		self: #Input & {
-			from: "self"
-		}
-		[string]: #Input
+inputs: {
+	self: #Input & {
+		from: "self"
 	}
-	runtime?: #Runtime
-	// dest profiles: workspaced.file.<profile> is a compose #Tree
-	modules: {
-		[string]: #ModuleRef
-	}
-	workspaces?: [string]: int
-	desktop?: {
-		dark_mode?: bool
-		raw?: {
-			dconf?: [string]: [string]: _
-		}
-		wallpaper?: {
-			dir?:     string
-			default?: string
-		}
-	}
-	screenshot?: {
-		dir?: string
-	}
-	hosts?: [string]: #Host
-	backup?: {
-		rsyncnet_user?: string
-		remote_path?:   string
-		git_repos?: [...{
-			src: string
-			dst: string
-		}]
-		actions?: [...#BackupAction]
-	}
-	quicksync?: {
-		repo_dir?:    string
-		remote_path?: string
-	}
-	browser?: {
-		default?: string
-		webapp?:  string
-	}
-	lazy_tools?: [string]: #LazyTool
-	drivers?: [string]: [string]: int
-	concurrency?: #Concurrency
-
-	// LSP router: language servers behind `workspaced codebase lsp`.
-	// Empty / omitted means the proxy still speaks LSP but routes nowhere.
-	lsp?: #LSP
-
-	// Linters for `workspaced codebase lint` (CUE-defined tools + codecs).
-	lint?: #Checks
-	// Formatters for `workspaced codebase format`.
-	formatter?: #Checks
+	[string]: #Input
 }
+runtime?: #Runtime
+// dest profiles: file.<profile> is a compose #Tree
+modules: {
+	[string]: #ModuleRef
+}
+workspaces?: [string]: int
+desktop?: {
+	dark_mode?: bool
+	raw?: {
+		dconf?: [string]: [string]: _
+	}
+	wallpaper?: {
+		dir?:     string
+		default?: string
+	}
+}
+screenshot?: {
+	dir?: string
+}
+hosts?: [string]: #Host
+backup?: {
+	rsyncnet_user?: string
+	remote_path?:   string
+	git_repos?: [...{
+		src: string
+		dst: string
+	}]
+	actions?: [...#BackupAction]
+}
+quicksync?: {
+	repo_dir?:    string
+	remote_path?: string
+}
+browser?: {
+	default?: string
+	webapp?:  string
+}
+lazy_tools?: [string]: #LazyTool
+drivers?: [string]: [string]: int
+concurrency?: #Concurrency
+
+// LSP router: language servers behind `workspaced codebase lsp`.
+// Empty / omitted means the proxy still speaks LSP but routes nowhere.
+lsp?: #LSP
+
+// Linters for `workspaced codebase lint` (CUE-defined tools + codecs).
+lint?: #Checks
+// Formatters for `workspaced codebase format`.
+formatter?: #Checks
 
 // #Checks is a map of named check tools (lint or formatter).
 #Checks: {

@@ -1,6 +1,6 @@
 # File spine
 
-`workspaced.file` is a closed map of profiles. Each profile is one compose tree from `github.com/lewtec/lewkit/x/fs/compose`. A flat key under `workspaced.file` is a schema error.
+`file` is a closed map of profiles. Each profile is one compose tree from `github.com/lewtec/lewkit/x/fs/compose`. A flat key under `file` is a schema error.
 
 Profiles are `home`, `codebase`, and `system`.
 
@@ -8,7 +8,7 @@ Profiles are `home`, `codebase`, and `system`.
 
 ## Mode
 
-`workspaced.runtime.mode` is `home`, `codebase`, or `system`. A missing mode is `home`.
+`runtime.mode` is `home`, `codebase`, or `system`. A missing mode is `home`.
 
 | Mode | Profiles |
 |---|---|
@@ -67,7 +67,7 @@ A directory under `.d.tmpl` is an error. A symlink in the profile filesystem sta
 ## Example
 
 ```cue
-workspaced: file: home: ".bashrc": {
+file: home: ".bashrc": {
 	type: "lines"
 	values: {
 		"00-umask": "umask 022"
@@ -75,7 +75,7 @@ workspaced: file: home: ".bashrc": {
 	}
 }
 
-workspaced: file: home: ".config/foo.json": {
+file: home: ".config/foo.json": {
 	type: "json"
 	values: {
 		port: 8080

@@ -1,5 +1,5 @@
 // Package checks runs aggregated linters and formatters declared in CUE
-// (workspaced.lint / workspaced.formatter). Unlike drivers (one impl by weight),
+// (lint / formatter). Unlike drivers (one impl by weight),
 // every tool whose detect firewall matches is run.
 //
 // See docs/specs/checks-cue-review.md.

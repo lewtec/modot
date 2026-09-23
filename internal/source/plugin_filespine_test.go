@@ -47,11 +47,9 @@ func TestFileSpineMergesCueLines(t *testing.T) {
 	home := t.TempDir()
 	cuePath := filepath.Join(t.TempDir(), "workspaced.cue")
 	src := `package workspaced
-workspaced: {
-	file: home: ".bashrc": {
-		type: "lines"
-		values: {"00-cue": "from-cue"}
-	}
+file: home: ".bashrc": {
+	type: "lines"
+	values: {"00-cue": "from-cue"}
 }
 `
 	require.NoError(t, os.WriteFile(cuePath, []byte(src), 0o644))
@@ -82,7 +80,7 @@ func TestFileSpineTypeConflict(t *testing.T) {
 	dir := t.TempDir()
 	cuePath := filepath.Join(dir, "workspaced.cue")
 	require.NoError(t, os.WriteFile(cuePath, []byte(`package workspaced
-workspaced: file: home: "x": {type: "lines", values: {a: "1"}}
+file: home: "x": {type: "lines", values: {a: "1"}}
 `), 0o644))
 	cfg, err := configcue.LoadFiles(ctx, []string{cuePath})
 	require.NoError(t, err)
@@ -266,7 +264,7 @@ func systemConfig(t *testing.T) *configcue.Config {
 	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "workspaced.cue")
-	require.NoError(t, os.WriteFile(path, []byte("package workspaced\nworkspaced: {}\n"), 0o644))
+	require.NoError(t, os.WriteFile(path, []byte("package workspaced\n"), 0o644))
 	cfg, err := configcue.LoadFilesMode(logging.NewWriterContext(t.Output()), []string{path}, filespine.ModeSystem)
 	require.NoError(t, err)
 	return cfg

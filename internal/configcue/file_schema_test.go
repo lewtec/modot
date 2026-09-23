@@ -28,7 +28,7 @@ func TestFileSpineSchema(t *testing.T) {
 		if err := v.Err(); err != nil {
 			return err
 		}
-		file := v.LookupPath(cue.ParsePath("workspaced.file"))
+		file := v.LookupPath(cue.ParsePath("file"))
 		if err := file.Err(); err != nil {
 			return err
 		}
@@ -40,7 +40,7 @@ func TestFileSpineSchema(t *testing.T) {
 		t.Parallel()
 		err := unify(t, `
 package workspaced
-workspaced: file: home: {
+file: home: {
 	"a.json": {type: "json", values: {port: 8080, name: "x"}}
 	"a.toml": {type: "toml", values: {port: 8080}}
 	"a.yaml": {type: "yaml", values: {nested: {a: true}}}
@@ -55,7 +55,7 @@ workspaced: file: home: {
 		t.Parallel()
 		err := unify(t, `
 package workspaced
-workspaced: file: home: {
+file: home: {
 	".bashrc": {
 		type: "lines"
 		values: {
@@ -80,7 +80,7 @@ workspaced: file: home: {
 		t.Parallel()
 		err := unify(t, `
 package workspaced
-workspaced: file: home: "x": {
+file: home: "x": {
 	type: "text"
 	values: {a: {kind: "env", env: "EDITOR"}}
 }
@@ -92,7 +92,7 @@ workspaced: file: home: "x": {
 		t.Parallel()
 		err := unify(t, `
 package workspaced
-workspaced: file: {
+file: {
 	".codex/config.toml": {type: "toml", values: {model: "x"}}
 	codebase: {
 		".gitignore": {type: "text", values: {content: "bin/"}}
@@ -106,7 +106,7 @@ workspaced: file: {
 		t.Parallel()
 		err := unify(t, `
 package workspaced
-workspaced: file: {
+file: {
 	home: {
 		".codex/config.toml": {type: "toml", values: {model: "x"}}
 	}
@@ -122,7 +122,7 @@ workspaced: file: {
 		t.Parallel()
 		err := unify(t, `
 package workspaced
-workspaced: file: home: "x": {
+file: home: "x": {
 	type: "plist"
 	values: {a: "{}"}
 }

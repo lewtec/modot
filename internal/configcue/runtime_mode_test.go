@@ -16,7 +16,7 @@ import (
 func TestRuntimeModeAndFileProfiles(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "workspaced.cue"), `package workspaced
-workspaced: file: {
+file: {
 	home: {
 		".codex/config.toml": {type: "toml", values: {model: "x"}}
 	}
@@ -54,7 +54,7 @@ workspaced: file: {
 func TestFlatFileKeyRejected(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "workspaced.cue"), `package workspaced
-workspaced: file: ".bashrc": {type: "lines", values: {"00": "umask 022"}}
+file: ".bashrc": {type: "lines", values: {"00": "umask 022"}}
 `)
 	ctx := logging.NewWriterContext(t.Output())
 	_, err := loadFilesMode(ctx, filepath.Join(root, "workspaced.cue"), filespine.ModeHome)
@@ -64,7 +64,7 @@ workspaced: file: ".bashrc": {type: "lines", values: {"00": "umask 022"}}
 func TestAbsoluteRefRejected(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "workspaced.cue"), `package workspaced
-workspaced: file: home: blob: {
+file: home: blob: {
 	type: "ref"
 	values: src: {kind: "ref", ref: "/tmp/x"}
 }

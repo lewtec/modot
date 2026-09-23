@@ -55,30 +55,28 @@ func TestModuleScannerProcessMapReduceOrder(t *testing.T) {
 
 	writeFile(t, filepath.Join(root, "workspaced.cue"), `package workspaced
 
-workspaced: {
-	modules: {
-		zebra: {
-			enable: true
-			from: "core:place"
-			config: {
-				items: {
-					"out-z": "`+srcB+`"
-				}
+modules: {
+	zebra: {
+		enable: true
+		from: "core:place"
+		config: {
+			items: {
+				"out-z": "`+srcB+`"
 			}
 		}
-		alpha: {
-			enable: true
-			from: "core:place"
-			config: {
-				items: {
-					"out-a": "`+srcA+`"
-				}
+	}
+	alpha: {
+		enable: true
+		from: "core:place"
+		config: {
+			items: {
+				"out-a": "`+srcA+`"
 			}
 		}
-		noop: {
-			enable: false
-			from: "core:place"
-		}
+	}
+	noop: {
+		enable: false
+		from: "core:place"
 	}
 }
 `)

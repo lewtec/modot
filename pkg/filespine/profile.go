@@ -12,7 +12,7 @@ const (
 	ModeSystem   = "system"
 )
 
-// Profiles are the only legal keys under workspaced.file.
+// Profiles are the only legal keys under file.
 // etc, usr, var, bin, and root are paths inside system, not profiles.
 var Profiles = []string{
 	ModeHome,

@@ -28,7 +28,7 @@ Break these and behavior will be wrong.
 - No lists in module configs. Shapes must deep-merge cleanly.
 - Driver preloads: import `_ "workspaced/pkg/driver/prelude"` only from `cmd/workspaced/root.go`. Never duplicate that import in subcommands. (`pkg/driver` tests may import it.)
 - Tool preloads (`internal/tool/prelude`): import from the cmd that needs registration, not from `pkg/`.
-- Linters/formatters: CUE `workspaced.lint` / `workspaced.formatter` (see `docs/specs/checks-cue-review.md`); no per-tool Go packages.
+- Linters/formatters: CUE `lint` / `formatter` (see `docs/specs/checks-cue-review.md`); no per-tool Go packages.
 - Process execution outside driver implementations goes through `pkg/driver/exec`.
 - Network: `fetchurl` driver when you have a hash, otherwise `httpclient`. Do not use `http.DefaultClient` directly.
 - Tool backends: scope on backends (github, mise, catalog), not on individual tools. Prefer the word "backend".
@@ -58,7 +58,7 @@ Register an impl by importing its package from the central prelude.
   - Aside from `ref` and `kind`, fields are Renovate hints.
     - `kind = tool`
       - `ref` => tool ref (e.g. workspaced tool)
-      - `source` => key into `workspaced.inputs`
+      - `source` => key into `inputs`
 
 ## Anti-patterns
 

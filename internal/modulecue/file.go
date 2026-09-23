@@ -8,7 +8,7 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 )
 
-// EvalFile evaluates module.file with the given workspaced root as context.
+// EvalFile evaluates module.file with the config root's fields in scope.
 // ok is false when the module has no file map.
 func EvalFile(modPath string, root map[string]any) (json.RawMessage, bool, error) {
 	ctx := cuecontext.New()
