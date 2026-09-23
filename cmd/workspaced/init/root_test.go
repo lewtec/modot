@@ -25,7 +25,6 @@ func TestGenerateConfigAtomicWrite(t *testing.T) {
 	got, err := os.ReadFile(configPath)
 	require.NoError(t, err)
 	require.NotEqual(t, prior, string(got), "config was not replaced with template output")
-	require.Contains(t, string(got), "workspaced:")
 	require.Contains(t, string(got), "modules:")
 	// Temp must not linger after success.
 	_, err = os.Stat(configPath + ".tmp")

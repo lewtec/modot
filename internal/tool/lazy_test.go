@@ -23,12 +23,10 @@ func TestRefreshLazyToolLocksPreservesExistingLock(t *testing.T) {
 	workspaceRoot := t.TempDir()
 	writeTestFile(t, filepath.Join(workspaceRoot, "workspaced.cue"), `package workspaced
 
-workspaced: {
-	lazy_tools: {
-		gh: {
-			ref: "github:cli/cli"
-			bins: ["gh"]
-		}
+lazy_tools: {
+	gh: {
+		ref: "github:cli/cli"
+		bins: ["gh"]
 	}
 }
 `)

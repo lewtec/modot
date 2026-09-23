@@ -12,29 +12,39 @@ import (
 
 var errNilCueContext = errors.New("nil cue context")
 
-// mountFileProfiles installs the compose schema and closes workspaced.file
-// to the profile names. A flat key is a schema error.
-func mountFileProfiles(value cue.Value) (cue.Value, error) {
-	source, err := compose.Mount("workspaced.file.home")
+// fileProfileSource installs the compose schema and closes file to the
+// profile names. A flat key is a schema error.
+func fileProfileSource() (string, error) {
+	source, err := compose.Mount("file.home")
 	if err != nil {
-		return cue.Value{}, err
+		return "", err
 	}
 	var builder strings.Builder
+	builder.WriteString("package workspaced\n")
 	builder.WriteString(source)
 	if !strings.HasSuffix(source, "\n") {
 		builder.WriteByte('\n')
 	}
-	builder.WriteString("workspaced: file: close({\n")
+	builder.WriteString("file: close({\n")
 	for _, name := range filespine.Profiles {
 		fmt.Fprintf(&builder, "\t%s?: _compose.#Tree\n", name)
 	}
 	builder.WriteString("})\n")
+	return builder.String(), nil
+}
+
+// mountFileProfiles unifies fileProfileSource onto value.
+func mountFileProfiles(value cue.Value) (cue.Value, error) {
+	source, err := fileProfileSource()
+	if err != nil {
+		return cue.Value{}, err
+	}
 
 	cueContext := value.Context()
 	if cueContext == nil {
 		return cue.Value{}, fmt.Errorf("mount file profiles: %w", errNilCueContext)
 	}
-	layer := cueContext.CompileString(builder.String(), cue.Filename("compose-profiles.cue"))
+	layer := cueContext.CompileString(source, cue.Filename("compose-profiles.cue"))
 	if err := layer.Err(); err != nil {
 		return cue.Value{}, fmt.Errorf("compile file profiles: %w", err)
 	}

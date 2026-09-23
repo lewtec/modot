@@ -27,6 +27,7 @@ import (
 	"github.com/lucasew/workspaced/pkg/logging"
 
 	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/build"
 	"cuelang.org/go/cue/cuecontext"
 	cueerrors "cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/format"
@@ -49,7 +50,7 @@ type Layer struct {
 
 type DiscoverOptions struct {
 	Cwd string
-	// Mode is injected as workspaced.runtime.mode (home, codebase, system).
+	// Mode is injected as runtime.mode (home, codebase, system).
 	Mode string
 	// HomeLayers uses home discovery and prelude_home. Independent of Mode
 	// so codebase apply in $DOTFILES can keep home layers.
@@ -260,118 +261,68 @@ func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtime
 		return cue.Value{}, fmt.Errorf("read embedded cue %s: %w", preludeVariantFile, err)
 	}
 
-	v := ctx.CompileString(string(schemaBytes), cue.Filename("schema.cue"))
-	if err := v.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("compile embedded cue schema: %w\n%s", err, cueerrors.Details(err, nil))
-	}
-	v, err = mountFileProfiles(v)
+	profileSource, err := fileProfileSource()
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("mount file profiles: %w", err)
 	}
-
-	preludeCommonLayer := ctx.CompileString(string(preludeCommonBytes), cue.Filename("prelude_common.cue"))
-	if err := preludeCommonLayer.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("compile embedded cue prelude_common: %w\n%s", err, cueerrors.Details(err, nil))
+	base := []namedSource{
+		{Name: "schema.cue", Source: string(schemaBytes)},
+		{Name: "compose-profiles.cue", Source: profileSource},
+		{Name: "prelude_common.cue", Source: string(preludeCommonBytes)},
+		{Name: preludeVariantFile, Source: string(preludeVariantBytes)},
+		{Name: "runtime_prelude.cue", Source: runtimePrelude},
 	}
-	v = v.Unify(preludeCommonLayer)
-	if err := v.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("unify embedded cue prelude_common: %w\n%s", err, cueerrors.Details(err, nil))
-	}
-
-	preludeVariantLayer := ctx.CompileString(string(preludeVariantBytes), cue.Filename(preludeVariantFile))
-	if err := preludeVariantLayer.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("compile embedded cue %s: %w\n%s", preludeVariantFile, err, cueerrors.Details(err, nil))
-	}
-	v = v.Unify(preludeVariantLayer)
-	if err := v.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("unify embedded cue %s: %w\n%s", preludeVariantFile, err, cueerrors.Details(err, nil))
-	}
-
-	runtimeLayer := ctx.CompileString(runtimePrelude, cue.Filename("runtime_prelude.cue"))
-	if err := runtimeLayer.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("compile runtime cue prelude: %w\n%s", err, cueerrors.Details(err, nil))
-	}
-	v = v.Unify(runtimeLayer)
-	if err := v.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("unify runtime cue prelude: %w\n%s", err, cueerrors.Details(err, nil))
-	}
-
-	driverLayer, err := buildDriverWeightLayer(v)
+	partial, err := buildPackage(ctx, base)
 	if err != nil {
 		return cue.Value{}, err
 	}
+	driverLayer, err := buildDriverWeightLayer(partial)
+	if err != nil {
+		return cue.Value{}, err
+	}
+	files := append([]namedSource{}, base...)
 	if driverLayer != "" {
-		layerValue := ctx.CompileString(driverLayer, cue.Filename("driver_weights.cue"))
-		if err := layerValue.Err(); err != nil {
-			return cue.Value{}, fmt.Errorf("compile cue layer %s: %w\n%s", "driver_weights.cue", err, cueerrors.Details(err, nil))
-		}
-		v = v.Unify(layerValue)
-		if err := v.Err(); err != nil {
-			return cue.Value{}, fmt.Errorf("unify cue layer %s: %w\n%s", "driver_weights.cue", err, cueerrors.Details(err, nil))
-		}
+		files = append(files, namedSource{Name: "driver_weights.cue", Source: driverLayer})
 	}
-
 	for _, layer := range preLayers {
-		layerValue := ctx.CompileString(layer.Source, cue.Filename(layer.Name))
-		if err := layerValue.Err(); err != nil {
-			return cue.Value{}, fmt.Errorf("compile cue layer %s: %w\n%s", layer.Name, err, cueerrors.Details(err, nil))
-		}
-		v = v.Unify(layerValue)
-		if err := v.Err(); err != nil {
-			return cue.Value{}, fmt.Errorf("unify cue layer %s: %w\n%s", layer.Name, err, cueerrors.Details(err, nil))
-		}
+		files = append(files, namedSource{Name: layer.Name, Source: layer.Source})
 	}
-
-	// Constant path + bare-style wrap shell: reuse across every file layer.
-	wsPath := cue.ParsePath("workspaced")
-	wrapTemplate := ctx.CompileString(`workspaced: {}`)
-	if err := wrapTemplate.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("compile workspaced wrap template: %w\n%s", err, cueerrors.Details(err, nil))
-	}
-
 	for _, path := range paths {
 		src, err := os.ReadFile(path)
 		if err != nil {
 			return cue.Value{}, fmt.Errorf("read cue layer %s: %w", path, err)
 		}
-		layerValue := ctx.CompileString(string(src), cue.Filename(path))
-		if err := layerValue.Err(); err != nil {
-			return cue.Value{}, fmt.Errorf("compile cue layer %s: %w", path, err)
-		}
-		// Support both wrapped style (`workspaced: { modules: ... }`)
-		// and bare style (top-level `modules: ...` etc. directly in the file).
-		// This makes sure modules etc from the cue are always under the workspaced value.
-		if ws := layerValue.LookupPath(wsPath); ws.Exists() {
-			// wrapped style: the src itself starts with "workspaced: { ... }"
-			// unify the full layerValue so the "workspaced" key merges properly
-			v = v.Unify(layerValue)
-		} else {
-			// bare style (top-level modules, inputs etc. without the wrapper)
-			// wrap by filling the bare value under workspaced
-			wrapped := wrapTemplate.FillPath(wsPath, layerValue)
-			v = v.Unify(wrapped)
-		}
-		if err := v.Err(); err != nil {
-			return cue.Value{}, fmt.Errorf("unify cue layer %s: %w", path, err)
-		}
+		files = append(files, namedSource{Name: path, Source: string(src)})
 	}
-
 	for _, layer := range postLayers {
-		layerValue := ctx.CompileString(layer.Source, cue.Filename(layer.Name))
-		if err := layerValue.Err(); err != nil {
-			return cue.Value{}, fmt.Errorf("compile cue layer %s: %w\n%s", layer.Name, err, cueerrors.Details(err, nil))
-		}
-		v = v.Unify(layerValue)
-		if err := v.Err(); err != nil {
-			return cue.Value{}, fmt.Errorf("unify cue layer %s: %w\n%s", layer.Name, err, cueerrors.Details(err, nil))
-		}
+		files = append(files, namedSource{Name: layer.Name, Source: layer.Source})
 	}
+	return buildPackage(ctx, files)
+}
 
-	configValue := v.LookupPath(wsPath)
-	if err := configValue.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("lookup workspaced value: %w\n%s", err, cueerrors.Details(err, nil))
+type namedSource struct {
+	Name   string
+	Source string
+}
+
+// buildPackage loads every layer as one CUE package so references such as
+// runtime.home resolve across schema, preludes, and user files.
+func buildPackage(ctx *cue.Context, files []namedSource) (cue.Value, error) {
+	inst := &build.Instance{PkgName: "workspaced", User: true}
+	for _, file := range files {
+		syntax, err := parser.ParseFile(file.Name, file.Source, parser.ParseComments)
+		if err != nil {
+			return cue.Value{}, fmt.Errorf("parse cue layer %s: %w\n%s", file.Name, err, cueerrors.Details(err, nil))
+		}
+		if err := inst.AddSyntax(syntax); err != nil {
+			return cue.Value{}, fmt.Errorf("add cue layer %s: %w", file.Name, err)
+		}
 	}
-	return configValue, nil
+	v := ctx.BuildInstance(inst)
+	if err := v.Err(); err != nil {
+		return cue.Value{}, fmt.Errorf("build cue config:\n%s", cueerrors.Details(err, nil))
+	}
+	return v, nil
 }
 
 type compiledLayer struct {
@@ -493,7 +444,7 @@ func buildModuleFileLayers(configValue cue.Value, paths []string, discovered []L
 		}
 		layers = append(layers, compiledLayer{
 			Name:   "module_file_" + name + ".cue",
-			Source: "package workspaced\nworkspaced: { file: " + string(fileJSON) + " }\n",
+			Source: "package workspaced\nfile: " + string(fileJSON) + "\n",
 		})
 	}
 	return layers, nil
@@ -524,13 +475,11 @@ func hasDerivedDesktopModules(raw map[string]any) bool {
 func buildDerivedModulePrelude() string {
 	return `package workspaced
 
-workspaced: {
-	desktop: {
-		dark_mode: *workspaced.modules.base16.config.dark_mode | bool
-		raw: {
-			dconf: *workspaced.modules["base16-gtk"].config.dconf | {
-				[string]: [string]: _
-			}
+desktop: {
+	dark_mode: *modules.base16.config.dark_mode | bool
+	raw: {
+		dconf: *modules["base16-gtk"].config.dconf | {
+			[string]: [string]: _
 		}
 	}
 }
@@ -546,7 +495,10 @@ func buildModuleSchemaLayer(schemaByModule map[string]string) (string, error) {
 
 	moduleFields := make([]ast.Decl, 0, len(moduleNames))
 	for _, name := range moduleNames {
-		expr, err := parser.ParseExpr(name+".module_config.cue", strings.TrimSpace(schemaByModule[name]))
+		// Module schemas are package module and say workspaced.<field>.
+		// Pasted into this package, that root is the top-level field.
+		schemaText := strings.ReplaceAll(strings.TrimSpace(schemaByModule[name]), "workspaced.", "")
+		expr, err := parser.ParseExpr(name+".module_config.cue", schemaText)
 		if err != nil {
 			return "", fmt.Errorf("parse module config schema for %q: %w", name, err)
 		}
@@ -567,16 +519,9 @@ func buildModuleSchemaLayer(schemaByModule map[string]string) (string, error) {
 		Decls: []ast.Decl{
 			&ast.Package{Name: ast.NewIdent("workspaced")},
 			&ast.Field{
-				Label: ast.NewIdent("workspaced"),
+				Label: ast.NewIdent("modules"),
 				Value: &ast.StructLit{
-					Elts: []ast.Decl{
-						&ast.Field{
-							Label: ast.NewIdent("modules"),
-							Value: &ast.StructLit{
-								Elts: moduleFields,
-							},
-						},
-					},
+					Elts: moduleFields,
 				},
 			},
 		},
@@ -636,10 +581,8 @@ func buildDriverWeightLayer(current cue.Value) (string, error) {
 		Decls: []ast.Decl{
 			&ast.Package{Name: ast.NewIdent("workspaced")},
 			&ast.Field{
-				Label: ast.NewIdent("workspaced"),
-				Value: ast.NewStruct(
-					ast.NewIdent("drivers"), &ast.StructLit{Elts: driverFields},
-				),
+				Label: ast.NewIdent("drivers"),
+				Value: &ast.StructLit{Elts: driverFields},
 			},
 		},
 	}
@@ -652,7 +595,6 @@ func buildDriverWeightLayer(current cue.Value) (string, error) {
 
 func hasDriverWeight(v cue.Value, ifaceName string, providerID string) bool {
 	path := cue.MakePath(
-		cue.Str("workspaced"),
 		cue.Str("drivers"),
 		cue.Str(ifaceName),
 		cue.Str(providerID),
@@ -716,10 +658,10 @@ func marshalWorkspacedValue(ctx context.Context, configValue cue.Value, paths []
 	if !configValue.Exists() {
 		if len(discovered) > 0 {
 			logger := logging.GetLogger(ctx)
-			logger.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "layers", discovered)
+			logger.Warn("experimental cue export produced empty result", "reason", "missing config", "layers", discovered)
 		} else if len(paths) > 0 {
 			logger := logging.GetLogger(ctx)
-			logger.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "paths", paths)
+			logger.Warn("experimental cue export produced empty result", "reason", "missing config", "paths", paths)
 		}
 		return json.Marshal(map[string]any{})
 	}
@@ -729,10 +671,10 @@ func marshalWorkspacedValue(ctx context.Context, configValue cue.Value, paths []
 	}
 	if string(b) == "{}" && len(discovered) > 0 {
 		logger := logging.GetLogger(ctx)
-		logger.Warn("experimental cue export produced empty result", "reason", "workspaced resolved to empty object", "layers", discovered)
+		logger.Warn("experimental cue export produced empty result", "reason", "config resolved to empty object", "layers", discovered)
 	} else if string(b) == "{}" && len(paths) > 0 {
 		logger := logging.GetLogger(ctx)
-		logger.Warn("experimental cue export produced empty result", "reason", "workspaced resolved to empty object", "paths", paths)
+		logger.Warn("experimental cue export produced empty result", "reason", "config resolved to empty object", "paths", paths)
 	}
 	return b, nil
 }
@@ -760,17 +702,17 @@ func formatWorkspacedDef(ctx context.Context, configValue cue.Value, paths []str
 	)
 }
 
-// formatWorkspacedSyntax formats the workspaced CUE value, or warns and
-// returns "{}" when the field is missing. kind labels the empty-result warn
+// formatWorkspacedSyntax formats the config CUE value, or warns and
+// returns "{}" when the value is missing. kind labels the empty-result warn
 // ("export" / "def"); errLabel is used in format errors ("config" / "def").
 func formatWorkspacedSyntax(ctx context.Context, configValue cue.Value, paths []string, discovered []Layer, kind, errLabel string, opts ...cue.Option) ([]byte, error) {
 	if !configValue.Exists() {
 		if len(discovered) > 0 {
 			logger := logging.GetLogger(ctx)
-			logger.Warn("experimental cue "+kind+" produced empty result", "reason", "missing workspaced field", "layers", discovered)
+			logger.Warn("experimental cue "+kind+" produced empty result", "reason", "missing config", "layers", discovered)
 		} else if len(paths) > 0 {
 			logger := logging.GetLogger(ctx)
-			logger.Warn("experimental cue "+kind+" produced empty result", "reason", "missing workspaced field", "paths", paths)
+			logger.Warn("experimental cue "+kind+" produced empty result", "reason", "missing config", "paths", paths)
 		}
 		return []byte("{}\n"), nil
 	}
@@ -900,20 +842,15 @@ func buildRuntimePrelude(ctx context.Context, resolvedInputs map[string]map[stri
 		runtimeMap["inputs"] = resolvedInputs
 	}
 
-	payload := map[string]any{
-		"workspaced": map[string]any{
-			"runtime": runtimeMap,
-		},
-	}
-	b, err := json.Marshal(payload)
+	b, err := json.Marshal(runtimeMap)
 	if err != nil {
 		return "", fmt.Errorf("marshal runtime cue prelude: %w", err)
 	}
-	return string(b), nil
+	return "package workspaced\n\nruntime: " + string(b) + "\n", nil
 }
 
 // decodeReadyMap is a partial JSON view of v. Incomplete fields (for example
-// workspaced.file before a module supplies type) are omitted so input and
+// file before a module supplies type) are omitted so input and
 // module resolution can run before the last unify.
 func decodeReadyMap(v cue.Value) (map[string]any, error) {
 	decoded, ok, err := decodeReadyValue(v)

@@ -31,20 +31,18 @@ module: {
 		type: "json"
 		values: {
 			ok:   true
-			name: workspaced.modules.greet.config.name
+			name: modules.greet.config.name
 		}
 	}
 }
 `), 0o644))
 	cuePath := filepath.Join(root, "workspaced.cue")
 	require.NoError(t, os.WriteFile(cuePath, []byte(`package workspaced
-workspaced: {
-	modules: greet: {
-		input:  "self"
-		path:   "modules/greet"
-		enable: true
-		config: {name: "ada"}
-	}
+modules: greet: {
+	input:  "self"
+	path:   "modules/greet"
+	enable: true
+	config: {name: "ada"}
 }
 `), 0o644))
 	ctx := logging.NewWriterContext(t.Output())
@@ -84,16 +82,14 @@ module: {
 `), 0o644))
 	cuePath := filepath.Join(root, "workspaced.cue")
 	require.NoError(t, os.WriteFile(cuePath, []byte(`package workspaced
-workspaced: {
-	modules: greet: {
-		input:  "self"
-		path:   "modules/greet"
-		enable: true
-	}
-	file: home: "hello.toml": values: {
-		if workspaced.runtime.goos != "" {
-			terminal: default_shell: "/opt/homebrew/bin/bash"
-		}
+modules: greet: {
+	input:  "self"
+	path:   "modules/greet"
+	enable: true
+}
+file: home: "hello.toml": values: {
+	if runtime.goos != "" {
+		terminal: default_shell: "/opt/homebrew/bin/bash"
 	}
 }
 `), 0o644))

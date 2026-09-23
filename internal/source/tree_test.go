@@ -42,11 +42,9 @@ func TestBuilderTreeMergesCueLines(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(src, ".bashrc.d.tmpl", "10-mod.sh"), []byte("from-mod"), 0o644))
 	cuePath := filepath.Join(t.TempDir(), "workspaced.cue")
 	require.NoError(t, os.WriteFile(cuePath, []byte(`package workspaced
-workspaced: {
-	file: home: ".bashrc": {
-		type: "lines"
-		values: {"00-cue": "from-cue"}
-	}
+file: home: ".bashrc": {
+	type: "lines"
+	values: {"00-cue": "from-cue"}
 }
 `), 0o644))
 	cfg, err := configcue.LoadFiles(ctx, []string{cuePath})

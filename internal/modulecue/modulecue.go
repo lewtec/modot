@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -180,21 +181,35 @@ func compileModuleWithContext(ctx *cue.Context, modPath string, root map[string]
 	return v, nil
 }
 
+var identLabel = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
 func buildContextFile(root map[string]any) (*ast.File, error) {
+	if len(root) == 0 {
+		return &ast.File{
+			Filename: "module_context.cue",
+			Decls: []ast.Decl{
+				&ast.Package{Name: ast.NewIdent("module")},
+			},
+		}, nil
+	}
 	rootExpr, err := cueExprFromAny(root)
 	if err != nil {
 		return nil, err
 	}
-	return &ast.File{
-		Filename: "module_context.cue",
-		Decls: []ast.Decl{
-			&ast.Package{Name: ast.NewIdent("module")},
-			&ast.Field{
-				Label: ast.NewIdent("workspaced"),
-				Value: rootExpr,
-			},
-		},
-	}, nil
+	formatted, err := format.Node(rootExpr)
+	if err != nil {
+		return nil, fmt.Errorf("format module context: %w", err)
+	}
+	body := strings.TrimSpace(string(formatted))
+	if strings.HasPrefix(body, "{") && strings.HasSuffix(body, "}") {
+		body = strings.TrimSpace(body[1 : len(body)-1])
+	}
+	src := "package module\n\n" + body + "\n"
+	file, err := parser.ParseFile("module_context.cue", src)
+	if err != nil {
+		return nil, fmt.Errorf("parse module context: %w\n%s", err, src)
+	}
+	return file, nil
 }
 
 func cueExprFromAny(v any) (ast.Expr, error) {
@@ -243,8 +258,12 @@ func cueExprFromAny(v any) (ast.Expr, error) {
 			if err != nil {
 				return nil, err
 			}
+			label := ast.Label(ast.NewString(k))
+			if identLabel.MatchString(k) {
+				label = ast.NewIdent(k)
+			}
 			decls = append(decls, &ast.Field{
-				Label: ast.NewString(k),
+				Label: label,
 				Value: valueExpr,
 			})
 		}

@@ -11,10 +11,8 @@ Status: accepted (grill 2026-07-19). One-shot implementation.
 ## Config shape
 
 ```
-workspaced: {
-  lint: { tools: [string]: #CheckTool }
-  formatter: { tools: [string]: #CheckTool }
-}
+lint: { tools: [string]: #CheckTool }
+formatter: { tools: [string]: #CheckTool }
 ```
 
 ### `#CheckTool`

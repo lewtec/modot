@@ -23,13 +23,11 @@ func TestStandardDotfilesKeepsCodebasePresetOnly(t *testing.T) {
 	writeFile(t, filepath.Join(modDir, "codebase", ".gitignore"), "from-codebase\n")
 	writeFile(t, filepath.Join(root, "workspaced.cue"), `package workspaced
 
-workspaced: {
-	modules: {
-		demo: {
-			enable: true
-			input: "self"
-			path: "modules/demo"
-		}
+modules: {
+	demo: {
+		enable: true
+		input: "self"
+		path: "modules/demo"
 	}
 }
 `)

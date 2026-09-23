@@ -5,7 +5,7 @@ Starter module: conditionals, hostname/IPs, phone vs desktop, looping config.
 Enable in `workspaced.cue`:
 
 ```cue
-workspaced: modules: example: {
+modules: example: {
 	input: "self"
 	path: "modules/example"
 	config: {
