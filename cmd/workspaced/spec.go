@@ -49,8 +49,8 @@ func (cli) Description() string {
 	return "workspaced - declarative user environment manager"
 }
 
-// Setup runs after cmd.App replaces slog.Default with a TextHandler.
-// Always restore: App.Setup installs the TextHandler on every call.
+// Setup runs after cmd.App replaces slog.Default with x/logging.NewHandler
+// on os.Stderr. Always restore: App.Setup installs that handler on every call.
 func (*cli) Setup() error {
 	if processLogger != nil {
 		slog.SetDefault(processLogger)

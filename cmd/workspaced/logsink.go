@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// swapWriter is the process log destination. PlainHandler holds this
+// swapWriter is the process log destination. The slog handler holds this
 // for the life of the process; Set points it at Session.LogWriter
 // while progress.Run is in flight.
 type swapWriter struct {

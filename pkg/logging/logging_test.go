@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"testing"
 
+	lewlog "github.com/lewtec/lewkit/x/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -29,7 +30,7 @@ func TestNormalizeLogArgs_DanglingKeyDropped(t *testing.T) {
 
 func TestReportError_KeyValuePairs(t *testing.T) {
 	var buf bytes.Buffer
-	h := NewPlainHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})
+	h := lewlog.NewHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})
 	ctx := NewRootContext(slog.New(h))
 
 	require.True(t, ReportError(ctx, errSentinel{}, "context", "unit test"), "expected ReportError to report non-nil err")

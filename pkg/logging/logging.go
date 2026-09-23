@@ -6,6 +6,8 @@ import (
 	"io"
 	"log/slog"
 
+	lewlog "github.com/lewtec/lewkit/x/logging"
+
 	"github.com/lucasew/workspaced/internal/types"
 )
 
@@ -63,7 +65,7 @@ func NewWriterContext(w io.Writer) context.Context {
 	if w == nil {
 		w = io.Discard
 	}
-	h := NewPlainHandler(w, &slog.HandlerOptions{Level: slog.LevelDebug})
+	h := lewlog.NewHandler(w, &slog.HandlerOptions{Level: slog.LevelDebug})
 	return NewRootContext(slog.New(h))
 }
 
