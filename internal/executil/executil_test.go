@@ -8,6 +8,8 @@ import (
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestInheritContextWritersDoesNotUseProcessStreams(t *testing.T) {
@@ -15,15 +17,9 @@ func TestInheritContextWritersDoesNotUseProcessStreams(t *testing.T) {
 	ctx := logging.NewWriterContext(t.Output())
 	cmd := exec.Command("true")
 	InheritContextWriters(ctx, cmd)
-	if cmd.Stderr == os.Stderr {
-		t.Fatal("stderr is os.Stderr")
-	}
-	if cmd.Stdout == os.Stdout || cmd.Stdout == os.Stderr {
-		t.Fatal("stdout is a process stream")
-	}
-	if cmd.Stdout != cmd.Stderr {
-		t.Fatal("stdout should share the live-row writer with stderr")
-	}
+	require.False(t, cmd.Stderr == os.Stderr, "stderr is os.Stderr")
+	require.False(t, cmd.Stdout == os.Stdout || cmd.Stdout == os.Stderr, "stdout is a process stream")
+	require.True(t, cmd.Stdout == cmd.Stderr, "stdout should share the live-row writer with stderr")
 }
 
 func TestInheritContextWritersKeepsExistingStderr(t *testing.T) {
@@ -32,18 +28,12 @@ func TestInheritContextWritersKeepsExistingStderr(t *testing.T) {
 	cmd := exec.Command("true")
 	live := taskgroup.LineWriterFrom(ctx)
 	t.Cleanup(func() {
-		if err := live.Close(); err != nil {
-			t.Errorf("close live writer: %v", err)
-		}
+		assert.NoError(t, live.Close(), "close live writer")
 	})
 	cmd.Stderr = live
 	InheritContextWriters(ctx, cmd)
-	if cmd.Stderr != live {
-		t.Fatal("replaced existing stderr writer")
-	}
-	if cmd.Stdout != live {
-		t.Fatal("stdout should reuse existing stderr writer")
-	}
+	require.True(t, cmd.Stderr == live, "replaced existing stderr writer")
+	require.True(t, cmd.Stdout == live, "stdout should reuse existing stderr writer")
 }
 
 func TestInheritContextWritersHonorsContextWriters(t *testing.T) {
@@ -54,10 +44,6 @@ func TestInheritContextWritersHonorsContextWriters(t *testing.T) {
 	ctx = WithStderr(ctx, &stderr)
 	cmd := exec.Command("true")
 	InheritContextWriters(ctx, cmd)
-	if cmd.Stdout != &stdout {
-		t.Fatal("stdout is not the context writer")
-	}
-	if cmd.Stderr != &stderr {
-		t.Fatal("stderr is not the context writer")
-	}
+	require.True(t, cmd.Stdout == &stdout, "stdout is not the context writer")
+	require.True(t, cmd.Stderr == &stderr, "stderr is not the context writer")
 }

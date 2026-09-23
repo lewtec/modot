@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"errors"
 	"io"
 	"io/fs"
 	"os"
@@ -15,6 +14,7 @@ import (
 	tarfs "github.com/lewtec/lewkit/x/fs/tar"
 	lewpath "github.com/lewtec/lewkit/x/path"
 	lewtest "github.com/lewtec/lewkit/x/test"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lucasew/workspaced/internal/archive"
 )
@@ -41,77 +41,52 @@ func TestExtractTarGzStripsPrefix(t *testing.T) {
 	var raw bytes.Buffer
 	tw := tar.NewWriter(&raw)
 	content := []byte("hello module")
-	if err := tw.WriteHeader(&tar.Header{
+	require.NoError(t, tw.WriteHeader(&tar.Header{
 		Name: "repo-sha/subdir/file.txt",
 		Mode: 0o644,
 		Size: int64(len(content)),
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := tw.Write(content); err != nil {
-		t.Fatal(err)
-	}
-	if err := tw.Close(); err != nil {
-		t.Fatal(err)
-	}
+	}))
+	_, err := tw.Write(content)
+	require.NoError(t, err)
+	require.NoError(t, tw.Close())
 
 	var gz bytes.Buffer
 	zw := gzip.NewWriter(&gz)
-	if _, err := zw.Write(raw.Bytes()); err != nil {
-		t.Fatal(err)
-	}
-	if err := zw.Close(); err != nil {
-		t.Fatal(err)
-	}
+	_, err = zw.Write(raw.Bytes())
+	require.NoError(t, err)
+	require.NoError(t, zw.Close())
 
 	dest := t.TempDir()
-	if err := copyTar(t, bytes.NewReader(gz.Bytes()), dest); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, copyTar(t, bytes.NewReader(gz.Bytes()), dest))
 	got, err := os.ReadFile(filepath.Join(dest, "subdir", "file.txt"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(got, content) {
-		t.Fatalf("got %q, want %q", got, content)
-	}
-	if _, err := os.Stat(filepath.Join(dest, "repo-sha")); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatal("expected top-level prefix to be stripped")
-	}
+	require.NoError(t, err)
+	require.Equal(t, content, got)
+	_, err = os.Stat(filepath.Join(dest, "repo-sha"))
+	require.ErrorIs(t, err, fs.ErrNotExist, "expected top-level prefix to be stripped")
 }
 
 func TestExtractTarGzRejectsPathTraversal(t *testing.T) {
 	t.Parallel()
 	var raw bytes.Buffer
 	tw := tar.NewWriter(&raw)
-	if err := tw.WriteHeader(&tar.Header{
+	require.NoError(t, tw.WriteHeader(&tar.Header{
 		Name: "repo-sha/../../outside.txt",
 		Mode: 0o644,
 		Size: 3,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := tw.Write([]byte("bad")); err != nil {
-		t.Fatal(err)
-	}
-	if err := tw.Close(); err != nil {
-		t.Fatal(err)
-	}
+	}))
+	_, err := tw.Write([]byte("bad"))
+	require.NoError(t, err)
+	require.NoError(t, tw.Close())
 
 	var gz bytes.Buffer
 	zw := gzip.NewWriter(&gz)
-	if _, err := zw.Write(raw.Bytes()); err != nil {
-		t.Fatal(err)
-	}
-	if err := zw.Close(); err != nil {
-		t.Fatal(err)
-	}
+	_, err = zw.Write(raw.Bytes())
+	require.NoError(t, err)
+	require.NoError(t, zw.Close())
 
 	dest := t.TempDir()
-	if err := copyTar(t, bytes.NewReader(gz.Bytes()), dest); err == nil {
-		t.Fatal("expected illegal path")
-	}
-	if _, err := os.Stat(filepath.Join(filepath.Dir(dest), "outside.txt")); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatal("path traversal wrote outside dest")
-	}
+	err = copyTar(t, bytes.NewReader(gz.Bytes()), dest)
+	require.Error(t, err, "expected illegal path")
+	_, err = os.Stat(filepath.Join(filepath.Dir(dest), "outside.txt"))
+	require.ErrorIs(t, err, fs.ErrNotExist, "path traversal wrote outside dest")
 }

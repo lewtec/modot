@@ -3,9 +3,10 @@ package lsp
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestConnRoundTrip(t *testing.T) {
@@ -18,24 +19,14 @@ func TestConnRoundTrip(t *testing.T) {
 		Method:  "initialize",
 		Params:  json.RawMessage(`{"rootUri":"file:///tmp"}`),
 	}
-	if err := c.WriteMessage(msg); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, c.WriteMessage(msg))
 	raw := buf.String()
-	if !strings.Contains(raw, "Content-Length:") {
-		t.Fatalf("header missing: %q", raw)
-	}
+	require.Contains(t, raw, "Content-Length:")
 	rc := NewConn(strings.NewReader(raw), &buf)
 	got, err := rc.ReadMessage()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Method != "initialize" {
-		t.Fatalf("method=%s", got.Method)
-	}
-	if !got.IsRequest() {
-		t.Fatal("expected request")
-	}
+	require.NoError(t, err)
+	require.Equal(t, "initialize", got.Method)
+	require.True(t, got.IsRequest(), "expected request")
 }
 
 func TestMergeResultsArrays(t *testing.T) {
@@ -46,12 +37,8 @@ func TestMergeResultsArrays(t *testing.T) {
 		json.RawMessage(`null`),
 	})
 	var items []map[string]string
-	if err := json.Unmarshal(out, &items); err != nil {
-		t.Fatal(err)
-	}
-	if len(items) != 2 {
-		t.Fatalf("len=%d %s", len(items), out)
-	}
+	require.NoError(t, json.Unmarshal(out, &items))
+	require.Len(t, items, 2, "%s", out)
 }
 
 func TestMergeResultsFirstNonNull(t *testing.T) {
@@ -61,9 +48,7 @@ func TestMergeResultsFirstNonNull(t *testing.T) {
 		json.RawMessage(`{"contents":"hi"}`),
 		json.RawMessage(`{"contents":"other"}`),
 	})
-	if string(out) != `{"contents":"hi"}` {
-		t.Fatalf("got %s", out)
-	}
+	require.Equal(t, `{"contents":"hi"}`, string(out))
 }
 
 func TestReadMessageMissingContentLength(t *testing.T) {
@@ -72,7 +57,5 @@ func TestReadMessageMissingContentLength(t *testing.T) {
 	raw := "Content-Type: application/vscode-jsonrpc; charset=utf-8\r\n\r\n"
 	c := NewConn(strings.NewReader(raw), &bytes.Buffer{})
 	_, err := c.ReadMessage()
-	if !errors.Is(err, ErrMissingContentLength) {
-		t.Fatalf("err=%v want errors.Is(..., ErrMissingContentLength)", err)
-	}
+	require.ErrorIs(t, err, ErrMissingContentLength)
 }

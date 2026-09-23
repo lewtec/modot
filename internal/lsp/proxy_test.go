@@ -6,31 +6,25 @@ import (
 	"encoding/json"
 	"io"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 func writeLSP(t *testing.T, w io.Writer, v any) {
 	t.Helper()
 	body, err := json.Marshal(v)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := io.WriteString(w, "Content-Length: "); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := io.WriteString(w, string(mustJSON(len(body)))); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := io.WriteString(w, "\r\n\r\n"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := w.Write(body); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	_, err = io.WriteString(w, "Content-Length: ")
+	require.NoError(t, err)
+	_, err = io.WriteString(w, string(mustJSON(len(body))))
+	require.NoError(t, err)
+	_, err = io.WriteString(w, "\r\n\r\n")
+	require.NoError(t, err)
+	_, err = w.Write(body)
+	require.NoError(t, err)
 }
 
 func mustJSON(v any) []byte {
@@ -69,22 +63,12 @@ func TestProxyInitializeEmptyConfig(t *testing.T) {
 
 	conn := NewConn(clientFromServer, io.Discard)
 	msg, err := conn.ReadMessage()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if msg.Error != nil {
-		t.Fatalf("error: %+v", msg.Error)
-	}
-	if len(msg.Result) == 0 {
-		t.Fatal("empty result")
-	}
+	require.NoError(t, err)
+	require.Nil(t, msg.Error)
+	require.NotEmpty(t, msg.Result, "empty result")
 	var result map[string]any
-	if err := json.Unmarshal(msg.Result, &result); err != nil {
-		t.Fatal(err)
-	}
-	if result["capabilities"] == nil {
-		t.Fatal("missing capabilities")
-	}
+	require.NoError(t, json.Unmarshal(msg.Result, &result))
+	require.NotNil(t, result["capabilities"], "missing capabilities")
 
 	// hover with no backends -> method not found
 	writeLSP(t, clientToServer, map[string]any{
@@ -97,12 +81,9 @@ func TestProxyInitializeEmptyConfig(t *testing.T) {
 		},
 	})
 	msg, err = conn.ReadMessage()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if msg.Error == nil || msg.Error.Code != CodeMethodNotFound {
-		t.Fatalf("want MethodNotFound, got %+v result=%s", msg.Error, msg.Result)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, msg.Error, "want MethodNotFound, result=%s", msg.Result)
+	require.Equal(t, CodeMethodNotFound, msg.Error.Code, "result=%s", msg.Result)
 
 	if err := clientToServer.Close(); err != nil {
 		t.Logf("close clientToServer: %v", err)
@@ -145,12 +126,9 @@ func TestProxyMultiRootRejected(t *testing.T) {
 	})
 	conn := NewConn(clientFromServer, io.Discard)
 	msg, err := conn.ReadMessage()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if msg.Error == nil || !strings.Contains(msg.Error.Message, "single workspace") {
-		t.Fatalf("want multi-root error, got %+v", msg.Error)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, msg.Error, "want multi-root error")
+	require.Contains(t, msg.Error.Message, "single workspace")
 	if err := clientToServer.Close(); err != nil {
 		t.Logf("close clientToServer: %v", err)
 	}
@@ -161,15 +139,9 @@ func TestWriteReadFraming(t *testing.T) {
 	t.Parallel()
 	var buf bytes.Buffer
 	c := NewConn(nil, &buf)
-	if err := c.WriteResult(json.RawMessage("1"), map[string]string{"ok": "yes"}); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, c.WriteResult(json.RawMessage("1"), map[string]string{"ok": "yes"}))
 	rc := NewConn(bytes.NewReader(buf.Bytes()), io.Discard)
 	msg, err := rc.ReadMessage()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(msg.ID) != "1" {
-		t.Fatalf("id=%s", msg.ID)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "1", string(msg.ID))
 }

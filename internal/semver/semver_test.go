@@ -1,6 +1,10 @@
 package semver
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestParse(t *testing.T) {
 	tests := []struct {
@@ -18,12 +22,8 @@ func TestParse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := Parse(tt.input)
-			if got.Original != tt.wantOrig {
-				t.Errorf("Original = %q, want %q", got.Original, tt.wantOrig)
-			}
-			if len(got.Parts) != tt.wantLen {
-				t.Errorf("len(Parts) = %d, want %d", len(got.Parts), tt.wantLen)
-			}
+			assert.Equal(t, tt.wantOrig, got.Original)
+			assert.Len(t, got.Parts, tt.wantLen)
 		})
 	}
 }
@@ -47,9 +47,7 @@ func TestCompare(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := Parse(tt.a).Compare(Parse(tt.b))
-			if got != tt.want {
-				t.Errorf("Compare(%q, %q) = %d, want %d", tt.a, tt.b, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got, "Compare(%q, %q)", tt.a, tt.b)
 		})
 	}
 }
@@ -66,9 +64,7 @@ func TestNormalized(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			got := Parse(tt.input).Normalized()
-			if got != tt.want {
-				t.Errorf("Normalized() = %q, want %q", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

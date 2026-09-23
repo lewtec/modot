@@ -5,8 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/lewtec/lewkit/x/taskgroup"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/lucasew/workspaced/internal/configcue"
 	_ "github.com/lucasew/workspaced/internal/module/prelude"
 	_ "github.com/lucasew/workspaced/pkg/driver/env/native"
@@ -35,18 +37,15 @@ workspaced: {
 
 	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
 	t.Cleanup(func() {
-		if err := g.Wait(); err != nil && !t.Failed() {
-			t.Errorf("group wait: %v", err)
+		err := g.Wait()
+		if !t.Failed() {
+			assert.NoError(t, err, "group wait")
 		}
 	})
 	cfgCode, err := configcue.LoadForWorkspace(ctx, root)
-	if err != nil {
-		t.Fatalf("load codebase config: %v", err)
-	}
+	require.NoError(t, err, "load codebase config")
 	cfgHome, err := configcue.LoadFiles(ctx, []string{filepath.Join(root, "workspaced.cue")})
-	if err != nil {
-		t.Fatalf("load home config: %v", err)
-	}
+	require.NoError(t, err, "load home config")
 
 	t.Run("codebase mode", func(t *testing.T) {
 		b, err := StandardDotfilesOptions{
@@ -54,42 +53,28 @@ workspaced: {
 			ModulesDir:       filepath.Join(root, "modules"),
 			ModulesCfg:       cfgCode,
 		}.Builder(cfgCode)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		tree, err := b.Tree(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		got := fileTargets(tree.Files())
 		want := []string{filepath.Join(root, ".gitignore")}
-		if diff := cmp.Diff(want, got); diff != "" {
-			t.Fatalf("codebase files mismatch (-want +got):\n%s", diff)
-		}
+		require.Equal(t, want, got)
 	})
 
 	t.Run("home mode", func(t *testing.T) {
 		home, err := os.UserHomeDir()
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		b, err := StandardDotfilesOptions{
 			ConfigTreeTarget: home,
 			ModulesDir:       filepath.Join(root, "modules"),
 			ModulesCfg:       cfgHome,
 		}.Builder(cfgHome)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		tree, err := b.Tree(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		got := fileTargets(tree.Files())
 		want := []string{filepath.Join(home, ".bashrc")}
-		if diff := cmp.Diff(want, got); diff != "" {
-			t.Fatalf("home files mismatch (-want +got):\n%s", diff)
-		}
+		require.Equal(t, want, got)
 	})
 }
 

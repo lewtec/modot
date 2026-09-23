@@ -3,6 +3,8 @@ package daemon
 import (
 	"net/http"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestCheckOriginAllowsLocalClients(t *testing.T) {
@@ -11,15 +13,11 @@ func TestCheckOriginAllowsLocalClients(t *testing.T) {
 		if origin != "" {
 			r.Header.Set("Origin", origin)
 		}
-		if !upgrader.CheckOrigin(r) {
-			t.Fatalf("CheckOrigin(%q) = false, want true", origin)
-		}
+		require.True(t, upgrader.CheckOrigin(r), "CheckOrigin(%q) = false, want true", origin)
 	}
 }
 
 func TestCheckOriginRejectsForeignBrowserOrigin(t *testing.T) {
 	r := &http.Request{Header: http.Header{"Origin": []string{"https://evil.example"}}}
-	if upgrader.CheckOrigin(r) {
-		t.Fatal("CheckOrigin(evil) = true, want false")
-	}
+	require.False(t, upgrader.CheckOrigin(r), "CheckOrigin(evil) = true, want false")
 }

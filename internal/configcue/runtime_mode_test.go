@@ -10,6 +10,7 @@ import (
 	_ "github.com/lucasew/workspaced/pkg/driver/env/native"
 	"github.com/lucasew/workspaced/pkg/filespine"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRuntimeModeAndFileProfiles(t *testing.T) {
@@ -28,48 +29,26 @@ workspaced: file: {
 	ctx := logging.NewWriterContext(t.Output())
 	cuePath := filepath.Join(root, "workspaced.cue")
 	home, err := loadFilesMode(ctx, cuePath, filespine.ModeHome)
-	if err != nil {
-		t.Fatalf("load home: %v", err)
-	}
-	if got := home.RuntimeMode(); got != filespine.ModeHome {
-		t.Fatalf("home mode=%q", got)
-	}
+	require.NoError(t, err, "load home")
+	require.Equal(t, filespine.ModeHome, home.RuntimeMode())
 	homeFiles, err := home.FileProfiles()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := homeFiles["codebase"]; ok {
-		t.Fatal("home mode emitted codebase")
-	}
+	require.NoError(t, err)
+	require.NotContains(t, homeFiles, "codebase", "home mode emitted codebase")
 	homeFS, err := homeFiles["home"].FS(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := fs.Stat(homeFS, ".codex/config.toml"); err != nil {
-		t.Fatalf("home profile: %v", err)
-	}
+	require.NoError(t, err)
+	_, err = fs.Stat(homeFS, ".codex/config.toml")
+	require.NoError(t, err, "home profile")
 
 	code, err := loadFilesMode(ctx, cuePath, filespine.ModeCodebase)
-	if err != nil {
-		t.Fatalf("load codebase: %v", err)
-	}
-	if got := code.RuntimeMode(); got != filespine.ModeCodebase {
-		t.Fatalf("codebase mode=%q", got)
-	}
+	require.NoError(t, err, "load codebase")
+	require.Equal(t, filespine.ModeCodebase, code.RuntimeMode())
 	codeFiles, err := code.FileProfiles()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := codeFiles["home"]; ok {
-		t.Fatal("codebase mode emitted home")
-	}
+	require.NoError(t, err)
+	require.NotContains(t, codeFiles, "home", "codebase mode emitted home")
 	codeFS, err := codeFiles["codebase"].FS(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := fs.Stat(codeFS, ".gitignore"); err != nil {
-		t.Fatalf("codebase profile: %v", err)
-	}
+	require.NoError(t, err)
+	_, err = fs.Stat(codeFS, ".gitignore")
+	require.NoError(t, err, "codebase profile")
 }
 
 func TestFlatFileKeyRejected(t *testing.T) {
@@ -79,9 +58,7 @@ workspaced: file: ".bashrc": {type: "lines", values: {"00": "umask 022"}}
 `)
 	ctx := logging.NewWriterContext(t.Output())
 	_, err := loadFilesMode(ctx, filepath.Join(root, "workspaced.cue"), filespine.ModeHome)
-	if err == nil {
-		t.Fatal("expected schema error")
-	}
+	require.Error(t, err, "expected schema error")
 }
 
 func TestAbsoluteRefRejected(t *testing.T) {
@@ -94,13 +71,9 @@ workspaced: file: home: blob: {
 `)
 	ctx := logging.NewWriterContext(t.Output())
 	cfg, err := loadFilesMode(ctx, filepath.Join(root, "workspaced.cue"), filespine.ModeHome)
-	if err != nil {
-		t.Fatalf("load: %v", err)
-	}
+	require.NoError(t, err, "load")
 	_, err = cfg.FileProfiles()
-	if err == nil {
-		t.Fatal("expected ref error")
-	}
+	require.Error(t, err, "expected ref error")
 }
 
 func loadFilesMode(ctx context.Context, path, mode string) (*Config, error) {
@@ -122,10 +95,6 @@ func loadFilesMode(ctx context.Context, path, mode string) (*Config, error) {
 
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 }

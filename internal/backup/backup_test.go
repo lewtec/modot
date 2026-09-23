@@ -1,15 +1,14 @@
 package backup_test
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	lewtest "github.com/lewtec/lewkit/x/test"
 	"github.com/lucasew/workspaced/internal/backup"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 func TestArchiveAction_RunValidation(t *testing.T) {
@@ -42,12 +41,7 @@ func TestArchiveAction_RunValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			err := tt.action.Run(ctx, nil)
-			if err == nil {
-				t.Fatal("expected error")
-			}
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("got %v, want %v", err, tt.wantErr)
-			}
+			require.ErrorIs(t, err, tt.wantErr)
 		})
 	}
 }
@@ -57,9 +51,7 @@ func TestArchiveAction_WritesFinalOnlyOnSuccess(t *testing.T) {
 
 	ctx := logging.NewWriterContext(t.Output())
 	inDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(inDir, "note.txt"), []byte("hello"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(inDir, "note.txt"), []byte("hello"), 0o644))
 
 	outDir := t.TempDir()
 	outPath := filepath.Join(outDir, "backup.tar")
@@ -68,17 +60,11 @@ func TestArchiveAction_WritesFinalOnlyOnSuccess(t *testing.T) {
 		Output:   outPath,
 		Format:   "tar",
 	}
-	if err := action.Run(ctx, nil); err != nil {
-		t.Fatalf("archive: %v", err)
-	}
+	require.NoError(t, action.Run(ctx, nil), "archive")
 
 	st, err := os.Stat(outPath)
-	if err != nil {
-		t.Fatalf("final archive missing: %v", err)
-	}
-	if st.Size() == 0 {
-		t.Fatal("final archive is empty")
-	}
+	require.NoError(t, err, "final archive missing")
+	require.NotZero(t, st.Size(), "final archive is empty")
 	assertNoArchiveTemps(t, outDir)
 }
 
@@ -89,26 +75,18 @@ func TestArchiveAction_FailureKeepsExistingOutput(t *testing.T) {
 	outDir := t.TempDir()
 	outPath := filepath.Join(outDir, "backup.tar")
 	sentinel := []byte("previous-good-archive")
-	if err := os.WriteFile(outPath, sentinel, 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(outPath, sentinel, 0o644))
 
 	action := backup.ArchiveAction{
 		InputDir: filepath.Join(outDir, "does-not-exist"),
 		Output:   outPath,
 		Format:   "tar",
 	}
-	if err := action.Run(ctx, nil); err == nil {
-		t.Fatal("expected archive of missing input to fail")
-	}
+	require.Error(t, action.Run(ctx, nil), "expected archive of missing input to fail")
 
 	got, err := os.ReadFile(outPath)
-	if err != nil {
-		t.Fatalf("existing output should remain: %v", err)
-	}
-	if string(got) != string(sentinel) {
-		t.Fatalf("existing output changed: got %q want %q", got, sentinel)
-	}
+	require.NoError(t, err, "existing output should remain")
+	require.Equal(t, string(sentinel), string(got))
 	assertNoArchiveTemps(t, outDir)
 }
 
@@ -117,20 +95,14 @@ func TestRsyncAction_RunValidation(t *testing.T) {
 
 	ctx := logging.NewWriterContext(t.Output())
 	err := backup.RsyncAction{}.Run(ctx, nil)
-	if !errors.Is(err, backup.ErrRsyncNeedsSrcAndDst) {
-		t.Fatalf("got %v, want %v", err, backup.ErrRsyncNeedsSrcAndDst)
-	}
+	require.ErrorIs(t, err, backup.ErrRsyncNeedsSrcAndDst)
 }
 
 func assertNoArchiveTemps(t *testing.T, dir string) {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	for _, e := range entries {
-		if strings.Contains(e.Name(), ".tmp-") {
-			t.Fatalf("leftover archive temp: %s", e.Name())
-		}
+		require.NotContains(t, e.Name(), ".tmp-", "leftover archive temp: %s", e.Name())
 	}
 }

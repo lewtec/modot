@@ -1,11 +1,12 @@
 package core
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/module"
@@ -17,9 +18,7 @@ func TestPlaceResolveIgnoreMissing(t *testing.T) {
 
 	root := t.TempDir()
 	existing := filepath.Join(root, "exists.txt")
-	if err := os.WriteFile(existing, []byte("hi"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(existing, []byte("hi"), 0o644))
 	missing := filepath.Join(root, "nope.txt")
 
 	ctx := logging.NewWriterContext(t.Output())
@@ -35,12 +34,8 @@ func TestPlaceResolveIgnoreMissing(t *testing.T) {
 				},
 			},
 		})
-		if err == nil {
-			t.Fatal("expected error for missing source")
-		}
-		if !errors.Is(err, os.ErrNotExist) {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		require.Error(t, err, "expected error for missing source")
+		require.ErrorIs(t, err, os.ErrNotExist)
 	})
 
 	t.Run("ignore_missing skips missing keeps present", func(t *testing.T) {
@@ -55,18 +50,10 @@ func TestPlaceResolveIgnoreMissing(t *testing.T) {
 				},
 			},
 		})
-		if err != nil {
-			t.Fatalf("Resolve: %v", err)
-		}
-		if len(out.Files) != 1 {
-			t.Fatalf("files=%d want 1: %+v", len(out.Files), out.Files)
-		}
-		if out.Files[0].RelPath != "out-ok/exists.txt" {
-			t.Fatalf("RelPath=%q want out-ok/exists.txt", out.Files[0].RelPath)
-		}
-		if out.Files[0].AbsPath != existing {
-			t.Fatalf("AbsPath=%q want %q", out.Files[0].AbsPath, existing)
-		}
+		require.NoError(t, err, "Resolve")
+		require.Len(t, out.Files, 1)
+		require.Equal(t, "out-ok/exists.txt", out.Files[0].RelPath)
+		require.Equal(t, existing, out.Files[0].AbsPath)
 	})
 
 	t.Run("ignore_missing all missing yields empty", func(t *testing.T) {
@@ -80,12 +67,8 @@ func TestPlaceResolveIgnoreMissing(t *testing.T) {
 				},
 			},
 		})
-		if err != nil {
-			t.Fatalf("Resolve: %v", err)
-		}
-		if len(out.Files) != 0 {
-			t.Fatalf("files=%d want 0: %+v", len(out.Files), out.Files)
-		}
+		require.NoError(t, err, "Resolve")
+		require.Empty(t, out.Files)
 	})
 }
 
@@ -93,9 +76,7 @@ func TestPlacePrefixWins(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	src := filepath.Join(dir, "a.txt")
-	if err := os.WriteFile(src, []byte("a"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(src, []byte("a"), 0o644))
 	root := t.TempDir()
 	ctx := cmdarg.WithPrefix(logging.NewWriterContext(t.Output()), root)
 	out, err := placeModule{}.Resolve(ctx, module.ResolveRequest{
@@ -106,12 +87,9 @@ func TestPlacePrefixWins(t *testing.T) {
 			},
 		},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(out.Files) != 1 || out.Files[0].TargetBase != root {
-		t.Fatalf("files=%+v", out.Files)
-	}
+	require.NoError(t, err)
+	require.Len(t, out.Files, 1)
+	require.Equal(t, root, out.Files[0].TargetBase)
 }
 
 func TestPlaceResolveDirectory(t *testing.T) {
@@ -119,15 +97,9 @@ func TestPlaceResolveDirectory(t *testing.T) {
 
 	root := t.TempDir()
 	dir := filepath.Join(root, "tree")
-	if err := os.MkdirAll(filepath.Join(dir, "sub"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "sub", "b.txt"), []byte("b"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "sub"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "sub", "b.txt"), []byte("b"), 0o644))
 
 	ctx := logging.NewWriterContext(t.Output())
 	out, err := placeModule{}.Resolve(ctx, module.ResolveRequest{
@@ -138,19 +110,11 @@ func TestPlaceResolveDirectory(t *testing.T) {
 			},
 		},
 	})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
-	if len(out.Files) != 2 {
-		t.Fatalf("files=%d want 2: %+v", len(out.Files), out.Files)
-	}
+	require.NoError(t, err, "Resolve")
+	require.Len(t, out.Files, 2)
 	// sorted by RelPath
-	if out.Files[0].RelPath != ".config/app/a.txt" {
-		t.Fatalf("first=%q", out.Files[0].RelPath)
-	}
-	if out.Files[1].RelPath != ".config/app/sub/b.txt" {
-		t.Fatalf("second=%q", out.Files[1].RelPath)
-	}
+	require.Equal(t, ".config/app/a.txt", out.Files[0].RelPath)
+	require.Equal(t, ".config/app/sub/b.txt", out.Files[1].RelPath)
 }
 
 func TestPlaceStepsMoveAndRequire(t *testing.T) {
@@ -158,16 +122,10 @@ func TestPlaceStepsMoveAndRequire(t *testing.T) {
 
 	root := t.TempDir()
 	pkg := filepath.Join(root, "skill")
-	if err := os.MkdirAll(pkg, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(pkg, 0o755))
 	skillPath := filepath.Join(pkg, "SKILL.md")
-	if err := os.WriteFile(skillPath, []byte("# skill"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(pkg, "notes.md"), []byte("n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(skillPath, []byte("# skill"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(pkg, "notes.md"), []byte("n"), 0o644))
 
 	ctx := logging.NewWriterContext(t.Output())
 	out, err := placeModule{}.Resolve(ctx, module.ResolveRequest{
@@ -191,23 +149,17 @@ func TestPlaceStepsMoveAndRequire(t *testing.T) {
 			},
 		},
 	})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
+	require.NoError(t, err, "Resolve")
 	rels := map[string]string{}
 	for _, f := range out.Files {
 		rels[f.RelPath] = f.AbsPath
 	}
 	wantEntry := "skills/best-practices/references/go/entry.md"
-	if rels[wantEntry] != skillPath {
-		t.Fatalf("entry path: got %q want abs %q; files=%v", rels[wantEntry], skillPath, rels)
-	}
-	if _, ok := rels["skills/best-practices/references/go/SKILL.md"]; ok {
-		t.Fatal("SKILL.md should have been moved")
-	}
-	if _, ok := rels["skills/best-practices/references/go/notes.md"]; !ok {
-		t.Fatal("notes.md missing")
-	}
+	require.Equal(t, skillPath, rels[wantEntry], "files=%v", rels)
+	_, ok := rels["skills/best-practices/references/go/SKILL.md"]
+	require.False(t, ok, "SKILL.md should have been moved")
+	_, ok = rels["skills/best-practices/references/go/notes.md"]
+	require.True(t, ok, "notes.md missing")
 }
 
 func TestPlaceRequireFailsWhenMissing(t *testing.T) {
@@ -215,12 +167,8 @@ func TestPlaceRequireFailsWhenMissing(t *testing.T) {
 
 	root := t.TempDir()
 	pkg := filepath.Join(root, "skill")
-	if err := os.MkdirAll(pkg, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(pkg, "README.md"), []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(pkg, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(pkg, "README.md"), []byte("x"), 0o644))
 
 	ctx := logging.NewWriterContext(t.Output())
 	_, err := placeModule{}.Resolve(ctx, module.ResolveRequest{
@@ -235,12 +183,8 @@ func TestPlaceRequireFailsWhenMissing(t *testing.T) {
 			},
 		},
 	})
-	if err == nil {
-		t.Fatal("expected require failure")
-	}
-	if !errors.Is(err, errPlaceRequireNoMatch) {
-		t.Fatalf("error=%v want %v", err, errPlaceRequireNoMatch)
-	}
+	require.Error(t, err, "expected require failure")
+	require.ErrorIs(t, err, errPlaceRequireNoMatch)
 }
 
 func TestPlaceRequireNegation(t *testing.T) {
@@ -248,15 +192,9 @@ func TestPlaceRequireNegation(t *testing.T) {
 
 	root := t.TempDir()
 	pkg := filepath.Join(root, "skill")
-	if err := os.MkdirAll(pkg, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(pkg, "SKILL.md"), []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(pkg, "entry.md"), []byte("y"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(pkg, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(pkg, "SKILL.md"), []byte("x"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(pkg, "entry.md"), []byte("y"), 0o644))
 
 	ctx := logging.NewWriterContext(t.Output())
 	_, err := placeModule{}.Resolve(ctx, module.ResolveRequest{
@@ -274,12 +212,8 @@ func TestPlaceRequireNegation(t *testing.T) {
 			},
 		},
 	})
-	if err == nil {
-		t.Fatal("expected negation failure")
-	}
-	if !errors.Is(err, errPlaceRequireMustNot) {
-		t.Fatalf("error=%v want %v", err, errPlaceRequireMustNot)
-	}
+	require.Error(t, err, "expected negation failure")
+	require.ErrorIs(t, err, errPlaceRequireMustNot)
 }
 
 func TestPlaceMoveMissingWarns(t *testing.T) {
@@ -287,12 +221,8 @@ func TestPlaceMoveMissingWarns(t *testing.T) {
 
 	root := t.TempDir()
 	pkg := filepath.Join(root, "skill")
-	if err := os.MkdirAll(pkg, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(pkg, "a.md"), []byte("a"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(pkg, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(pkg, "a.md"), []byte("a"), 0o644))
 
 	ctx := logging.NewWriterContext(t.Output())
 	out, err := placeModule{}.Resolve(ctx, module.ResolveRequest{
@@ -308,18 +238,11 @@ func TestPlaceMoveMissingWarns(t *testing.T) {
 			},
 		},
 	})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
-	if len(out.Warnings) != 1 {
-		t.Fatalf("warnings=%v", out.Warnings)
-	}
-	if !strings.Contains(out.Warnings[0], "missing") {
-		t.Fatalf("warning=%q", out.Warnings[0])
-	}
-	if len(out.Files) != 1 || !strings.HasSuffix(out.Files[0].RelPath, "a.md") {
-		t.Fatalf("files=%+v", out.Files)
-	}
+	require.NoError(t, err, "Resolve")
+	require.Len(t, out.Warnings, 1)
+	require.Contains(t, out.Warnings[0], "missing")
+	require.Len(t, out.Files, 1)
+	require.True(t, strings.HasSuffix(out.Files[0].RelPath, "a.md"))
 }
 
 func TestPlaceMoveOverwriteWarns(t *testing.T) {
@@ -327,17 +250,11 @@ func TestPlaceMoveOverwriteWarns(t *testing.T) {
 
 	root := t.TempDir()
 	pkg := filepath.Join(root, "skill")
-	if err := os.MkdirAll(pkg, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(pkg, 0o755))
 	skill := filepath.Join(pkg, "SKILL.md")
 	entry := filepath.Join(pkg, "entry.md")
-	if err := os.WriteFile(skill, []byte("skill"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(entry, []byte("old"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(skill, []byte("skill"), 0o644))
+	require.NoError(t, os.WriteFile(entry, []byte("old"), 0o644))
 
 	ctx := logging.NewWriterContext(t.Output())
 	out, err := placeModule{}.Resolve(ctx, module.ResolveRequest{
@@ -353,18 +270,11 @@ func TestPlaceMoveOverwriteWarns(t *testing.T) {
 			},
 		},
 	})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
-	if len(out.Warnings) != 1 || !strings.Contains(out.Warnings[0], "overwrites") {
-		t.Fatalf("warnings=%v", out.Warnings)
-	}
-	if len(out.Files) != 1 {
-		t.Fatalf("files=%+v want 1 (overwrite)", out.Files)
-	}
-	if out.Files[0].AbsPath != skill {
-		t.Fatalf("AbsPath=%q want skill content path", out.Files[0].AbsPath)
-	}
+	require.NoError(t, err, "Resolve")
+	require.Len(t, out.Warnings, 1)
+	require.Contains(t, out.Warnings[0], "overwrites")
+	require.Len(t, out.Files, 1)
+	require.Equal(t, skill, out.Files[0].AbsPath)
 }
 
 func TestPlaceMoveDirPrefix(t *testing.T) {
@@ -372,15 +282,9 @@ func TestPlaceMoveDirPrefix(t *testing.T) {
 
 	root := t.TempDir()
 	pkg := filepath.Join(root, "skill")
-	if err := os.MkdirAll(filepath.Join(pkg, "docs"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(pkg, "docs", "a.md"), []byte("a"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(pkg, "keep.md"), []byte("k"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Join(pkg, "docs"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(pkg, "docs", "a.md"), []byte("a"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(pkg, "keep.md"), []byte("k"), 0o644))
 
 	ctx := logging.NewWriterContext(t.Output())
 	out, err := placeModule{}.Resolve(ctx, module.ResolveRequest{
@@ -396,22 +300,14 @@ func TestPlaceMoveDirPrefix(t *testing.T) {
 			},
 		},
 	})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
+	require.NoError(t, err, "Resolve")
 	rels := map[string]bool{}
 	for _, f := range out.Files {
 		rels[f.RelPath] = true
 	}
-	if !rels["out/reference/a.md"] {
-		t.Fatalf("expected dir prefix move: %v", rels)
-	}
-	if rels["out/docs/a.md"] {
-		t.Fatalf("docs should be gone: %v", rels)
-	}
-	if !rels["out/keep.md"] {
-		t.Fatalf("keep missing: %v", rels)
-	}
+	require.True(t, rels["out/reference/a.md"], "expected dir prefix move: %v", rels)
+	require.False(t, rels["out/docs/a.md"], "docs should be gone: %v", rels)
+	require.True(t, rels["out/keep.md"], "keep missing: %v", rels)
 }
 
 func TestPlaceUnknownOpSkipped(t *testing.T) {
@@ -419,9 +315,7 @@ func TestPlaceUnknownOpSkipped(t *testing.T) {
 
 	root := t.TempDir()
 	a := filepath.Join(root, "a")
-	if err := os.WriteFile(a, []byte("a"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(a, []byte("a"), 0o644))
 	ctx := logging.NewWriterContext(t.Output())
 	out, err := placeModule{}.Resolve(ctx, module.ResolveRequest{
 		ModuleName: "m",
@@ -432,24 +326,17 @@ func TestPlaceUnknownOpSkipped(t *testing.T) {
 			},
 		},
 	})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
-	if len(out.Files) != 1 {
-		t.Fatalf("files=%+v", out.Files)
-	}
+	require.NoError(t, err, "Resolve")
+	require.Len(t, out.Files, 1)
 }
 
 func TestCleanPlacePath(t *testing.T) {
 	t.Parallel()
-	if _, err := cleanPlacePath("../x"); !errors.Is(err, errPlacePathEscape) {
-		t.Fatalf("escape: %v", err)
-	}
-	if _, err := cleanPlacePath(""); !errors.Is(err, errPlaceEmptyPath) {
-		t.Fatalf("empty: %v", err)
-	}
+	_, err := cleanPlacePath("../x")
+	require.ErrorIs(t, err, errPlacePathEscape)
+	_, err = cleanPlacePath("")
+	require.ErrorIs(t, err, errPlaceEmptyPath)
 	got, err := cleanPlacePath("foo/bar")
-	if err != nil || got != "foo/bar" {
-		t.Fatalf("got %q err %v", got, err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "foo/bar", got)
 }

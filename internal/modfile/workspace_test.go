@@ -3,6 +3,8 @@ package modfile
 import (
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestWorkspacePaths(t *testing.T) {
@@ -10,14 +12,7 @@ func TestWorkspacePaths(t *testing.T) {
 
 	root := filepath.Clean(t.TempDir())
 	ws := NewWorkspace(root)
-	if ws.Root != root {
-		t.Fatalf("root mismatch: got=%q want=%q", ws.Root, root)
-	}
-
-	if ws.SumPath() != filepath.Join(root, "workspaced.lock.json") {
-		t.Fatalf("sum path mismatch: got=%q", ws.SumPath())
-	}
-	if ws.ModulesBaseDir() != filepath.Join(root, "modules") {
-		t.Fatalf("modules dir mismatch: got=%q", ws.ModulesBaseDir())
-	}
+	require.Equal(t, root, ws.Root)
+	require.Equal(t, filepath.Join(root, "workspaced.lock.json"), ws.SumPath())
+	require.Equal(t, filepath.Join(root, "modules"), ws.ModulesBaseDir())
 }

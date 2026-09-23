@@ -1,6 +1,10 @@
 package modfile
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestSumFileEnsureToolIsIdempotent(t *testing.T) {
 	t.Parallel()
@@ -14,23 +18,15 @@ func TestSumFileEnsureToolIsIdempotent(t *testing.T) {
 	})
 
 	lock, ok := sum.Tool("github:cli/cli")
-	if !ok {
-		t.Fatal("expected tool lock")
-	}
-	if lock.Version != "2.89.0" {
-		t.Fatalf("unexpected version: %s", lock.Version)
-	}
+	require.True(t, ok, "expected tool lock")
+	require.Equal(t, "2.89.0", lock.Version)
 
-	if changed := sum.EnsureTool("gh", LockedTool{Ref: "github:cli/cli", Version: "2.89.0"}); changed {
-		t.Fatal("expected EnsureTool to be idempotent when passing minimal (no renovate fields)")
-	}
-	if len(sum.Dependencies) != 1 {
-		t.Fatalf("unexpected dependencies count: %d", len(sum.Dependencies))
-	}
+	changed := sum.EnsureTool("gh", LockedTool{Ref: "github:cli/cli", Version: "2.89.0"})
+	require.False(t, changed, "expected EnsureTool to be idempotent when passing minimal (no renovate fields)")
+	require.Len(t, sum.Dependencies, 1)
 	d := sum.Dependencies[0]
-	if d.Datasource != "github-releases" || d.DepName != "cli/cli" {
-		t.Fatalf("renovate reference data should be preserved on the lock entry: %#v", d)
-	}
+	require.Equal(t, "github-releases", d.Datasource)
+	require.Equal(t, "cli/cli", d.DepName)
 }
 
 func TestUpsertToolRefreshesStaleCurrentValue(t *testing.T) {
@@ -49,15 +45,9 @@ func TestUpsertToolRefreshesStaleCurrentValue(t *testing.T) {
 		Datasource: "github-releases",
 		Versioning: "semver",
 	})
-	if !changed {
-		t.Fatal("expected stale currentValue to be refreshed")
-	}
+	require.True(t, changed, "expected stale currentValue to be refreshed")
 
 	dep := sum.Dependencies[0]
-	if dep.CurrentValue != "v0.3.1" {
-		t.Fatalf("CurrentValue = %q, want %q", dep.CurrentValue, "v0.3.1")
-	}
-	if dep.Versioning != "semver" {
-		t.Fatalf("Versioning = %q, want semver", dep.Versioning)
-	}
+	require.Equal(t, "v0.3.1", dep.CurrentValue)
+	require.Equal(t, "semver", dep.Versioning)
 }

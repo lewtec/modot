@@ -2,7 +2,6 @@ package screenshot
 
 import (
 	"bytes"
-	"errors"
 	"image"
 	"image/color"
 	"image/png"
@@ -12,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCaptureViaCmd(t *testing.T) {
@@ -22,51 +22,32 @@ func TestCaptureViaCmd(t *testing.T) {
 	img.Set(0, 0, color.RGBA{R: 255, A: 255})
 	img.Set(1, 0, color.RGBA{B: 255, A: 255})
 	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, png.Encode(&buf, img))
 	path := filepath.Join(t.TempDir(), "shot.png")
-	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(path, buf.Bytes(), 0o644))
 
 	got, err := CaptureViaCmd(ctx, "cat", path)
-	if err != nil {
-		t.Fatalf("CaptureViaCmd: %v", err)
-	}
-	if got.Bounds() != img.Bounds() {
-		t.Fatalf("bounds=%v want %v", got.Bounds(), img.Bounds())
-	}
-	if c := color.RGBAModel.Convert(got.At(0, 0)).(color.RGBA); c.R != 255 || c.A != 255 {
-		t.Fatalf("pixel(0,0)=%v want red", c)
-	}
+	require.NoError(t, err)
+	require.Equal(t, img.Bounds(), got.Bounds())
+	c := color.RGBAModel.Convert(got.At(0, 0)).(color.RGBA)
+	require.Equal(t, uint8(255), c.R, "pixel(0,0)=%v want red", c)
+	require.Equal(t, uint8(255), c.A, "pixel(0,0)=%v want red", c)
 }
 
 func TestCaptureViaCmdFailed(t *testing.T) {
 	t.Parallel()
 	ctx := logging.NewWriterContext(t.Output())
 	_, err := CaptureViaCmd(ctx, "false")
-	if err == nil {
-		t.Fatal("expected command failure")
-	}
-	var ee *exec.ExitError
-	if !errors.As(err, &ee) {
-		t.Fatalf("err=%v want ExitError", err)
-	}
+	require.Error(t, err, "expected command failure")
+	require.ErrorAs(t, err, new(*exec.ExitError))
 }
 
 func TestCaptureViaCmdBadImage(t *testing.T) {
 	t.Parallel()
 	ctx := logging.NewWriterContext(t.Output())
 	path := filepath.Join(t.TempDir(), "not.png")
-	if err := os.WriteFile(path, []byte("not-an-image"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(path, []byte("not-an-image"), 0o644))
 	_, err := CaptureViaCmd(ctx, "cat", path)
-	if err == nil {
-		t.Fatal("expected decode failure")
-	}
-	if !errors.Is(err, image.ErrFormat) {
-		t.Fatalf("err=%v want image.ErrFormat", err)
-	}
+	require.Error(t, err, "expected decode failure")
+	require.ErrorIs(t, err, image.ErrFormat)
 }

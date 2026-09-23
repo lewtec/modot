@@ -8,56 +8,36 @@ import (
 	"testing"
 
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWriteTempDconfIni_UniqueAndContents(t *testing.T) {
 	ctx := logging.NewWriterContext(t.Output())
 	const body = "[org/gnome/desktop/interface]\ncolor-scheme='prefer-dark'\n\n"
 	p1, err := writeTempDconfIni(ctx, body)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() {
-		if err := os.Remove(p1); err != nil {
-			t.Errorf("remove %s: %v", p1, err)
-		}
+		assert.NoError(t, os.Remove(p1), "remove %s", p1)
 	})
 
 	p2, err := writeTempDconfIni(ctx, body)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() {
-		if err := os.Remove(p2); err != nil {
-			t.Errorf("remove %s: %v", p2, err)
-		}
+		assert.NoError(t, os.Remove(p2), "remove %s", p2)
 	})
 
-	if p1 == p2 {
-		t.Fatalf("expected unique temp paths, both %q", p1)
-	}
-	if filepath.Base(p1) == "workspaced-dconf.ini" {
-		t.Fatalf("still using fixed temp name: %q", p1)
-	}
-	if !strings.Contains(filepath.Base(p1), "workspaced-dconf-") {
-		t.Fatalf("unexpected temp basename: %q", filepath.Base(p1))
-	}
+	require.NotEqual(t, p2, p1, "expected unique temp paths")
+	require.NotEqual(t, "workspaced-dconf.ini", filepath.Base(p1), "still using fixed temp name: %q", p1)
+	require.Contains(t, filepath.Base(p1), "workspaced-dconf-")
 
 	got, err := os.ReadFile(p1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != body {
-		t.Fatalf("content mismatch:\n got %q\nwant %q", got, body)
-	}
+	require.NoError(t, err)
+	require.Equal(t, body, string(got))
 
 	info, err := os.Stat(p1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm()&0o077 != 0 {
-		t.Fatalf("temp file should not be group/other accessible: mode %o", info.Mode().Perm())
-	}
+	require.NoError(t, err)
+	require.Zero(t, info.Mode().Perm()&0o077, "temp file should not be group/other accessible: mode %o", info.Mode().Perm())
 }
 
 func TestWriteTempDconfIni_ConcurrentNoCollision(t *testing.T) {
@@ -82,25 +62,19 @@ func TestWriteTempDconfIni_ConcurrentNoCollision(t *testing.T) {
 	wg.Wait()
 	close(errCh)
 	for err := range errCh {
-		t.Fatal(err)
+		require.NoError(t, err)
 	}
 	t.Cleanup(func() {
 		for _, p := range paths {
 			if p != "" {
-				if err := os.Remove(p); err != nil {
-					t.Errorf("remove %s: %v", p, err)
-				}
+				assert.NoError(t, os.Remove(p), "remove %s", p)
 			}
 		}
 	})
 	seen := map[string]struct{}{}
 	for _, p := range paths {
-		if p == "" {
-			t.Fatal("empty path from concurrent write")
-		}
-		if _, ok := seen[p]; ok {
-			t.Fatalf("duplicate temp path under concurrency: %q", p)
-		}
+		require.NotEmpty(t, p, "empty path from concurrent write")
+		require.NotContains(t, seen, p, "duplicate temp path under concurrency: %q", p)
 		seen[p] = struct{}{}
 	}
 }

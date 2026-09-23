@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lucasew/workspaced/internal/cmdctx"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
@@ -30,44 +32,24 @@ func TestEnsureCachedDirHitAndNoCache(t *testing.T) {
 	}
 
 	dir1, err := EnsureCachedDir(ctx, "test", "key-a", fetch)
-	if err != nil {
-		t.Fatalf("first ensure: %v", err)
-	}
-	if fetches.Load() != 1 {
-		t.Fatalf("fetches after miss = %d, want 1", fetches.Load())
-	}
+	require.NoError(t, err, "first ensure")
+	require.Equal(t, int32(1), fetches.Load(), "fetches after miss")
 
 	dir2, err := EnsureCachedDir(ctx, "test", "key-a", fetch)
-	if err != nil {
-		t.Fatalf("second ensure: %v", err)
-	}
-	if dir1 != dir2 {
-		t.Fatalf("cache dir changed: %q vs %q", dir1, dir2)
-	}
-	if fetches.Load() != 1 {
-		t.Fatalf("fetches after hit = %d, want 1", fetches.Load())
-	}
+	require.NoError(t, err, "second ensure")
+	require.Equal(t, dir1, dir2, "cache dir changed")
+	require.Equal(t, int32(1), fetches.Load(), "fetches after hit")
 
 	// no-cache: re-fetch even though warm
 	ctxNo := cmdctx.WithNoCache(ctx, true)
 	dir3, err := EnsureCachedDir(ctxNo, "test", "key-a", fetch)
-	if err != nil {
-		t.Fatalf("no-cache ensure: %v", err)
-	}
-	if dir3 != dir1 {
-		t.Fatalf("dest path should be stable, got %q want %q", dir3, dir1)
-	}
-	if fetches.Load() != 2 {
-		t.Fatalf("fetches after no-cache = %d, want 2", fetches.Load())
-	}
+	require.NoError(t, err, "no-cache ensure")
+	require.Equal(t, dir1, dir3, "dest path should be stable")
+	require.Equal(t, int32(2), fetches.Load(), "fetches after no-cache")
 
 	// no-cache + dry-run: do not re-fetch when warm
 	ctxPlan := cmdctx.WithDryRun(ctxNo, true)
 	_, err = EnsureCachedDir(ctxPlan, "test", "key-a", fetch)
-	if err != nil {
-		t.Fatalf("dry-run no-cache: %v", err)
-	}
-	if fetches.Load() != 2 {
-		t.Fatalf("fetches after dry-run no-cache = %d, want 2", fetches.Load())
-	}
+	require.NoError(t, err, "dry-run no-cache")
+	require.Equal(t, int32(2), fetches.Load(), "fetches after dry-run no-cache")
 }

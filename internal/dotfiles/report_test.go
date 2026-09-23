@@ -3,12 +3,12 @@ package dotfiles
 import (
 	"bytes"
 	"log/slog"
-	"strings"
 	"testing"
 
 	"github.com/lucasew/workspaced/internal/deployer"
 	"github.com/lucasew/workspaced/internal/source"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLogApplyResult(t *testing.T) {
@@ -164,14 +164,10 @@ func TestLogApplyResult(t *testing.T) {
 
 			got := buf.String()
 			for _, want := range tt.wantContain {
-				if !strings.Contains(got, want) {
-					t.Errorf("log missing %q\ngot:\n%s", want, got)
-				}
+				assert.Contains(t, got, want)
 			}
 			for _, absent := range tt.wantAbsent {
-				if strings.Contains(got, absent) {
-					t.Errorf("log unexpectedly contains %q\ngot:\n%s", absent, got)
-				}
+				assert.NotContains(t, got, absent)
 			}
 		})
 	}

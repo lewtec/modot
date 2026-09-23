@@ -1,13 +1,14 @@
 package local
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/require"
+
 	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/module"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -28,17 +29,13 @@ func TestResolvePresetBases(t *testing.T) {
 	})
 
 	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	got, err := (&Provider{}).Resolve(logging.NewWriterContext(t.Output()), module.ResolveRequest{
 		Ref:            modPath,
 		ModulesBaseDir: modulesDir,
 	})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
+	require.NoError(t, err, "Resolve")
 
 	want := []module.ResolvedFile{
 		{RelPath: ".bashrc", TargetBase: home},
@@ -52,9 +49,8 @@ func TestResolvePresetBases(t *testing.T) {
 			return a.RelPath < b.RelPath
 		}),
 	}
-	if diff := cmp.Diff(want, got.Files, opts...); diff != "" {
-		t.Fatalf("files mismatch (-want +got):\n%s", diff)
-	}
+	diff := cmp.Diff(want, got.Files, opts...)
+	require.Empty(t, diff)
 }
 
 func TestResolvePresetBaseUsesContextPrefix(t *testing.T) {
@@ -63,12 +59,8 @@ func TestResolvePresetBaseUsesContextPrefix(t *testing.T) {
 	ctx := cmdarg.WithPrefix(t.Context(), dir)
 	for _, preset := range []string{"home", "codebase", "etc"} {
 		got, err := resolvePresetBase(ctx, preset, "/ws/modules")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got != dir {
-			t.Fatalf("%s base=%q want %q", preset, got, dir)
-		}
+		require.NoError(t, err)
+		require.Equal(t, dir, got, preset)
 	}
 }
 
@@ -87,18 +79,14 @@ func TestResolveUnknownPreset(t *testing.T) {
 		Ref:            modPath,
 		ModulesBaseDir: modulesDir,
 	})
-	if !errors.Is(err, ErrUnknownPreset) {
-		t.Fatalf("err=%v want %v", err, ErrUnknownPreset)
-	}
+	require.ErrorIs(t, err, ErrUnknownPreset)
 }
 
 func TestResolvePresetBase(t *testing.T) {
 	t.Parallel()
 
 	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	tests := []struct {
 		name           string
@@ -118,12 +106,8 @@ func TestResolvePresetBase(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got, err := resolvePresetBase(t.Context(), tt.preset, tt.modulesBaseDir)
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("err=%v want %v", err, tt.wantErr)
-			}
-			if got != tt.want {
-				t.Fatalf("base=%q want %q", got, tt.want)
-			}
+			require.ErrorIs(t, err, tt.wantErr)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -132,11 +116,7 @@ func writeModuleTree(t *testing.T, modPath string, files map[string]string) {
 	t.Helper()
 	for rel, content := range files {
 		path := filepath.Join(modPath, rel)
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 	}
 }

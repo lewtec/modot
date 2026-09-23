@@ -1,10 +1,11 @@
 package modfile
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestWriteSumFile(t *testing.T) {
@@ -26,28 +27,20 @@ func TestWriteSumFile(t *testing.T) {
 		Version: "v10.4.0",
 	})
 	err := writeSumFile(t.Context(), path, sum)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	got, err := LoadSumFile(path)
-	if err != nil {
-		t.Fatalf("load written: %v", err)
-	}
+	require.NoError(t, err, "load written")
 	// After persist, sources are keyed in deps by stable source ref
 	// (e.g. "github:..." or by depName in fallback). The LockedSource.Ref
 	// holds the pinned value.
 	_, ok := got.FindSource("PapirusDevelopmentTeam/papirus-icon-theme")
-	if !ok {
-		t.Fatalf("missing source lock entry: %#v", got.Dependencies)
-	}
+	require.True(t, ok, "missing source lock entry: %#v", got.Dependencies)
 	tool, ok := got.FindTool("github:sharkdp/fd")
-	if !ok || tool.Version != "v10.4.0" {
-		t.Fatalf("missing tool version in content: %#v", got.Dependencies)
-	}
-	if _, err := os.Stat(path + ".tmp"); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("temp file should be gone after successful write, err=%v", err)
-	}
+	require.True(t, ok, "missing tool version in content: %#v", got.Dependencies)
+	require.Equal(t, "v10.4.0", tool.Version, "missing tool version in content: %#v", got.Dependencies)
+	_, err = os.Stat(path + ".tmp")
+	require.ErrorIs(t, err, os.ErrNotExist, "temp file should be gone after successful write")
 }
 
 func TestWriteSumFileRemovesTempOnRenameFailure(t *testing.T) {
@@ -56,19 +49,14 @@ func TestWriteSumFileRemovesTempOnRenameFailure(t *testing.T) {
 	dir := t.TempDir()
 	// Destination is a directory so rename(tmp → path) fails with EISDIR.
 	path := filepath.Join(dir, "workspaced.lock.json")
-	if err := os.Mkdir(path, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.Mkdir(path, 0o755))
 
 	sum := &SumFile{}
 	sum.EnsureTool("fd", LockedTool{Ref: "github:sharkdp/fd", Version: "v10.4.0"})
 	err := writeSumFile(t.Context(), path, sum)
-	if err == nil {
-		t.Fatal("expected rename error when destination is a directory")
-	}
-	if _, err := os.Stat(path + ".tmp"); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("temp file should be cleaned up after rename failure, err=%v", err)
-	}
+	require.Error(t, err, "expected rename error when destination is a directory")
+	_, err = os.Stat(path + ".tmp")
+	require.ErrorIs(t, err, os.ErrNotExist, "temp file should be cleaned up after rename failure")
 }
 
 func TestBuildSourceLockEntries(t *testing.T) {
@@ -82,10 +70,7 @@ func TestBuildSourceLockEntries(t *testing.T) {
 
 	got := BuildSourceLockEntries(mod)
 	entry, ok := got["papirus"]
-	if !ok {
-		t.Fatal("expected papirus source lock")
-	}
-	if entry.Provider != "github" || entry.Repo != "PapirusDevelopmentTeam/papirus-icon-theme" {
-		t.Fatalf("unexpected source lock: %#v", entry)
-	}
+	require.True(t, ok, "expected papirus source lock")
+	require.Equal(t, "github", entry.Provider)
+	require.Equal(t, "PapirusDevelopmentTeam/papirus-icon-theme", entry.Repo)
 }

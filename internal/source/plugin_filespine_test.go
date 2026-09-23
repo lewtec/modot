@@ -2,11 +2,12 @@ package source
 
 import (
 	"context"
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/pkg/filespine"
@@ -29,27 +30,15 @@ func TestFileSpineLowersDotD(t *testing.T) {
 		},
 	}
 	out, err := p.Process(ctx, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(out) != 1 {
-		t.Fatalf("len=%d want 1", len(out))
-	}
-	if out[0].RelPath() != ".bashrc" {
-		t.Fatalf("rel=%q", out[0].RelPath())
-	}
+	require.NoError(t, err)
+	require.Len(t, out, 1)
+	require.Equal(t, ".bashrc", out[0].RelPath())
 	r, err := out[0].Reader()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer r.Close()
 	got, err := io.ReadAll(r)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != "a\nb" {
-		t.Fatalf("content=%q", got)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "a\nb", string(got))
 }
 
 func TestFileSpineMergesCueLines(t *testing.T) {
@@ -65,13 +54,9 @@ workspaced: {
 	}
 }
 `
-	if err := os.WriteFile(cuePath, []byte(src), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(cuePath, []byte(src), 0o644))
 	cfg, err := configcue.LoadFiles(ctx, []string{cuePath})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	p := NewFileSpinePlugin(cfg, home)
 	in := []File{
 		&BufferFile{
@@ -80,24 +65,14 @@ workspaced: {
 		},
 	}
 	out, err := p.Process(ctx, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(out) != 1 {
-		t.Fatalf("len=%d", len(out))
-	}
+	require.NoError(t, err)
+	require.Len(t, out, 1)
 	r, err := out[0].Reader()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer r.Close()
 	got, err := io.ReadAll(r)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != "from-cue\nfrom-mod" {
-		t.Fatalf("content=%q", got)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "from-cue\nfrom-mod", string(got))
 }
 
 func TestFileSpineTypeConflict(t *testing.T) {
@@ -106,15 +81,11 @@ func TestFileSpineTypeConflict(t *testing.T) {
 	home := t.TempDir()
 	dir := t.TempDir()
 	cuePath := filepath.Join(dir, "workspaced.cue")
-	if err := os.WriteFile(cuePath, []byte(`package workspaced
+	require.NoError(t, os.WriteFile(cuePath, []byte(`package workspaced
 workspaced: file: home: "x": {type: "lines", values: {a: "1"}}
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
+`), 0o644))
 	cfg, err := configcue.LoadFiles(ctx, []string{cuePath})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	p := NewFileSpinePlugin(cfg, home)
 	_, err = p.Process(ctx, []File{
 		&BufferFile{
@@ -122,9 +93,7 @@ workspaced: file: home: "x": {type: "lines", values: {a: "1"}}
 			Content:   []byte("text"),
 		},
 	})
-	if err == nil {
-		t.Fatal("expected type conflict")
-	}
+	require.Error(t, err, "expected type conflict")
 }
 
 func TestFileSpineStaticRef(t *testing.T) {
@@ -132,9 +101,7 @@ func TestFileSpineStaticRef(t *testing.T) {
 	ctx := logging.NewWriterContext(t.Output())
 	home := t.TempDir()
 	src := filepath.Join(t.TempDir(), "gitconfig")
-	if err := os.WriteFile(src, []byte("[user]\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(src, []byte("[user]\n"), 0o644))
 	p := NewFileSpinePlugin(&configcue.Config{}, home)
 	out, err := p.Process(ctx, []File{
 		&StaticFile{
@@ -142,31 +109,17 @@ func TestFileSpineStaticRef(t *testing.T) {
 			AbsPath:   src,
 		},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(out) != 1 {
-		t.Fatalf("len=%d", len(out))
-	}
+	require.NoError(t, err)
+	require.Len(t, out, 1)
 	sf, ok := out[0].(*StaticFile)
-	if !ok {
-		t.Fatalf("type %T", out[0])
-	}
-	if sf.AbsPath != src {
-		t.Fatalf("abs=%q", sf.AbsPath)
-	}
+	require.True(t, ok, "type %T", out[0])
+	require.Equal(t, src, sf.AbsPath)
 	r, err := sf.Reader()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer r.Close()
 	got, err := io.ReadAll(r)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != "[user]\n" {
-		t.Fatalf("content=%q", got)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "[user]\n", string(got))
 }
 
 func TestPlainFileKeepsBundleInfo(t *testing.T) {
@@ -174,9 +127,7 @@ func TestPlainFileKeepsBundleInfo(t *testing.T) {
 	ctx := logging.NewWriterContext(t.Output())
 	home := t.TempDir()
 	src := filepath.Join(t.TempDir(), "icon.svg")
-	if err := os.WriteFile(src, []byte("<svg/>"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(src, []byte("<svg/>"), 0o644))
 	out, err := composeApply(ctx, destRequest{
 		targetBase: home,
 		files: []File{
@@ -191,15 +142,9 @@ func TestPlainFileKeepsBundleInfo(t *testing.T) {
 			},
 		},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(out.Files()) != 1 {
-		t.Fatalf("len=%d", len(out.Files()))
-	}
-	if out.Files()[0].SourceInfo() != "module:icons bundle:abc (icon.svg)" {
-		t.Fatalf("info=%q", out.Files()[0].SourceInfo())
-	}
+	require.NoError(t, err)
+	require.Len(t, out.Files(), 1)
+	require.Equal(t, "module:icons bundle:abc (icon.svg)", out.Files()[0].SourceInfo())
 }
 
 func TestComposeApplyStopsWhenCancelled(t *testing.T) {
@@ -216,9 +161,7 @@ func TestComposeApplyStopsWhenCancelled(t *testing.T) {
 			},
 		},
 	})
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("err = %v", err)
-	}
+	require.ErrorIs(t, err, context.Canceled)
 }
 
 func TestFileSpineNestedTargetStaysInHome(t *testing.T) {
@@ -236,15 +179,10 @@ func TestFileSpineNestedTargetStaysInHome(t *testing.T) {
 			Content: []byte("abc"),
 		},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(out) != 1 {
-		t.Fatalf("len=%d", len(out))
-	}
-	if out[0].TargetBase() != home || out[0].RelPath() != ".config/workspaced/dconf.marker" {
-		t.Fatalf("target=%s rel=%s", out[0].TargetBase(), out[0].RelPath())
-	}
+	require.NoError(t, err)
+	require.Len(t, out, 1)
+	require.Equal(t, home, out[0].TargetBase())
+	require.Equal(t, ".config/workspaced/dconf.marker", out[0].RelPath())
 }
 
 func TestFileSpineKeepsSymlink(t *testing.T) {
@@ -253,13 +191,9 @@ func TestFileSpineKeepsSymlink(t *testing.T) {
 	home := t.TempDir()
 	dir := t.TempDir()
 	target := filepath.Join(dir, "real")
-	if err := os.WriteFile(target, []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(target, []byte("x"), 0o644))
 	link := filepath.Join(dir, "link")
-	if err := os.Symlink(target, link); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.Symlink(target, link))
 	p := NewFileSpinePlugin(&configcue.Config{}, home)
 	out, err := p.Process(ctx, []File{
 		&StaticFile{
@@ -267,31 +201,19 @@ func TestFileSpineKeepsSymlink(t *testing.T) {
 			AbsPath:   link,
 		},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(out) != 1 {
-		t.Fatalf("len=%d", len(out))
-	}
-	if out[0].Type() != TypeSymlink {
-		t.Fatalf("type=%s", out[0].Type())
-	}
+	require.NoError(t, err)
+	require.Len(t, out, 1)
+	require.Equal(t, TypeSymlink, out[0].Type())
 	got, err := out[0].LinkTarget()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != target {
-		t.Fatalf("link=%q want %q", got, target)
-	}
+	require.NoError(t, err)
+	require.Equal(t, target, got)
 }
 
 func TestFileSpineEtcUsesFixedBase(t *testing.T) {
 	t.Parallel()
 	ctx := logging.NewWriterContext(t.Output())
 	src := filepath.Join(t.TempDir(), "hosts")
-	if err := os.WriteFile(src, []byte("127.0.0.1 localhost\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(src, []byte("127.0.0.1 localhost\n"), 0o644))
 	p := NewFileSpinePlugin(systemConfig(t), "/")
 	out, err := p.Process(ctx, []File{
 		&StaticFile{
@@ -299,15 +221,10 @@ func TestFileSpineEtcUsesFixedBase(t *testing.T) {
 			AbsPath:   src,
 		},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(out) != 1 {
-		t.Fatalf("len=%d", len(out))
-	}
-	if out[0].TargetBase() != "/" || out[0].RelPath() != "etc/hosts" {
-		t.Fatalf("target=%s rel=%s", out[0].TargetBase(), out[0].RelPath())
-	}
+	require.NoError(t, err)
+	require.Len(t, out, 1)
+	require.Equal(t, "/", out[0].TargetBase())
+	require.Equal(t, "etc/hosts", out[0].RelPath())
 }
 
 func TestFileSpineSameRelPathOnTwoProfiles(t *testing.T) {
@@ -317,12 +234,8 @@ func TestFileSpineSameRelPathOnTwoProfiles(t *testing.T) {
 	etcBase := filespine.ApplyDir("etc", prefix)
 	homeSrc := filepath.Join(t.TempDir(), "hosts-home")
 	etcSrc := filepath.Join(t.TempDir(), "hosts-etc")
-	if err := os.WriteFile(homeSrc, []byte("home\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(etcSrc, []byte("etc\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(homeSrc, []byte("home\n"), 0o644))
+	require.NoError(t, os.WriteFile(etcSrc, []byte("etc\n"), 0o644))
 	p := NewFileSpinePlugin(systemConfig(t), prefix)
 	out, err := p.Process(ctx, []File{
 		&StaticFile{
@@ -334,41 +247,28 @@ func TestFileSpineSameRelPathOnTwoProfiles(t *testing.T) {
 			AbsPath:   etcSrc,
 		},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(out) != 2 {
-		t.Fatalf("len=%d", len(out))
-	}
+	require.NoError(t, err)
+	require.Len(t, out, 2)
 	got := map[string]string{}
 	for _, f := range out {
 		r, err := f.Reader()
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		body, err := io.ReadAll(r)
 		r.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		got[f.RelPath()] = string(body)
 	}
-	if got["hosts"] != "home\n" || got["etc/hosts"] != "etc\n" {
-		t.Fatalf("bodies=%v", got)
-	}
+	require.Equal(t, "home\n", got["hosts"])
+	require.Equal(t, "etc\n", got["etc/hosts"])
 }
 
 func systemConfig(t *testing.T) *configcue.Config {
 	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "workspaced.cue")
-	if err := os.WriteFile(path, []byte("package workspaced\nworkspaced: {}\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(path, []byte("package workspaced\nworkspaced: {}\n"), 0o644))
 	cfg, err := configcue.LoadFilesMode(logging.NewWriterContext(t.Output()), []string{path}, filespine.ModeSystem)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	return cfg
 }
 
@@ -383,7 +283,5 @@ func TestFileSpineRejectsNestedDotD(t *testing.T) {
 			Content:   []byte("a"),
 		},
 	})
-	if err == nil {
-		t.Fatal("expected path error")
-	}
+	require.Error(t, err, "expected path error")
 }

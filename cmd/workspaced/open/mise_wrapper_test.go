@@ -1,16 +1,15 @@
 package open
 
 import (
-	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/lucasew/workspaced/internal/miseutil"
 	_ "github.com/lucasew/workspaced/pkg/driver/prelude"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEnsureMiseWrapperAtomicWrite(t *testing.T) {
@@ -19,41 +18,22 @@ func TestEnsureMiseWrapperAtomicWrite(t *testing.T) {
 	ctx := logging.NewWriterContext(t.Output())
 
 	wrapperDir := filepath.Join(home, ".local", "bin")
-	if err := os.MkdirAll(wrapperDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(wrapperDir, 0o755))
 	wrapperPath := filepath.Join(wrapperDir, "mise")
 	// Prior truncated/stale wrapper that must be fully replaced.
-	if err := os.WriteFile(wrapperPath, []byte("#!/bin/sh\necho prior\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(wrapperPath, []byte("#!/bin/sh\necho prior\n"), 0o755))
 
-	if err := miseutil.EnsureLocalBinWrapper(ctx, "/fake/workspaced"); err != nil {
-		t.Fatalf("EnsureLocalBinWrapper: %v", err)
-	}
+	require.NoError(t, miseutil.EnsureLocalBinWrapper(ctx, "/fake/workspaced"), "EnsureLocalBinWrapper")
 
-	if _, err := os.Stat(wrapperPath + ".tmp"); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("temp wrapper still present: %v", err)
-	}
+	_, err := os.Stat(wrapperPath + ".tmp")
+	require.ErrorIs(t, err, fs.ErrNotExist, "temp wrapper still present")
 	content, err := os.ReadFile(wrapperPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	got := string(content)
-	if strings.Contains(got, "prior") {
-		t.Fatalf("prior content still present:\n%s", got)
-	}
-	if !strings.Contains(got, "open lazy --home") {
-		t.Fatalf("wrapper missing open lazy --home:\n%s", got)
-	}
-	if !strings.Contains(got, "/fake/workspaced") {
-		t.Fatalf("wrapper missing workspaced path:\n%s", got)
-	}
+	require.NotContains(t, got, "prior")
+	require.Contains(t, got, "open lazy --home")
+	require.Contains(t, got, "/fake/workspaced")
 	info, err := os.Stat(wrapperPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode()&0o111 == 0 {
-		t.Fatalf("wrapper not executable: %o", info.Mode())
-	}
+	require.NoError(t, err)
+	require.NotZero(t, info.Mode()&0o111, "wrapper not executable: %o", info.Mode())
 }

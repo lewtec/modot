@@ -4,36 +4,25 @@ import (
 	"testing"
 
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGitRepoSyncActionHasHEAD(t *testing.T) {
 	ctx := logging.NewWriterContext(t.Output())
 	action := GitRepoSyncAction{Src: t.TempDir()}
 
-	if err := action.run(ctx, "init", "--quiet"); err != nil {
-		t.Fatalf("git init: %v", err)
-	}
+	require.NoError(t, action.run(ctx, "init", "--quiet"), "git init")
 
 	hasHEAD, err := action.hasHEAD(ctx)
-	if err != nil {
-		t.Fatalf("check unborn HEAD: %v", err)
-	}
-	if hasHEAD {
-		t.Fatal("unborn repository unexpectedly has HEAD")
-	}
+	require.NoError(t, err, "check unborn HEAD")
+	require.False(t, hasHEAD, "unborn repository unexpectedly has HEAD")
 
-	if err := action.run(ctx,
+	require.NoError(t, action.run(ctx,
 		"-c", "user.email=test@example.com",
 		"-c", "user.name=Test User",
-		"commit", "--quiet", "--allow-empty", "-m", "initial"); err != nil {
-		t.Fatalf("create initial commit: %v", err)
-	}
+		"commit", "--quiet", "--allow-empty", "-m", "initial"), "create initial commit")
 
 	hasHEAD, err = action.hasHEAD(ctx)
-	if err != nil {
-		t.Fatalf("check committed HEAD: %v", err)
-	}
-	if !hasHEAD {
-		t.Fatal("committed repository has no HEAD")
-	}
+	require.NoError(t, err, "check committed HEAD")
+	require.True(t, hasHEAD, "committed repository has no HEAD")
 }

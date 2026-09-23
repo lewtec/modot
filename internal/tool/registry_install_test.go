@@ -16,6 +16,8 @@ import (
 	"github.com/lewtec/lewkit/x/tool/registry"
 	apps "github.com/lewtec/lewkit/x/tool/registry/applications"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var stepSummaryMu sync.Mutex
@@ -52,7 +54,7 @@ func testInstallContext(t *testing.T) (ctx context.Context, wait func()) {
 		select {
 		case err := <-done:
 			if err != nil && !t.Failed() {
-				t.Errorf("taskgroup: %v", err)
+				assert.NoError(t, err, "taskgroup")
 			}
 		case <-t.Context().Done():
 		}
@@ -65,16 +67,12 @@ func TestRegistryInstallChecksDeclared(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			installed, err := registry.NewTool(name)
-			if err != nil {
-				t.Fatalf("NewTool(%q): %v", name, err)
-			}
+			require.NoError(t, err)
 			checker, ok := installed.(lewtool.Checker)
 			if !ok {
 				return
 			}
-			if len(checker.InstallChecks()) == 0 {
-				t.Fatalf("%q implements Checker but InstallChecks() is empty", name)
-			}
+			require.NotEmpty(t, checker.InstallChecks(), "%q implements Checker but InstallChecks() is empty", name)
 		})
 	}
 }
@@ -96,7 +94,7 @@ func TestRegistryInstall(t *testing.T) {
 			installed, err := registry.NewTool(name)
 			if err != nil {
 				reportInstallFailure(name, fmt.Sprintf("NewTool: %v", err))
-				t.Fatalf("NewTool(%q): %v", name, err)
+				require.NoError(t, err)
 			}
 			checker, ok := installed.(lewtool.Checker)
 			if !ok || len(checker.InstallChecks()) == 0 {
@@ -109,11 +107,11 @@ func TestRegistryInstall(t *testing.T) {
 			versions, err := installed.ListVersions(ctx)
 			if err != nil {
 				reportInstallFailure(name, fmt.Sprintf("ListVersions: %v", err))
-				t.Fatalf("ListVersions: %v", err)
+				require.NoError(t, err)
 			}
 			if len(versions) == 0 {
 				reportInstallFailure(name, "ListVersions returned no versions")
-				t.Fatal("ListVersions returned no versions")
+				require.Fail(t, "ListVersions returned no versions")
 			}
 
 			dest := t.TempDir()
@@ -122,17 +120,17 @@ func TestRegistryInstall(t *testing.T) {
 					t.Skipf("no artifact for %s/%s: %v", runtime.GOOS, runtime.GOARCH, err)
 				}
 				reportInstallFailure(name, fmt.Sprintf("Install(%q): %v", versions[0], err))
-				t.Fatalf("Install(%q): %v", versions[0], err)
+				require.NoError(t, err)
 			}
 			if fixer, ok := installed.(lewtool.Fixer); ok {
 				if err := fixer.Fix(ctx, dest); err != nil {
 					reportInstallFailure(name, fmt.Sprintf("Fix: %v", err))
-					t.Fatalf("Fix: %v", err)
+					require.NoError(t, err)
 				}
 			}
 			if err := lewtool.RunChecks(ctx, dest, installed); err != nil {
 				reportInstallFailure(name, fmt.Sprintf("RunChecks: %v", err))
-				t.Fatalf("RunChecks: %v", err)
+				require.NoError(t, err)
 			}
 		})
 	}

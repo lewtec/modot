@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/lucasew/workspaced/internal/modfile"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRehydrateLockedSource(t *testing.T) {
@@ -21,28 +22,16 @@ func TestRehydrateLockedSource(t *testing.T) {
 		Datasource:    "git-refs",
 	}
 	lock, ok := p.RehydrateLockedSource(dep)
-	if !ok {
-		t.Fatal("expected github provider to own row")
-	}
-	if lock.Provider != "github" || lock.Repo != "PapirusDevelopmentTeam/papirus-icon-theme" {
-		t.Fatalf("identity: %#v", lock)
-	}
-	if lock.Ref != "master" {
-		t.Fatalf("Ref = %q", lock.Ref)
-	}
-	if lock.Hash != "702499f331aa9c38309e1af99de4021013916297" {
-		t.Fatalf("Hash = %q", lock.Hash)
-	}
+	require.True(t, ok, "expected github provider to own row")
+	require.Equal(t, "github", lock.Provider, "identity: %#v", lock)
+	require.Equal(t, "PapirusDevelopmentTeam/papirus-icon-theme", lock.Repo, "identity: %#v", lock)
+	require.Equal(t, "master", lock.Ref)
+	require.Equal(t, "702499f331aa9c38309e1af99de4021013916297", lock.Hash)
 	wantURL := "https://codeload.github.com/PapirusDevelopmentTeam/papirus-icon-theme/tar.gz/702499f331aa9c38309e1af99de4021013916297"
-	if lock.URL != wantURL {
-		t.Fatalf("URL = %q", lock.URL)
-	}
-	if !p.LockReusable(lock) {
-		t.Fatal("expected reusable")
-	}
-	if _, ok := p.RehydrateLockedSource(modfile.RenovateDependency{Kind: "tool", Ref: "github:cli/cli"}); ok {
-		t.Fatal("must not own tool rows")
-	}
+	require.Equal(t, wantURL, lock.URL)
+	require.True(t, p.LockReusable(lock), "expected reusable")
+	_, ok = p.RehydrateLockedSource(modfile.RenovateDependency{Kind: "tool", Ref: "github:cli/cli"})
+	require.False(t, ok, "must not own tool rows")
 }
 
 func TestLockMatchesDesired(t *testing.T) {
@@ -55,24 +44,12 @@ func TestLockMatchesDesired(t *testing.T) {
 		Hash:     "702499f331aa9c38309e1af99de4021013916297",
 		URL:      "https://codeload.github.com/PapirusDevelopmentTeam/papirus-icon-theme/tar.gz/702499f331aa9c38309e1af99de4021013916297",
 	}
-	if !p.LockMatchesDesired(modfile.LockedSource{}, locked) {
-		t.Fatal("empty desired")
-	}
-	if !p.LockMatchesDesired(modfile.LockedSource{Ref: "HEAD"}, locked) {
-		t.Fatal("HEAD desired")
-	}
-	if !p.LockMatchesDesired(modfile.LockedSource{Ref: "master"}, locked) {
-		t.Fatal("same branch")
-	}
-	if p.LockMatchesDesired(modfile.LockedSource{Ref: "develop"}, locked) {
-		t.Fatal("other branch")
-	}
-	if !p.LockMatchesDesired(modfile.LockedSource{Ref: "702499f331aa9c38309e1af99de4021013916297"}, locked) {
-		t.Fatal("pin sha")
-	}
-	if p.LockReusable(modfile.LockedSource{Provider: "github", Hash: "abc", Ref: "702499f331aa9c38309e1af99de4021013916297"}) {
-		t.Fatal("sha-only tracking must not be reusable")
-	}
+	require.True(t, p.LockMatchesDesired(modfile.LockedSource{}, locked), "empty desired")
+	require.True(t, p.LockMatchesDesired(modfile.LockedSource{Ref: "HEAD"}, locked), "HEAD desired")
+	require.True(t, p.LockMatchesDesired(modfile.LockedSource{Ref: "master"}, locked), "same branch")
+	require.False(t, p.LockMatchesDesired(modfile.LockedSource{Ref: "develop"}, locked), "other branch")
+	require.True(t, p.LockMatchesDesired(modfile.LockedSource{Ref: "702499f331aa9c38309e1af99de4021013916297"}, locked), "pin sha")
+	require.False(t, p.LockReusable(modfile.LockedSource{Provider: "github", Hash: "abc", Ref: "702499f331aa9c38309e1af99de4021013916297"}), "sha-only tracking must not be reusable")
 }
 
 func TestUpsertSourceIdempotentAfterReload(t *testing.T) {
@@ -87,10 +64,8 @@ func TestUpsertSourceIdempotentAfterReload(t *testing.T) {
 		Hash:     "702499f331aa9c38309e1af99de4021013916297",
 		URL:      "https://codeload.github.com/PapirusDevelopmentTeam/papirus-icon-theme/tar.gz/702499f331aa9c38309e1af99de4021013916297",
 	}
-	if !sum.EnsureSource("papirus", entry) {
-		t.Fatal("expected initial ensure to change")
-	}
-	if err := os.WriteFile(sumPath, []byte(`{
+	require.True(t, sum.EnsureSource("papirus", entry), "expected initial ensure to change")
+	require.NoError(t, os.WriteFile(sumPath, []byte(`{
   "dependencies": [
     {
       "kind": "source",
@@ -103,28 +78,20 @@ func TestUpsertSourceIdempotentAfterReload(t *testing.T) {
     }
   ]
 }
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
+`), 0o644))
 	loaded, err := modfile.LoadSumFile(sumPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	lock, ok := loaded.FindSource("github:PapirusDevelopmentTeam/papirus-icon-theme")
 	p := Provider{}
-	if !ok || !p.LockReusable(lock) {
-		t.Fatalf("reloaded lock not reusable: ok=%v %#v", ok, lock)
-	}
-	if _, ok := loaded.FindSource("PapirusDevelopmentTeam/papirus-icon-theme"); !ok {
-		t.Fatal("missing lookup by repo key")
-	}
+	require.True(t, ok, "reloaded lock not reusable: %#v", lock)
+	require.True(t, p.LockReusable(lock), "reloaded lock not reusable: %#v", lock)
+	_, ok = loaded.FindSource("PapirusDevelopmentTeam/papirus-icon-theme")
+	require.True(t, ok, "missing lookup by repo key")
 	reuse := entry
 	reuse.Hash = lock.Hash
 	reuse.URL = lock.URL
 	reuse.Ref = lock.Ref
-	if loaded.UpsertSource("papirus", reuse) {
-		t.Fatalf("expected idempotent upsert, deps=%#v", loaded.Dependencies)
-	}
+	require.False(t, loaded.UpsertSource("papirus", reuse), "expected idempotent upsert, deps=%#v", loaded.Dependencies)
 }
 
 func TestConfigureFromSpecAndModuleRef(t *testing.T) {
@@ -132,45 +99,32 @@ func TestConfigureFromSpecAndModuleRef(t *testing.T) {
 	p := Provider{}
 	cfg := modfile.SourceConfig{Provider: "github"}
 	p.ConfigureFromSpec(&cfg, "owner/repo")
-	if cfg.Repo != "owner/repo" || cfg.Path != "" {
-		t.Fatalf("cfg=%#v", cfg)
-	}
+	require.Equal(t, "owner/repo", cfg.Repo, "cfg=%#v", cfg)
+	require.Empty(t, cfg.Path, "cfg=%#v", cfg)
 	fullRef, ver, handled, err := p.ResolveModuleRef(cfg, "subdir@v1")
-	if !handled || err != nil {
-		t.Fatalf("handled=%v err=%v", handled, err)
-	}
-	if fullRef != "owner/repo/subdir" || ver != "v1" {
-		t.Fatalf("fullRef=%q ver=%q", fullRef, ver)
-	}
+	require.True(t, handled, "err=%v", err)
+	require.NoError(t, err)
+	require.Equal(t, "owner/repo/subdir", fullRef)
+	require.Equal(t, "v1", ver)
 }
 
 func TestLockLookupKeys(t *testing.T) {
 	t.Parallel()
 	p := Provider{}
 	keys := p.LockLookupKeys(modfile.LockedSource{Repo: "o/r"})
-	if len(keys) != 2 || keys[0] != "github:o/r" || keys[1] != "o/r" {
-		t.Fatalf("keys=%v", keys)
-	}
+	require.Equal(t, []string{"github:o/r", "o/r"}, keys)
 }
 
 func TestCanPersistLock(t *testing.T) {
 	t.Parallel()
 	p := Provider{}
 	lock := modfile.LockedSource{Provider: "github", Repo: "o/r"}
-	if p.CanPersistLock(modfile.RenovateDependency{Ref: "deadbeef"}, lock) {
-		t.Fatal("incomplete row must be rejected")
-	}
-	if !p.CanPersistLock(modfile.RenovateDependency{DepName: "o/r", Datasource: "git-refs"}, lock) {
-		t.Fatal("complete row must persist")
-	}
+	require.False(t, p.CanPersistLock(modfile.RenovateDependency{Ref: "deadbeef"}, lock), "incomplete row must be rejected")
+	require.True(t, p.CanPersistLock(modfile.RenovateDependency{DepName: "o/r", Datasource: "git-refs"}, lock), "complete row must persist")
 }
 
 func TestRefFromCodeloadTarballURL(t *testing.T) {
 	t.Parallel()
-	if got := refFromCodeloadTarballURL("https://codeload.github.com/o/r/tar.gz/abc1234"); got != "abc1234" {
-		t.Fatalf("got %q", got)
-	}
-	if got := refFromCodeloadTarballURL("https://example.com/o/r/tar.gz/abc"); got != "" {
-		t.Fatalf("non-codeload got %q", got)
-	}
+	require.Equal(t, "abc1234", refFromCodeloadTarballURL("https://codeload.github.com/o/r/tar.gz/abc1234"))
+	require.Empty(t, refFromCodeloadTarballURL("https://example.com/o/r/tar.gz/abc"))
 }

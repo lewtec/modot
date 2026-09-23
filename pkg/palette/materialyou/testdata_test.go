@@ -8,18 +8,15 @@ import (
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/palette/api"
 	"github.com/lucasew/workspaced/pkg/palette/palettetest"
+	"github.com/stretchr/testify/require"
 )
 
 func loadGoldenPalette(t testing.TB, name string) *api.Palette {
 	t.Helper()
 	b, err := os.ReadFile(palettetest.Path(t, name))
-	if err != nil {
-		t.Fatalf("read golden %s: %v", name, err)
-	}
+	require.NoError(t, err, "read golden %s", name)
 	var p api.Palette
-	if err := json.Unmarshal(b, &p); err != nil {
-		t.Fatalf("parse golden %s: %v", name, err)
-	}
+	require.NoError(t, json.Unmarshal(b, &p), "parse golden %s", name)
 	return &p
 }
 
@@ -30,32 +27,22 @@ func TestMaterialYouFromTestdataSolid(t *testing.T) {
 	d := &Driver{}
 
 	dark, err := d.Extract(ctx, img, api.Options{Polarity: api.PolarityDark, ColorCount: 16})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	wantDark := loadGoldenPalette(t, "materialyou_dark16_4285f4.json")
-	if *dark != *wantDark {
-		t.Fatalf("dark16 mismatch\ngot  %#v\nwant %#v", dark, wantDark)
-	}
+	require.Equal(t, *wantDark, *dark)
 
 	light, err := d.Extract(ctx, img, api.Options{Polarity: api.PolarityLight, ColorCount: 24})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	wantLight := loadGoldenPalette(t, "materialyou_light24_4285f4.json")
-	if *light != *wantLight {
-		t.Fatalf("light24 mismatch\ngot  %#v\nwant %#v", light, wantLight)
-	}
+	require.Equal(t, *wantLight, *light)
 }
 
 func TestGenerateColorschemeSourceHex(t *testing.T) {
 	t.Parallel()
 	// Same dominant color as solid_4285f4.png / golden fixtures.
 	scheme := GenerateColorscheme("#4285f4", nil)
-	if scheme.Dark["surface"] == "" || scheme.Light["primary"] == "" {
-		t.Fatalf("incomplete scheme: dark.surface=%q light.primary=%q",
-			scheme.Dark["surface"], scheme.Light["primary"])
-	}
+	require.NotEmpty(t, scheme.Dark["surface"])
+	require.NotEmpty(t, scheme.Light["primary"])
 	// Extract maps surface → base00 for dark; golden locks that slot.
 	want := loadGoldenPalette(t, "materialyou_dark16_4285f4.json")
 	if got := scheme.Dark["surface"]; got != "#"+want.Base00 && got != want.Base00 {
@@ -64,9 +51,7 @@ func TestGenerateColorschemeSourceHex(t *testing.T) {
 		if len(g) == 7 && g[0] == '#' {
 			g = g[1:]
 		}
-		if g != want.Base00 {
-			t.Fatalf("dark surface = %q, want %q (from golden base00)", got, want.Base00)
-		}
+		require.Equal(t, want.Base00, g, "dark surface from golden base00")
 	}
 }
 
@@ -80,22 +65,14 @@ func TestMaterialYouFromTestdataBliss(t *testing.T) {
 	opts := api.Options{Polarity: api.PolarityDark, ColorCount: 16, MaxSamples: 10000}
 
 	dark, err := d.Extract(ctx, img, opts)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	wantDark := loadGoldenPalette(t, "materialyou_dark16_bliss.json")
-	if *dark != *wantDark {
-		t.Fatalf("bliss dark16 mismatch\ngot  %#v\nwant %#v", dark, wantDark)
-	}
+	require.Equal(t, *wantDark, *dark)
 
 	light, err := d.Extract(ctx, img, api.Options{Polarity: api.PolarityLight, ColorCount: 24, MaxSamples: 10000})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	wantLight := loadGoldenPalette(t, "materialyou_light24_bliss.json")
-	if *light != *wantLight {
-		t.Fatalf("bliss light24 mismatch\ngot  %#v\nwant %#v", light, wantLight)
-	}
+	require.Equal(t, *wantLight, *light)
 }
 
 func BenchmarkMaterialYouExtract(b *testing.B) {
@@ -107,18 +84,16 @@ func BenchmarkMaterialYouExtract(b *testing.B) {
 		img := palettetest.LoadImage(b, "gradient_256.png")
 		b.ReportAllocs()
 		for b.Loop() {
-			if _, err := d.Extract(ctx, img, opts); err != nil {
-				b.Fatal(err)
-			}
+			_, err := d.Extract(ctx, img, opts)
+			require.NoError(b, err)
 		}
 	})
 	b.Run("bliss", func(b *testing.B) {
 		img := palettetest.LoadImage(b, "bliss.jpg")
 		b.ReportAllocs()
 		for b.Loop() {
-			if _, err := d.Extract(ctx, img, opts); err != nil {
-				b.Fatal(err)
-			}
+			_, err := d.Extract(ctx, img, opts)
+			require.NoError(b, err)
 		}
 	})
 }

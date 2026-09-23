@@ -1,33 +1,25 @@
 package codebase
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"errors"
 	"github.com/owenrumney/go-sarif/v2/sarif"
-	"io/fs"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWriteSarifAtomic(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "lint.sarif")
-	if err := os.WriteFile(path, []byte("{broken"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(path, []byte("{broken"), 0o644))
 	report := &sarif.Report{Version: "2.1.0"}
-	if err := writeSarifAtomic(path, report); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(path + ".tmp"); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("tmp left: %v", err)
-	}
+	require.NoError(t, writeSarifAtomic(path, report))
+	_, err := os.Stat(path + ".tmp")
+	require.ErrorIs(t, err, fs.ErrNotExist, "tmp left")
 	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(raw) == 0 || raw[0] != '{' {
-		t.Fatalf("bad sarif: %q", raw[:min(20, len(raw))])
-	}
+	require.NoError(t, err)
+	require.NotEmpty(t, raw)
+	require.Equal(t, byte('{'), raw[0])
 }

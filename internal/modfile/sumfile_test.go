@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoadSumFileRequiresSource(t *testing.T) {
@@ -17,20 +19,12 @@ func TestLoadSumFileRequiresSource(t *testing.T) {
 			"foo": map[string]any{"version": "v1.0.0"},
 		},
 	})
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	if err := os.WriteFile(sumPath, content, 0644); err != nil {
-		t.Fatalf("write sum: %v", err)
-	}
+	require.NoError(t, err, "marshal")
+	require.NoError(t, os.WriteFile(sumPath, content, 0644), "write sum")
 
 	got, err := LoadSumFile(sumPath)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(got.Dependencies) != 0 {
-		t.Fatalf("expected empty dependencies, got=%d", len(got.Dependencies))
-	}
+	require.NoError(t, err)
+	require.Empty(t, got.Dependencies)
 }
 
 func TestLoadSumFileRequiresSourceProvider(t *testing.T) {
@@ -43,17 +37,12 @@ func TestLoadSumFileRequiresSourceProvider(t *testing.T) {
 			"papirus": map[string]any{"path": "/tmp/papirus"},
 		},
 	})
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	if err := os.WriteFile(sumPath, content, 0644); err != nil {
-		t.Fatalf("write sum: %v", err)
-	}
+	require.NoError(t, err, "marshal")
+	require.NoError(t, os.WriteFile(sumPath, content, 0644), "write sum")
 
-	if _, loadErr := LoadSumFile(sumPath); loadErr != nil {
-		// sources top-level is no longer processed (leftovers removed); load succeeds with empty deps.
-		t.Fatalf("unexpected error on legacy sources shape: %v", loadErr)
-	}
+	_, loadErr := LoadSumFile(sumPath)
+	// sources top-level is no longer processed (leftovers removed); load succeeds with empty deps.
+	require.NoError(t, loadErr, "legacy sources shape")
 }
 
 func TestLoadSumFileRequiresSourceHash(t *testing.T) {
@@ -70,17 +59,12 @@ func TestLoadSumFileRequiresSourceHash(t *testing.T) {
 			},
 		},
 	})
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	if err := os.WriteFile(sumPath, content, 0644); err != nil {
-		t.Fatalf("write sum: %v", err)
-	}
+	require.NoError(t, err, "marshal")
+	require.NoError(t, os.WriteFile(sumPath, content, 0644), "write sum")
 
-	if _, loadErr := LoadSumFile(sumPath); loadErr != nil {
-		// sources top-level is no longer processed (leftovers removed).
-		t.Fatalf("unexpected error on legacy sources shape: %v", loadErr)
-	}
+	_, loadErr := LoadSumFile(sumPath)
+	// sources top-level is no longer processed (leftovers removed).
+	require.NoError(t, loadErr, "legacy sources shape")
 }
 
 func TestLoadSumFileMissingIsEmpty(t *testing.T) {
@@ -89,30 +73,18 @@ func TestLoadSumFileMissingIsEmpty(t *testing.T) {
 	dir := t.TempDir()
 	sumPath := filepath.Join(dir, "missing.lock.json")
 	got, err := LoadSumFile(sumPath)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(got.Dependencies) != 0 {
-		t.Fatalf("expected empty dependencies, got=%d", len(got.Dependencies))
-	}
+	require.NoError(t, err)
+	require.Empty(t, got.Dependencies)
 }
 
 func TestGenericSourceLockFallbackWithoutProvider(t *testing.T) {
 	t.Parallel()
 
 	locked := LockedSource{Ref: "v1", Hash: "abc"}
-	if !sourceLockReusable(locked) {
-		t.Fatal("generic reusable requires hash only")
-	}
-	if !sourceLockMatchesDesired(LockedSource{}, locked) {
-		t.Fatal("empty desired matches")
-	}
-	if !sourceLockMatchesDesired(LockedSource{Ref: "v1"}, locked) {
-		t.Fatal("same ref matches")
-	}
-	if sourceLockMatchesDesired(LockedSource{Ref: "v2"}, locked) {
-		t.Fatal("different ref must not match")
-	}
+	require.True(t, sourceLockReusable(locked), "generic reusable requires hash only")
+	require.True(t, sourceLockMatchesDesired(LockedSource{}, locked), "empty desired matches")
+	require.True(t, sourceLockMatchesDesired(LockedSource{Ref: "v1"}, locked), "same ref matches")
+	require.False(t, sourceLockMatchesDesired(LockedSource{Ref: "v2"}, locked), "different ref must not match")
 }
 
 func TestLoadSumFileToolLockUsesCurrentValueOverVersion(t *testing.T) {
@@ -120,7 +92,7 @@ func TestLoadSumFileToolLockUsesCurrentValueOverVersion(t *testing.T) {
 
 	dir := t.TempDir()
 	sumPath := filepath.Join(dir, "workspaced.lock.json")
-	if err := os.WriteFile(sumPath, []byte(`{
+	require.NoError(t, os.WriteFile(sumPath, []byte(`{
   "dependencies": [
     {
       "kind": "tool",
@@ -131,19 +103,11 @@ func TestLoadSumFileToolLockUsesCurrentValueOverVersion(t *testing.T) {
     }
   ]
 }
-`), 0644); err != nil {
-		t.Fatalf("write sum: %v", err)
-	}
+`), 0644), "write sum")
 
 	got, err := LoadSumFile(sumPath)
-	if err != nil {
-		t.Fatalf("load sum: %v", err)
-	}
+	require.NoError(t, err, "load sum")
 	lock, ok := got.Tool("github:burntsushi/ripgrep")
-	if !ok {
-		t.Fatalf("missing ripgrep lock")
-	}
-	if lock.Version != "14.1.1" {
-		t.Fatalf("version mismatch: got=%q", lock.Version)
-	}
+	require.True(t, ok, "missing ripgrep lock")
+	require.Equal(t, "14.1.1", lock.Version)
 }

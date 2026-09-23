@@ -9,6 +9,7 @@ import (
 	"github.com/lucasew/workspaced/internal/modfile"
 	_ "github.com/lucasew/workspaced/pkg/driver/exec/native"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPrefixFlagWins(t *testing.T) {
@@ -18,16 +19,10 @@ func TestPrefixFlagWins(t *testing.T) {
 		Prefix Prefix `long:"prefix"`
 	}
 	got, err := cmd.Parse[args]("--prefix", dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Prefix.Value() != dir {
-		t.Fatalf("value = %q", got.Prefix.Value())
-	}
+	require.NoError(t, err)
+	require.Equal(t, dir, got.Prefix.Value())
 	want := lewpath.New(".workspaced", "state.json")
-	if got.Prefix.StatePath() != want {
-		t.Fatal("state path mismatch")
-	}
+	require.Equal(t, want, got.Prefix.StatePath())
 }
 
 func TestPrefixDefaultIsWorkspaceRoot(t *testing.T) {
@@ -36,34 +31,20 @@ func TestPrefixDefaultIsWorkspaceRoot(t *testing.T) {
 		Prefix Prefix `long:"prefix"`
 	}
 	got, err := cmd.Parse[args]()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	ctx := logging.NewWriterContext(t.Output())
 	cue, err := configcue.ResolveWorkspaceCuePath(ctx, "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if cue != "" {
 		root, err := lewpath.Open(got.Prefix.Value())
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		defer root.Close()
 		ok, err := lewpath.New("workspaced.cue").IsFile(root)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !ok {
-			t.Fatalf("default %q has no workspaced.cue", got.Prefix.Value())
-		}
+		require.NoError(t, err)
+		require.True(t, ok, "default %q has no workspaced.cue", got.Prefix.Value())
 		return
 	}
 	ws, err := modfile.DetectWorkspace(ctx, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Prefix.Value() != ws.Root {
-		t.Fatalf("default = %q want %q", got.Prefix.Value(), ws.Root)
-	}
+	require.NoError(t, err)
+	require.Equal(t, ws.Root, got.Prefix.Value())
 }

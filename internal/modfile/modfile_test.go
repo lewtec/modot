@@ -3,6 +3,8 @@ package modfile
 import (
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestResolveModuleSourceWithLockVersion(t *testing.T) {
@@ -12,18 +14,10 @@ func TestResolveModuleSourceWithLockVersion(t *testing.T) {
 		Sources: map[string]SourceConfig{},
 	}
 	got, err := mod.ResolveModuleSource("foo", "github:owner/repo/path@v1.2.3", "/tmp/modules", nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got.Provider != "github" {
-		t.Fatalf("provider mismatch: got=%q", got.Provider)
-	}
-	if got.Ref != "owner/repo/path" {
-		t.Fatalf("ref mismatch: got=%q", got.Ref)
-	}
-	if got.Version != "v1.2.3" {
-		t.Fatalf("version mismatch: got=%q", got.Version)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "github", got.Provider)
+	require.Equal(t, "owner/repo/path", got.Ref)
+	require.Equal(t, "v1.2.3", got.Version)
 }
 
 func TestResolveModuleSourceLocalAlias(t *testing.T) {
@@ -39,14 +33,10 @@ func TestResolveModuleSourceLocalAlias(t *testing.T) {
 	}
 
 	got, err := mod.ResolveModuleSource("foo", "repo:base16-vim", "/home/user/dotfiles/modules", nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	want := filepath.Clean("/home/user/dotfiles/shared-modules/base16-vim")
-	if filepath.Clean(got.Ref) != want {
-		t.Fatalf("ref mismatch: got=%q want=%q", got.Ref, want)
-	}
+	require.Equal(t, want, filepath.Clean(got.Ref))
 }
 
 func TestResolveModuleSourceCoreRejectsVersion(t *testing.T) {
@@ -54,9 +44,7 @@ func TestResolveModuleSourceCoreRejectsVersion(t *testing.T) {
 
 	mod := &ModFile{Sources: map[string]SourceConfig{}}
 	_, err := mod.ResolveModuleSource("icons", "core:base16-icons-linux@v1", "/tmp/modules", nil)
-	if err == nil {
-		t.Fatal("expected version validation error")
-	}
+	require.Error(t, err, "expected version validation error")
 }
 
 func TestResolveModuleSourceDefaultsToSelfModulePath(t *testing.T) {
@@ -65,14 +53,8 @@ func TestResolveModuleSourceDefaultsToSelfModulePath(t *testing.T) {
 	mod := &ModFile{Sources: map[string]SourceConfig{}}
 
 	got, err := mod.ResolveModuleSource("icons", "", "/tmp/modules", nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got.Provider != "self" {
-		t.Fatalf("provider mismatch: got=%q", got.Provider)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "self", got.Provider)
 	// Relative to workspace root; the self module provider joins with Dir(modulesBaseDir).
-	if got.Ref != "modules/icons" {
-		t.Fatalf("ref mismatch: got=%q want=%q", got.Ref, "modules/icons")
-	}
+	require.Equal(t, "modules/icons", got.Ref)
 }

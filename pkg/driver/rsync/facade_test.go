@@ -8,6 +8,7 @@ import (
 
 	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBindStreamsTeesExtraOut(t *testing.T) {
@@ -16,16 +17,11 @@ func TestBindStreamsTeesExtraOut(t *testing.T) {
 	var extra bytes.Buffer
 	w, done := BindStreams(ctx, &extra)
 	t.Cleanup(func() { done() })
-	if w == os.Stderr {
-		t.Fatal("writer is os.Stderr")
-	}
-	if _, err := io.WriteString(w, "file.txt\n"); err != nil {
-		t.Fatalf("write: %v", err)
-	}
+	require.False(t, w == os.Stderr, "writer is os.Stderr")
+	_, err := io.WriteString(w, "file.txt\n")
+	require.NoError(t, err)
 	done()
-	if got := extra.String(); got != "file.txt\n" {
-		t.Fatalf("extra=%q want %q", got, "file.txt\n")
-	}
+	require.Equal(t, "file.txt\n", extra.String())
 }
 
 func TestBindStreamsWithoutExtraIsNotProcessStderr(t *testing.T) {
@@ -33,9 +29,7 @@ func TestBindStreamsWithoutExtraIsNotProcessStderr(t *testing.T) {
 	ctx := logging.NewWriterContext(t.Output())
 	w, done := BindStreams(ctx, nil)
 	t.Cleanup(done)
-	if w == os.Stderr {
-		t.Fatal("writer is os.Stderr")
-	}
+	require.False(t, w == os.Stderr, "writer is os.Stderr")
 }
 
 func TestBindStreamsHonorsContextStderr(t *testing.T) {
@@ -45,14 +39,9 @@ func TestBindStreamsHonorsContextStderr(t *testing.T) {
 	var extra bytes.Buffer
 	w, done := BindStreams(ctx, &extra)
 	t.Cleanup(done)
-	if _, err := io.WriteString(w, "hello\n"); err != nil {
-		t.Fatalf("write: %v", err)
-	}
+	_, err := io.WriteString(w, "hello\n")
+	require.NoError(t, err)
 	done()
-	if got.String() != "hello\n" {
-		t.Fatalf("context stderr=%q want %q", got.String(), "hello\n")
-	}
-	if extra.String() != "hello\n" {
-		t.Fatalf("extra=%q want %q", extra.String(), "hello\n")
-	}
+	require.Equal(t, "hello\n", got.String())
+	require.Equal(t, "hello\n", extra.String())
 }

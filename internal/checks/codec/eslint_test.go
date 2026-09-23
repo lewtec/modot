@@ -3,6 +3,8 @@ package codec
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseAndConvert(t *testing.T) {
@@ -16,37 +18,24 @@ func TestParseAndConvert(t *testing.T) {
 		},
 	}
 	jsonBytes, err := json.Marshal(input)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	run, err := parseAndConvertESLint(jsonBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(run.Results) != 2 {
-		t.Fatalf("expected 2 results, got %d", len(run.Results))
-	}
-	if *run.Results[0].RuleID != "no-unused-vars" || *run.Results[0].Level != "error" {
-		t.Fatalf("res0: %+v", run.Results[0])
-	}
-	if *run.Results[1].RuleID != "no-console" || *run.Results[1].Level != "warning" {
-		t.Fatalf("res1: %+v", run.Results[1])
-	}
+	require.NoError(t, err)
+	require.Len(t, run.Results, 2)
+	require.Equal(t, "no-unused-vars", *run.Results[0].RuleID)
+	require.Equal(t, "error", *run.Results[0].Level)
+	require.Equal(t, "no-console", *run.Results[1].RuleID)
+	require.Equal(t, "warning", *run.Results[1].Level)
 }
 
 func TestParseAndConvert_WithRawNewlineInString(t *testing.T) {
 	raw := []byte(`[{"filePath":"/tmp/a.js","messages":[{"ruleId":"x","severity":2,"message":"line1
 line2","line":1,"column":1,"endLine":1,"endColumn":2}]}]`)
 	run, err := parseAndConvertESLint(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(run.Results) != 1 {
-		t.Fatalf("got %d", len(run.Results))
-	}
-	if run.Results[0].Message.Text == nil || *run.Results[0].Message.Text != "line1\nline2" {
-		t.Fatalf("msg=%v", run.Results[0].Message.Text)
-	}
+	require.NoError(t, err)
+	require.Len(t, run.Results, 1)
+	require.NotNil(t, run.Results[0].Message.Text)
+	require.Equal(t, "line1\nline2", *run.Results[0].Message.Text)
 }
 
 func TestParseAndConvert_WithNonJSONPrefix(t *testing.T) {
@@ -54,21 +43,16 @@ func TestParseAndConvert_WithNonJSONPrefix(t *testing.T) {
 [{"filePath":"/tmp/b.js","messages":[{"ruleId":"y","severity":1,"message":"ok","line":2,"column":3,"endLine":2,"endColumn":4}]}]
 done`)
 	run, err := parseAndConvertESLint(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(run.Results) != 1 || run.Results[0].RuleID == nil || *run.Results[0].RuleID != "y" {
-		t.Fatalf("got %+v", run)
-	}
+	require.NoError(t, err)
+	require.Len(t, run.Results, 1)
+	require.NotNil(t, run.Results[0].RuleID)
+	require.Equal(t, "y", *run.Results[0].RuleID)
 }
 
 func TestParseAndConvert_WithTruncatedJSONTail(t *testing.T) {
 	raw := []byte(`[{"filePath":"/tmp/ok.js","messages":[{"ruleId":"ok","severity":1,"message":"first","line":1,"column":1,"endLine":1,"endColumn":2}]},{"filePath":"/tmp/broken.js","messages":[`)
 	run, err := parseAndConvertESLint(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(run.Results) != 1 || *run.Results[0].RuleID != "ok" {
-		t.Fatalf("got %+v", run)
-	}
+	require.NoError(t, err)
+	require.Len(t, run.Results, 1)
+	require.Equal(t, "ok", *run.Results[0].RuleID)
 }

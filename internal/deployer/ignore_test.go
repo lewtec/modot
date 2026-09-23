@@ -4,18 +4,17 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func writeGitWorkTree(t *testing.T, gitignore string) string {
 	t.Helper()
 	root := t.TempDir()
-	if err := os.Mkdir(filepath.Join(root, ".git"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.Mkdir(filepath.Join(root, ".git"), 0o755))
 	if gitignore != "" {
-		if err := os.WriteFile(filepath.Join(root, ".gitignore"), []byte(gitignore), 0o644); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.WriteFile(filepath.Join(root, ".gitignore"), []byte(gitignore), 0o644))
 	}
 	return root
 }
@@ -24,39 +23,25 @@ func TestGitignoreUntrackedWalksUpToGitRoot(t *testing.T) {
 	t.Parallel()
 	gitRoot := writeGitWorkTree(t, ".grok/\n")
 	nested := filepath.Join(gitRoot, "apps", "svc")
-	if err := os.MkdirAll(nested, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(nested, 0o755))
 	ignore := GitignoreUntracked(nested)
-	if ignore == nil {
-		t.Fatal("expected ignore fn from parent git root")
-	}
-	if !ignore(filepath.Join(nested, ".grok", "skill.md")) {
-		t.Fatal("nested .grok path should match parent .gitignore")
-	}
-	if ignore(filepath.Join(nested, "main.go")) {
-		t.Fatal("nested tracked path should not be ignored")
-	}
+	require.NotNil(t, ignore, "expected ignore fn from parent git root")
+	require.True(t, ignore(filepath.Join(nested, ".grok", "skill.md")), "nested .grok path should match parent .gitignore")
+	require.False(t, ignore(filepath.Join(nested, "main.go")), "nested tracked path should not be ignored")
 }
 
 func TestGitignoreUntrackedNilWithoutGit(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, ".gitignore"), []byte(".grok/\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if got := GitignoreUntracked(root); got != nil {
-		t.Fatal("expected nil ignore without .git")
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".gitignore"), []byte(".grok/\n"), 0o644))
+	require.Nil(t, GitignoreUntracked(root), "expected nil ignore without .git")
 }
 
 func TestGitignoreUntrackedMatchesRepoIgnore(t *testing.T) {
 	t.Parallel()
 	root := writeGitWorkTree(t, ".grok/\n*.local\n!keep.local\n")
 	ignore := GitignoreUntracked(root)
-	if ignore == nil {
-		t.Fatal("expected ignore fn")
-	}
+	require.NotNil(t, ignore, "expected ignore fn")
 
 	tests := []struct {
 		rel  string
@@ -69,45 +54,25 @@ func TestGitignoreUntrackedMatchesRepoIgnore(t *testing.T) {
 	}
 	for _, tt := range tests {
 		got := ignore(filepath.Join(root, filepath.FromSlash(tt.rel)))
-		if got != tt.want {
-			t.Errorf("ignore(%q)=%v want %v", tt.rel, got, tt.want)
-		}
+		assert.Equal(t, tt.want, got, "ignore(%q)", tt.rel)
 	}
-	if ignore(filepath.Join(t.TempDir(), "outside")) {
-		t.Error("path outside root should not be ignored")
-	}
+	assert.False(t, ignore(filepath.Join(t.TempDir(), "outside")), "path outside root should not be ignored")
 }
 
 func TestGitignoreUntrackedNestedAndExclude(t *testing.T) {
 	t.Parallel()
 	root := writeGitWorkTree(t, "")
-	if err := os.MkdirAll(filepath.Join(root, ".git", "info"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, ".git", "info", "exclude"), []byte("scratch/\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".git", "info"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".git", "info", "exclude"), []byte("scratch/\n"), 0o644))
 	nested := filepath.Join(root, "pkg")
-	if err := os.MkdirAll(nested, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(nested, ".gitignore"), []byte("gen/\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(nested, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(nested, ".gitignore"), []byte("gen/\n"), 0o644))
 
 	ignore := GitignoreUntracked(root)
-	if ignore == nil {
-		t.Fatal("expected ignore fn")
-	}
-	if !ignore(filepath.Join(root, "scratch", "a.txt")) {
-		t.Error("info/exclude scratch/ should ignore")
-	}
-	if !ignore(filepath.Join(root, "pkg", "gen", "out.go")) {
-		t.Error("nested pkg/.gitignore gen/ should ignore")
-	}
-	if ignore(filepath.Join(root, "pkg", "main.go")) {
-		t.Error("pkg/main.go should not be ignored")
-	}
+	require.NotNil(t, ignore, "expected ignore fn")
+	assert.True(t, ignore(filepath.Join(root, "scratch", "a.txt")), "info/exclude scratch/ should ignore")
+	assert.True(t, ignore(filepath.Join(root, "pkg", "gen", "out.go")), "nested pkg/.gitignore gen/ should ignore")
+	assert.False(t, ignore(filepath.Join(root, "pkg", "main.go")), "pkg/main.go should not be ignored")
 }
 
 func TestDropIgnored(t *testing.T) {
@@ -121,13 +86,7 @@ func TestDropIgnored(t *testing.T) {
 		untracked: {SourceInfo: "b"},
 	}}
 	n := DropIgnored(state, ignore)
-	if n != 1 {
-		t.Fatalf("dropped %d want 1", n)
-	}
-	if _, ok := state.Files[tracked]; !ok {
-		t.Fatal("tracked key dropped")
-	}
-	if _, ok := state.Files[untracked]; ok {
-		t.Fatal("ignored key still in state")
-	}
+	require.Equal(t, 1, n)
+	require.Contains(t, state.Files, tracked, "tracked key dropped")
+	require.NotContains(t, state.Files, untracked, "ignored key still in state")
 }

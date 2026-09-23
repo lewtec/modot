@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/lucasew/workspaced/pkg/palette/palettetest"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSampleImageBlocks64(t *testing.T) {
@@ -11,9 +13,7 @@ func TestSampleImageBlocks64(t *testing.T) {
 	img := palettetest.LoadImage(t, "blocks_64.png")
 	// One transparent pixel at (0,0); four opaque quadrant colors.
 	colors := SampleImage(img, 0)
-	if len(colors) != 4 {
-		t.Fatalf("unique opaque colors = %d, want 4", len(colors))
-	}
+	require.Len(t, colors, 4)
 
 	want := map[uint32]bool{
 		0xe53935: true,
@@ -23,27 +23,21 @@ func TestSampleImageBlocks64(t *testing.T) {
 	}
 	for _, c := range colors {
 		key := uint32(c.R)<<16 | uint32(c.G)<<8 | uint32(c.B)
-		if !want[key] {
-			t.Errorf("unexpected color #%02x%02x%02x", c.R, c.G, c.B)
-		}
+		assert.Contains(t, want, key, "unexpected color #%02x%02x%02x", c.R, c.G, c.B)
 		delete(want, key)
 	}
-	if len(want) != 0 {
-		t.Errorf("missing colors: %v", want)
-	}
+	assert.Empty(t, want)
 }
 
 func TestSampleImageSolid(t *testing.T) {
 	t.Parallel()
 	img := palettetest.LoadImage(t, "solid_4285f4.png")
 	colors := SampleImage(img, 0)
-	if len(colors) != 1 {
-		t.Fatalf("solid unique colors = %d, want 1", len(colors))
-	}
+	require.Len(t, colors, 1)
 	c := colors[0]
-	if c.R != 0x42 || c.G != 0x85 || c.B != 0xf4 {
-		t.Fatalf("got #%02x%02x%02x, want #4285f4", c.R, c.G, c.B)
-	}
+	require.Equal(t, uint8(0x42), c.R)
+	require.Equal(t, uint8(0x85), c.G)
+	require.Equal(t, uint8(0xf4), c.B)
 }
 
 func TestSampleImageMaxSamplesCapsVisits(t *testing.T) {
@@ -52,12 +46,8 @@ func TestSampleImageMaxSamplesCapsVisits(t *testing.T) {
 	// Full unique set is huge; striding must return fewer or equal uniques and never panic.
 	limited := SampleImage(img, 256)
 	full := SampleImage(img, 0)
-	if len(limited) == 0 {
-		t.Fatal("limited sample empty")
-	}
-	if len(limited) > len(full) {
-		t.Fatalf("limited unique %d > full unique %d", len(limited), len(full))
-	}
+	require.NotEmpty(t, limited, "limited sample empty")
+	require.LessOrEqual(t, len(limited), len(full))
 }
 
 // bliss.jpg is the real wallpaper from ~/.dotfiles/assets/wallpapers (4510x3627).
@@ -65,17 +55,12 @@ func TestSampleImageBliss(t *testing.T) {
 	t.Parallel()
 	img := palettetest.LoadImage(t, "bliss.jpg")
 	b := img.Bounds()
-	if b.Dx() < 1000 || b.Dy() < 1000 {
-		t.Fatalf("unexpected bliss size %dx%d", b.Dx(), b.Dy())
-	}
+	require.GreaterOrEqual(t, b.Dx(), 1000)
+	require.GreaterOrEqual(t, b.Dy(), 1000)
 	// CLI default-style budget: must yield some opaque colors, stay bounded.
 	colors := SampleImage(img, 10000)
-	if len(colors) == 0 {
-		t.Fatal("bliss sample empty")
-	}
-	if len(colors) > 10000 {
-		t.Fatalf("unique colors %d exceeds MaxSamples budget", len(colors))
-	}
+	require.NotEmpty(t, colors, "bliss sample empty")
+	require.LessOrEqual(t, len(colors), 10000)
 }
 
 func BenchmarkSampleImage(b *testing.B) {

@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/lucasew/workspaced/internal/checks"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type stubCheck struct {
@@ -22,9 +24,7 @@ func TestApplicable(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module x\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module x\n"), 0o644))
 
 	detectErr := errors.New("boom")
 	items := []checks.Check{
@@ -36,17 +36,13 @@ func TestApplicable(t *testing.T) {
 	var skips []string
 	got := checks.Applicable(t.Context(), dir, items, func(name, reason string, err error) {
 		skips = append(skips, name+":"+reason)
-		if name == "fail" && !errors.Is(err, detectErr) {
-			t.Errorf("fail skip err = %v, want %v", err, detectErr)
+		if name == "fail" {
+			assert.ErrorIs(t, err, detectErr)
 		}
 	})
 
-	if len(got) != 1 || got[0].Name() != "ok" {
-		t.Fatalf("Applicable = %v, want [ok]", names(got))
-	}
-	if len(skips) != 2 || skips[0] != "skip:not applicable" || skips[1] != "fail:detect failed" {
-		t.Fatalf("skips = %v", skips)
-	}
+	require.Equal(t, []string{"ok"}, names(got))
+	require.Equal(t, []string{"skip:not applicable", "fail:detect failed"}, skips)
 }
 
 func names(items []checks.Check) []string {

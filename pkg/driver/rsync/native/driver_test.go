@@ -1,11 +1,11 @@
 package native
 
 import (
-	"errors"
 	"log/slog"
 	"testing"
 
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 func TestExecRsyncBinaryNotAvailable(t *testing.T) {
@@ -13,7 +13,5 @@ func TestExecRsyncBinaryNotAvailable(t *testing.T) {
 	// No exec driver on ctx → IsBinaryAvailable is false.
 	ctx := logging.NewWriterContext(t.Output())
 	err := (&Driver{}).execRsync(ctx, []string{"-av", "a/", "b/"}, nil, nil, slog.Default())
-	if !errors.Is(err, ErrBinaryNotAvailable) {
-		t.Fatalf("err=%v want errors.Is(..., ErrBinaryNotAvailable)", err)
-	}
+	require.ErrorIs(t, err, ErrBinaryNotAvailable)
 }

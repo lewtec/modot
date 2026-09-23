@@ -8,6 +8,7 @@ import (
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/palette/api"
 	"github.com/lucasew/workspaced/pkg/palette/palettetest"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGeneticScoreFromBlocksTestdata(t *testing.T) {
@@ -16,47 +17,35 @@ func TestGeneticScoreFromBlocksTestdata(t *testing.T) {
 	// Full Extract is opt-in (WORKSPACED_TEST_GENETIC_EXTRACT=1) / benchmarks only.
 	img := palettetest.LoadImage(t, "blocks_64.png")
 	colors := api.SampleImage(img, 0)
-	if len(colors) != 4 {
-		t.Fatalf("blocks_64 unique colors = %d, want 4", len(colors))
-	}
+	require.Len(t, colors, 4)
 	lab := make([]api.LAB, len(colors))
 	for i, c := range colors {
 		lab[i] = api.RGBToLAB(c)
 	}
 	pop := initPopulation(rand.New(rand.NewSource(42)), 16, 32)
 	scored := scorePop(pop, lab, api.PolarityDark)
-	if len(scored) != 32 {
-		t.Fatalf("scored len = %d", len(scored))
-	}
-	if scored[0].fitness < scored[len(scored)-1].fitness {
-		t.Fatal("expected scorePop sorted by fitness descending")
-	}
+	require.Len(t, scored, 32)
+	require.GreaterOrEqual(t, scored[0].fitness, scored[len(scored)-1].fitness, "expected scorePop sorted by fitness descending")
 	pal := mapToPalette(scored[0].individual, 16)
-	if pal.Base00 == "" || pal.Base0F == "" {
-		t.Fatalf("incomplete palette: base00=%q base0F=%q", pal.Base00, pal.Base0F)
-	}
+	require.NotEmpty(t, pal.Base00)
+	require.NotEmpty(t, pal.Base0F)
 }
 
 func TestGeneticScoreFromBlissTestdata(t *testing.T) {
 	t.Parallel()
 	img := palettetest.LoadImage(t, "bliss.jpg")
 	colors := api.SampleImage(img, 10000)
-	if len(colors) == 0 {
-		t.Fatal("bliss sample empty")
-	}
+	require.NotEmpty(t, colors, "bliss sample empty")
 	lab := make([]api.LAB, len(colors))
 	for i, c := range colors {
 		lab[i] = api.RGBToLAB(c)
 	}
 	pop := initPopulation(rand.New(rand.NewSource(42)), 16, 32)
 	scored := scorePop(pop, lab, api.PolarityDark)
-	if scored[0].fitness < scored[len(scored)-1].fitness {
-		t.Fatal("expected scorePop sorted by fitness descending")
-	}
+	require.GreaterOrEqual(t, scored[0].fitness, scored[len(scored)-1].fitness, "expected scorePop sorted by fitness descending")
 	pal := mapToPalette(scored[0].individual, 16)
-	if pal.Base00 == "" || pal.Base0F == "" {
-		t.Fatalf("incomplete palette: base00=%q base0F=%q", pal.Base00, pal.Base0F)
-	}
+	require.NotEmpty(t, pal.Base00)
+	require.NotEmpty(t, pal.Base0F)
 }
 
 func TestGeneticExtractFromTestdata(t *testing.T) {
@@ -73,15 +62,11 @@ func TestGeneticExtractFromTestdata(t *testing.T) {
 		ColorCount: 16,
 		MaxSamples: 10000,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if pal.Base00 == "" || pal.Base0F == "" {
-		t.Fatalf("incomplete palette: base00=%q base0F=%q", pal.Base00, pal.Base0F)
-	}
-	if len(pal.Base00) != 6 || pal.Base00[0] == '#' {
-		t.Fatalf("expected 6-digit hex without '#', got %q", pal.Base00)
-	}
+	require.NoError(t, err)
+	require.NotEmpty(t, pal.Base00)
+	require.NotEmpty(t, pal.Base0F)
+	require.Len(t, pal.Base00, 6)
+	require.NotEqual(t, byte('#'), pal.Base00[0])
 }
 
 func BenchmarkGeneticExtract(b *testing.B) {
@@ -96,9 +81,8 @@ func BenchmarkGeneticExtract(b *testing.B) {
 		opts := api.Options{Polarity: api.PolarityDark, ColorCount: 16, MaxSamples: 0}
 		b.ReportAllocs()
 		for b.Loop() {
-			if _, err := d.Extract(ctx, img, opts); err != nil {
-				b.Fatal(err)
-			}
+			_, err := d.Extract(ctx, img, opts)
+			require.NoError(b, err)
 		}
 	})
 	b.Run("bliss", func(b *testing.B) {
@@ -106,9 +90,8 @@ func BenchmarkGeneticExtract(b *testing.B) {
 		opts := api.Options{Polarity: api.PolarityDark, ColorCount: 16, MaxSamples: 10000}
 		b.ReportAllocs()
 		for b.Loop() {
-			if _, err := d.Extract(ctx, img, opts); err != nil {
-				b.Fatal(err)
-			}
+			_, err := d.Extract(ctx, img, opts)
+			require.NoError(b, err)
 		}
 	})
 }

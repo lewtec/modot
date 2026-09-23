@@ -1,45 +1,29 @@
 package driver_test
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRequireEnv(t *testing.T) {
 	ctx := executil.WithEnv(t.Context(), []string{"FOO=1"})
-	if err := driver.RequireEnv(ctx, "FOO"); err != nil {
-		t.Fatalf("present: %v", err)
-	}
-	err := driver.RequireEnv(ctx, "MISSING")
-	if !errors.Is(err, driver.ErrIncompatible) {
-		t.Fatalf("missing: %v", err)
-	}
+	require.NoError(t, driver.RequireEnv(ctx, "FOO"))
+	require.ErrorIs(t, driver.RequireEnv(ctx, "MISSING"), driver.ErrIncompatible)
 }
 
 func TestRequireAnyEnv(t *testing.T) {
 	ctx := executil.WithEnv(t.Context(), []string{"WAYLAND_DISPLAY=wayland-0"})
-	if err := driver.RequireAnyEnv(ctx, "DISPLAY", "WAYLAND_DISPLAY"); err != nil {
-		t.Fatalf("any present: %v", err)
-	}
-	err := driver.RequireAnyEnv(ctx, "DISPLAY", "OTHER")
-	if !errors.Is(err, driver.ErrIncompatible) {
-		t.Fatalf("none: %v", err)
-	}
+	require.NoError(t, driver.RequireAnyEnv(ctx, "DISPLAY", "WAYLAND_DISPLAY"))
+	require.ErrorIs(t, driver.RequireAnyEnv(ctx, "DISPLAY", "OTHER"), driver.ErrIncompatible)
 }
 
 func TestRequireTermux(t *testing.T) {
 	t.Setenv("TERMUX_VERSION", "")
-	if err := driver.RequireTermux(); !errors.Is(err, driver.ErrIncompatible) {
-		t.Fatalf("unset: %v", err)
-	}
+	require.ErrorIs(t, driver.RequireTermux(), driver.ErrIncompatible)
 	t.Setenv("TERMUX_VERSION", "0.118")
-	if err := driver.RequireTermux(); err != nil {
-		t.Fatalf("set: %v", err)
-	}
-	if !driver.IsTermux() {
-		t.Fatal("IsTermux false")
-	}
+	require.NoError(t, driver.RequireTermux())
+	require.True(t, driver.IsTermux(), "IsTermux false")
 }

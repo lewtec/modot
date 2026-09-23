@@ -3,6 +3,8 @@ package lsp
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestResolveLanguageExtensionFirst(t *testing.T) {
@@ -13,15 +15,9 @@ func TestResolveLanguageExtensionFirst(t *testing.T) {
 	}
 	normalizeConfig(&cfg)
 
-	if got := cfg.ResolveLanguage("file:///x/y/z.go", "python"); got != "go" {
-		t.Fatalf("extension should win: got %q", got)
-	}
-	if got := cfg.ResolveLanguage("file:///x/y/z.py", "python"); got != "python" {
-		t.Fatalf("language id fallback: got %q", got)
-	}
-	if got := cfg.ResolveLanguage("file:///x/y/z.rs", "rust"); got != "" {
-		t.Fatalf("unmapped: got %q", got)
-	}
+	require.Equal(t, "go", cfg.ResolveLanguage("file:///x/y/z.go", "python"), "extension should win")
+	require.Equal(t, "python", cfg.ResolveLanguage("file:///x/y/z.py", "python"), "language id fallback")
+	require.Empty(t, cfg.ResolveLanguage("file:///x/y/z.rs", "rust"), "unmapped")
 }
 
 func TestBindingsForOrderAndServerID(t *testing.T) {
@@ -39,54 +35,32 @@ func TestBindingsForOrderAndServerID(t *testing.T) {
 		},
 	}
 	b := cfg.BindingsFor("go")
-	if len(b) != 2 {
-		t.Fatalf("len=%d", len(b))
-	}
-	if b[0].ServerID != "gopls" || b[0].OrderKey != "00_gopls" {
-		t.Fatalf("first=%+v", b[0])
-	}
-	if b[1].ServerID != "refactree" {
-		t.Fatalf("second=%+v", b[1])
-	}
-	if !b[0].HasCapability("hover") || b[0].HasCapability("references") {
-		t.Fatalf("gopls caps")
-	}
+	require.Len(t, b, 2)
+	require.Equal(t, "gopls", b[0].ServerID)
+	require.Equal(t, "00_gopls", b[0].OrderKey)
+	require.Equal(t, "refactree", b[1].ServerID)
+	require.True(t, b[0].HasCapability("hover"), "gopls caps")
+	require.False(t, b[0].HasCapability("references"), "gopls caps")
 	// empty caps = all
 	all := LanguageBinding{ServerID: "x"}
-	if !all.HasCapability("anything") {
-		t.Fatal("empty caps should allow all")
-	}
+	require.True(t, all.HasCapability("anything"), "empty caps should allow all")
 }
 
 func TestTimeoutDefault(t *testing.T) {
 	t.Parallel()
-	if (Config{}).Timeout() != defaultRequestTimeout {
-		t.Fatal("default")
-	}
-	if (Config{RequestTimeout: "2s"}).Timeout() != 2*time.Second {
-		t.Fatal("parsed")
-	}
-	if (Config{RequestTimeout: "nope"}).Timeout() != defaultRequestTimeout {
-		t.Fatal("bad parse fallback")
-	}
+	require.Equal(t, defaultRequestTimeout, (Config{}).Timeout(), "default")
+	require.Equal(t, 2*time.Second, (Config{RequestTimeout: "2s"}).Timeout(), "parsed")
+	require.Equal(t, defaultRequestTimeout, (Config{RequestTimeout: "nope"}).Timeout(), "bad parse fallback")
 }
 
 func TestCapabilityForMethod(t *testing.T) {
 	t.Parallel()
-	if CapabilityForMethod("textDocument/hover") != "hover" {
-		t.Fatal()
-	}
-	if CapabilityForMethod("workspace/symbol") != "workspaceSymbol" {
-		t.Fatal()
-	}
+	require.Equal(t, "hover", CapabilityForMethod("textDocument/hover"))
+	require.Equal(t, "workspaceSymbol", CapabilityForMethod("workspace/symbol"))
 }
 
 func TestServerIDFromOrderKey(t *testing.T) {
 	t.Parallel()
-	if serverIDFromOrderKey("00_gopls") != "gopls" {
-		t.Fatal()
-	}
-	if serverIDFromOrderKey("gopls") != "gopls" {
-		t.Fatal()
-	}
+	require.Equal(t, "gopls", serverIDFromOrderKey("00_gopls"))
+	require.Equal(t, "gopls", serverIDFromOrderKey("gopls"))
 }

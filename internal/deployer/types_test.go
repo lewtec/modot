@@ -1,6 +1,11 @@
 package deployer
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 func TestSortActions(t *testing.T) {
 	actions := []Action{
@@ -27,21 +32,16 @@ func TestSortActions(t *testing.T) {
 		{ActionNoop, "/c"},
 	}
 
-	if len(sorted) != len(expected) {
-		t.Fatalf("got %d actions, want %d", len(sorted), len(expected))
-	}
+	require.Len(t, sorted, len(expected))
 
 	for i, want := range expected {
-		if sorted[i].Type != want.actionType || sorted[i].Target != want.target {
-			t.Errorf("sorted[%d] = {%s, %s}, want {%s, %s}",
-				i, sorted[i].Type, sorted[i].Target, want.actionType, want.target)
-		}
+		assert.Equal(t, want.actionType, sorted[i].Type, "sorted[%d] type", i)
+		assert.Equal(t, want.target, sorted[i].Target, "sorted[%d] target", i)
 	}
 
 	// Verify original slice is not modified
-	if actions[0].Type != ActionCreate || actions[0].Target != "/b" {
-		t.Error("SortActions mutated the original slice")
-	}
+	assert.Equal(t, ActionCreate, actions[0].Type, "SortActions mutated the original slice")
+	assert.Equal(t, "/b", actions[0].Target, "SortActions mutated the original slice")
 }
 
 func TestActionTypeString(t *testing.T) {
@@ -57,9 +57,7 @@ func TestActionTypeString(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.want, func(t *testing.T) {
 			got := tt.action.String()
-			if got != tt.want {
-				t.Errorf("ActionType(%d).String() = %q, want %q", tt.action, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got, "ActionType(%d).String()", tt.action)
 		})
 	}
 }

@@ -2,19 +2,15 @@ package cmdctx
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestWithNoCache(t *testing.T) {
 	ctx := t.Context()
-	if IsNoCache(ctx) {
-		t.Fatal("default off")
-	}
+	require.False(t, IsNoCache(ctx), "default off")
 	ctx = WithNoCache(ctx, true)
-	if !IsNoCache(ctx) {
-		t.Fatal("expected on")
-	}
+	require.True(t, IsNoCache(ctx), "expected on")
 	ctx = WithNoCache(ctx, false)
-	if IsNoCache(ctx) {
-		t.Fatal("expected off")
-	}
+	require.False(t, IsNoCache(ctx), "expected off")
 }

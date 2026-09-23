@@ -10,14 +10,13 @@ import (
 	"github.com/lucasew/workspaced/internal/cmdctx"
 	"github.com/lucasew/workspaced/internal/source"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPlannerDetectsCommentOnlyContentChange(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "rg")
-	if err := os.WriteFile(target, []byte("#!/usr/bin/env bash\n# locked: old\nexec true\n"), 0o755); err != nil {
-		t.Fatalf("write target: %v", err)
-	}
+	require.NoError(t, os.WriteFile(target, []byte("#!/usr/bin/env bash\n# locked: old\nexec true\n"), 0o755), "write target")
 
 	desired := []DesiredState{{
 		File: &source.BufferFile{
@@ -38,24 +37,16 @@ func TestPlannerDetectsCommentOnlyContentChange(t *testing.T) {
 	g, ctx := taskgroup.New(logging.ContextWithLogger(t.Context(), slog.Default()), taskgroup.DefaultLimits())
 	_ = g
 	actions, err := NewPlanner().Plan(ctx, desired, state)
-	if err != nil {
-		t.Fatalf("plan: %v", err)
-	}
-	if len(actions) != 1 {
-		t.Fatalf("actions count mismatch: got=%d", len(actions))
-	}
-	if actions[0].Type != ActionUpdate {
-		t.Fatalf("action mismatch: got=%s", actions[0].Type)
-	}
+	require.NoError(t, err, "plan")
+	require.Len(t, actions, 1)
+	require.Equal(t, ActionUpdate, actions[0].Type)
 }
 
 func TestPlannerNoCacheForcesUpdateOnIdenticalContent(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "same")
 	content := []byte("unchanged\n")
-	if err := os.WriteFile(target, content, 0o644); err != nil {
-		t.Fatalf("write target: %v", err)
-	}
+	require.NoError(t, os.WriteFile(target, content, 0o644), "write target")
 
 	srcInfo := "module:x bundle:abc (same)"
 	desired := []DesiredState{{
@@ -81,32 +72,24 @@ func TestPlannerNoCacheForcesUpdateOnIdenticalContent(t *testing.T) {
 	g, ctx := taskgroup.New(base, taskgroup.DefaultLimits())
 	_ = g
 	actions, err := NewPlanner().Plan(ctx, desired, state)
-	if err != nil {
-		t.Fatalf("plan warm: %v", err)
-	}
-	if len(actions) != 1 || actions[0].Type != ActionNoop {
-		t.Fatalf("warm want noop, got %#v", actions)
-	}
+	require.NoError(t, err, "plan warm")
+	require.Len(t, actions, 1, "warm want noop, got %#v", actions)
+	require.Equal(t, ActionNoop, actions[0].Type, "warm want noop, got %#v", actions)
 
 	// no-cache: same inputs → update
 	g, ctx = taskgroup.New(cmdctx.WithNoCache(base, true), taskgroup.DefaultLimits())
 	_ = g
 	actions, err = NewPlanner().Plan(ctx, desired, state)
-	if err != nil {
-		t.Fatalf("plan no-cache: %v", err)
-	}
-	if len(actions) != 1 || actions[0].Type != ActionUpdate {
-		t.Fatalf("no-cache want update, got %#v", actions)
-	}
+	require.NoError(t, err, "plan no-cache")
+	require.Len(t, actions, 1, "no-cache want update, got %#v", actions)
+	require.Equal(t, ActionUpdate, actions[0].Type, "no-cache want update, got %#v", actions)
 }
 
 func TestPlannerIgnoredEqualIsNoop(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "placed.md")
 	content := []byte("hello\n")
-	if err := os.WriteFile(target, content, 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(target, content, 0o644))
 	desired := []DesiredState{{
 		File: &source.BufferFile{
 			BasicFile: source.BasicFile{
@@ -126,12 +109,9 @@ func TestPlannerIgnoredEqualIsNoop(t *testing.T) {
 	g, ctx := taskgroup.New(logging.ContextWithLogger(t.Context(), slog.Default()), taskgroup.DefaultLimits())
 	_ = g
 	actions, err := p.Plan(ctx, desired, state)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(actions) != 1 || actions[0].Type != ActionNoop {
-		t.Fatalf("want noop, got %#v", actions)
-	}
+	require.NoError(t, err)
+	require.Len(t, actions, 1, "want noop, got %#v", actions)
+	require.Equal(t, ActionNoop, actions[0].Type, "want noop, got %#v", actions)
 }
 
 func TestPlannerIgnoredMissingIsCreate(t *testing.T) {
@@ -155,21 +135,16 @@ func TestPlannerIgnoredMissingIsCreate(t *testing.T) {
 	g, ctx := taskgroup.New(logging.ContextWithLogger(t.Context(), slog.Default()), taskgroup.DefaultLimits())
 	_ = g
 	actions, err := p.Plan(ctx, desired, &State{Files: map[string]ManagedInfo{}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(actions) != 1 || actions[0].Type != ActionCreate {
-		t.Fatalf("want create, got %#v", actions)
-	}
+	require.NoError(t, err)
+	require.Len(t, actions, 1, "want create, got %#v", actions)
+	require.Equal(t, ActionCreate, actions[0].Type, "want create, got %#v", actions)
 }
 
 func TestPlannerUnmanagedEqualStillAdopts(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "tracked.md")
 	content := []byte("hello\n")
-	if err := os.WriteFile(target, content, 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(target, content, 0o644))
 	desired := []DesiredState{{
 		File: &source.BufferFile{
 			BasicFile: source.BasicFile{
@@ -185,10 +160,7 @@ func TestPlannerUnmanagedEqualStillAdopts(t *testing.T) {
 	g, ctx := taskgroup.New(logging.ContextWithLogger(t.Context(), slog.Default()), taskgroup.DefaultLimits())
 	_ = g
 	actions, err := NewPlanner().Plan(ctx, desired, &State{Files: map[string]ManagedInfo{}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(actions) != 1 || actions[0].Type != ActionUpdate {
-		t.Fatalf("want adopt update, got %#v", actions)
-	}
+	require.NoError(t, err)
+	require.Len(t, actions, 1, "want adopt update, got %#v", actions)
+	require.Equal(t, ActionUpdate, actions[0].Type, "want adopt update, got %#v", actions)
 }
