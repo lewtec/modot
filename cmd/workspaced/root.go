@@ -24,7 +24,7 @@ import (
 	_ "github.com/lucasew/workspaced/pkg/palette/prelude"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	kitlog "github.com/lewtec/lewkit/x/logging"
+	lewlog "github.com/lewtec/lewkit/x/logging"
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/lewkit/x/taskgroup/progress"
 )
@@ -37,7 +37,7 @@ var (
 func main() {
 	level := &slog.LevelVar{}
 	processLogOut = newSwapWriter(os.Stderr)
-	processLogger = slog.New(kitlog.NewHandler(processLogOut, &slog.HandlerOptions{
+	processLogger = slog.New(lewlog.NewHandler(processLogOut, &slog.HandlerOptions{
 		Level: level,
 	}))
 	slog.SetDefault(processLogger)
