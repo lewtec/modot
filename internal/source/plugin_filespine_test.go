@@ -1,12 +1,15 @@
 package source
 
 import (
+	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/pkg/filespine"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
@@ -56,7 +59,7 @@ func TestFileSpineMergesCueLines(t *testing.T) {
 	cuePath := filepath.Join(t.TempDir(), "workspaced.cue")
 	src := `package workspaced
 workspaced: {
-	file: ".bashrc": {
+	file: home: ".bashrc": {
 		type: "lines"
 		values: {"00-cue": "from-cue"}
 	}
@@ -104,7 +107,7 @@ func TestFileSpineTypeConflict(t *testing.T) {
 	dir := t.TempDir()
 	cuePath := filepath.Join(dir, "workspaced.cue")
 	if err := os.WriteFile(cuePath, []byte(`package workspaced
-workspaced: file: "x": {type: "lines", values: {a: "1"}}
+workspaced: file: home: "x": {type: "lines", values: {a: "1"}}
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -151,5 +154,236 @@ func TestFileSpineStaticRef(t *testing.T) {
 	}
 	if sf.AbsPath != src {
 		t.Fatalf("abs=%q", sf.AbsPath)
+	}
+	r, err := sf.Reader()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	got, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "[user]\n" {
+		t.Fatalf("content=%q", got)
+	}
+}
+
+func TestPlainFileKeepsBundleInfo(t *testing.T) {
+	t.Parallel()
+	ctx := logging.NewWriterContext(t.Output())
+	home := t.TempDir()
+	src := filepath.Join(t.TempDir(), "icon.svg")
+	if err := os.WriteFile(src, []byte("<svg/>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := composeApply(ctx, destRequest{
+		targetBase: home,
+		files: []File{
+			&StaticFile{
+				BasicFile: BasicFile{
+					RelPathStr:    "icon.svg",
+					TargetBaseDir: home,
+					Info:          "module:icons bundle:abc (icon.svg)",
+					FileType:      TypeStatic,
+				},
+				AbsPath: src,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Files()) != 1 {
+		t.Fatalf("len=%d", len(out.Files()))
+	}
+	if out.Files()[0].SourceInfo() != "module:icons bundle:abc (icon.svg)" {
+		t.Fatalf("info=%q", out.Files()[0].SourceInfo())
+	}
+}
+
+func TestComposeApplyStopsWhenCancelled(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(logging.NewWriterContext(t.Output()))
+	cancel()
+	home := t.TempDir()
+	_, err := composeApply(ctx, destRequest{
+		targetBase: home,
+		files: []File{
+			&BufferFile{
+				BasicFile: BasicFile{RelPathStr: "plain.txt", TargetBaseDir: home},
+				Content:   []byte("x"),
+			},
+		},
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestFileSpineNestedTargetStaysInHome(t *testing.T) {
+	t.Parallel()
+	ctx := logging.NewWriterContext(t.Output())
+	home := t.TempDir()
+	p := NewFileSpinePlugin(&configcue.Config{}, home)
+	out, err := p.Process(ctx, []File{
+		&BufferFile{
+			BasicFile: BasicFile{
+				RelPathStr:    "dconf.marker",
+				TargetBaseDir: filepath.Join(home, ".config", "workspaced"),
+				FileMode:      0o644,
+			},
+			Content: []byte("abc"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("len=%d", len(out))
+	}
+	if out[0].TargetBase() != home || out[0].RelPath() != ".config/workspaced/dconf.marker" {
+		t.Fatalf("target=%s rel=%s", out[0].TargetBase(), out[0].RelPath())
+	}
+}
+
+func TestFileSpineKeepsSymlink(t *testing.T) {
+	t.Parallel()
+	ctx := logging.NewWriterContext(t.Output())
+	home := t.TempDir()
+	dir := t.TempDir()
+	target := filepath.Join(dir, "real")
+	if err := os.WriteFile(target, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	p := NewFileSpinePlugin(&configcue.Config{}, home)
+	out, err := p.Process(ctx, []File{
+		&StaticFile{
+			BasicFile: BasicFile{RelPathStr: ".link", TargetBaseDir: home, FileType: TypeStatic},
+			AbsPath:   link,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("len=%d", len(out))
+	}
+	if out[0].Type() != TypeSymlink {
+		t.Fatalf("type=%s", out[0].Type())
+	}
+	got, err := out[0].LinkTarget()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != target {
+		t.Fatalf("link=%q want %q", got, target)
+	}
+}
+
+func TestFileSpineEtcUsesFixedBase(t *testing.T) {
+	t.Parallel()
+	ctx := logging.NewWriterContext(t.Output())
+	src := filepath.Join(t.TempDir(), "hosts")
+	if err := os.WriteFile(src, []byte("127.0.0.1 localhost\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p := NewFileSpinePlugin(systemConfig(t), "/")
+	out, err := p.Process(ctx, []File{
+		&StaticFile{
+			BasicFile: BasicFile{RelPathStr: "hosts", TargetBaseDir: "/etc", FileType: TypeStatic},
+			AbsPath:   src,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("len=%d", len(out))
+	}
+	if out[0].TargetBase() != "/" || out[0].RelPath() != "etc/hosts" {
+		t.Fatalf("target=%s rel=%s", out[0].TargetBase(), out[0].RelPath())
+	}
+}
+
+func TestFileSpineSameRelPathOnTwoProfiles(t *testing.T) {
+	t.Parallel()
+	ctx := logging.NewWriterContext(t.Output())
+	prefix := t.TempDir()
+	etcBase := filespine.ApplyDir("etc", prefix)
+	homeSrc := filepath.Join(t.TempDir(), "hosts-home")
+	etcSrc := filepath.Join(t.TempDir(), "hosts-etc")
+	if err := os.WriteFile(homeSrc, []byte("home\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(etcSrc, []byte("etc\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p := NewFileSpinePlugin(systemConfig(t), prefix)
+	out, err := p.Process(ctx, []File{
+		&StaticFile{
+			BasicFile: BasicFile{RelPathStr: "hosts", TargetBaseDir: prefix, FileType: TypeStatic},
+			AbsPath:   homeSrc,
+		},
+		&StaticFile{
+			BasicFile: BasicFile{RelPathStr: "hosts", TargetBaseDir: etcBase, FileType: TypeStatic},
+			AbsPath:   etcSrc,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 2 {
+		t.Fatalf("len=%d", len(out))
+	}
+	got := map[string]string{}
+	for _, f := range out {
+		r, err := f.Reader()
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := io.ReadAll(r)
+		r.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		got[f.RelPath()] = string(body)
+	}
+	if got["hosts"] != "home\n" || got["etc/hosts"] != "etc\n" {
+		t.Fatalf("bodies=%v", got)
+	}
+}
+
+func systemConfig(t *testing.T) *configcue.Config {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "workspaced.cue")
+	if err := os.WriteFile(path, []byte("package workspaced\nworkspaced: {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := configcue.LoadFilesMode(logging.NewWriterContext(t.Output()), []string{path}, filespine.ModeSystem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cfg
+}
+
+func TestFileSpineRejectsNestedDotD(t *testing.T) {
+	t.Parallel()
+	ctx := logging.NewWriterContext(t.Output())
+	home := t.TempDir()
+	p := NewFileSpinePlugin(&configcue.Config{}, home)
+	_, err := p.Process(ctx, []File{
+		&BufferFile{
+			BasicFile: BasicFile{RelPathStr: ".bashrc.d.tmpl/sub/10.sh", TargetBaseDir: home},
+			Content:   []byte("a"),
+		},
+	})
+	if err == nil {
+		t.Fatal("expected path error")
 	}
 }

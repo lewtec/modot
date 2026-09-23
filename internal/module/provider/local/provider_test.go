@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/module"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
@@ -40,7 +41,6 @@ func TestResolvePresetBases(t *testing.T) {
 	}
 
 	want := []module.ResolvedFile{
-		{RelPath: "nginx/nginx.conf", TargetBase: "/etc"},
 		{RelPath: ".bashrc", TargetBase: home},
 	}
 	opts := []cmp.Option{
@@ -54,6 +54,21 @@ func TestResolvePresetBases(t *testing.T) {
 	}
 	if diff := cmp.Diff(want, got.Files, opts...); diff != "" {
 		t.Fatalf("files mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestResolvePresetBaseUsesContextPrefix(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := cmdarg.WithPrefix(t.Context(), dir)
+	for _, preset := range []string{"home", "codebase", "etc"} {
+		got, err := resolvePresetBase(ctx, preset, "/ws/modules")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != dir {
+			t.Fatalf("%s base=%q want %q", preset, got, dir)
+		}
 	}
 }
 
@@ -94,13 +109,15 @@ func TestResolvePresetBase(t *testing.T) {
 	}{
 		{name: "home", preset: "home", modulesBaseDir: "/ws/modules", want: home},
 		{name: "codebase", preset: "codebase", modulesBaseDir: "/ws/modules", want: "/ws"},
-		{name: "etc", preset: "etc", modulesBaseDir: "/ws/modules", want: "/etc"},
+		{name: "etc", preset: "etc", modulesBaseDir: "/ws/modules", want: "/"},
+		{name: "bin", preset: "bin", modulesBaseDir: "/ws/modules", want: "/"},
+		{name: "root", preset: "root", modulesBaseDir: "/ws/modules", want: "/"},
 		{name: "unknown", preset: "nope", modulesBaseDir: "/ws/modules", wantErr: ErrUnknownPreset},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := resolvePresetBase(tt.preset, tt.modulesBaseDir)
+			got, err := resolvePresetBase(t.Context(), tt.preset, tt.modulesBaseDir)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("err=%v want %v", err, tt.wantErr)
 			}

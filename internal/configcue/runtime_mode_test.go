@@ -2,6 +2,7 @@ package configcue
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,11 +12,13 @@ import (
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
-func TestRuntimeModeAndFileMap(t *testing.T) {
+func TestRuntimeModeAndFileProfiles(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "workspaced.cue"), `package workspaced
 workspaced: file: {
-	".codex/config.toml": {type: "toml", values: {model: "x"}}
+	home: {
+		".codex/config.toml": {type: "toml", values: {model: "x"}}
+	}
 	codebase: {
 		".gitignore": {type: "text", values: {content: "bin/"}}
 	}
@@ -31,15 +34,19 @@ workspaced: file: {
 	if got := home.RuntimeMode(); got != filespine.ModeHome {
 		t.Fatalf("home mode=%q", got)
 	}
-	homeFiles, err := home.FileMap()
+	homeFiles, err := home.FileProfiles()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := homeFiles[".codex/config.toml"]; !ok {
-		t.Fatalf("home FileMap keys=%v want .codex/config.toml", keysOf(homeFiles))
+	if _, ok := homeFiles["codebase"]; ok {
+		t.Fatal("home mode emitted codebase")
 	}
-	if _, ok := homeFiles[".gitignore"]; ok {
-		t.Fatalf("home FileMap leaked codebase dest: %v", keysOf(homeFiles))
+	homeFS, err := homeFiles["home"].FS(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fs.Stat(homeFS, ".codex/config.toml"); err != nil {
+		t.Fatalf("home profile: %v", err)
 	}
 
 	code, err := loadFilesMode(ctx, cuePath, filespine.ModeCodebase)
@@ -49,15 +56,50 @@ workspaced: file: {
 	if got := code.RuntimeMode(); got != filespine.ModeCodebase {
 		t.Fatalf("codebase mode=%q", got)
 	}
-	codeFiles, err := code.FileMap()
+	codeFiles, err := code.FileProfiles()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := codeFiles[".gitignore"]; !ok {
-		t.Fatalf("codebase FileMap keys=%v want .gitignore", keysOf(codeFiles))
+	if _, ok := codeFiles["home"]; ok {
+		t.Fatal("codebase mode emitted home")
 	}
-	if _, ok := codeFiles[".codex/config.toml"]; ok {
-		t.Fatalf("codebase FileMap leaked home dest: %v", keysOf(codeFiles))
+	codeFS, err := codeFiles["codebase"].FS(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fs.Stat(codeFS, ".gitignore"); err != nil {
+		t.Fatalf("codebase profile: %v", err)
+	}
+}
+
+func TestFlatFileKeyRejected(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "workspaced.cue"), `package workspaced
+workspaced: file: ".bashrc": {type: "lines", values: {"00": "umask 022"}}
+`)
+	ctx := logging.NewWriterContext(t.Output())
+	_, err := loadFilesMode(ctx, filepath.Join(root, "workspaced.cue"), filespine.ModeHome)
+	if err == nil {
+		t.Fatal("expected schema error")
+	}
+}
+
+func TestAbsoluteRefRejected(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "workspaced.cue"), `package workspaced
+workspaced: file: home: blob: {
+	type: "ref"
+	values: src: {kind: "ref", ref: "/tmp/x"}
+}
+`)
+	ctx := logging.NewWriterContext(t.Output())
+	cfg, err := loadFilesMode(ctx, filepath.Join(root, "workspaced.cue"), filespine.ModeHome)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	_, err = cfg.FileProfiles()
+	if err == nil {
+		t.Fatal("expected ref error")
 	}
 }
 

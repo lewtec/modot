@@ -2,41 +2,20 @@ package source
 
 import (
 	"context"
+	"io/fs"
 
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/template"
-	"github.com/lucasew/workspaced/pkg/filespine"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
-// Tree is dest files after providers compose.
-// Apply writes this; it does not rebuild it.
+// Tree is dest files after profiles compose.
+// Apply writes Files. It does not rebuild the tree.
 type Tree struct {
-	dest       *filespine.FS
+	dest       fs.FS
 	targetBase string
 	files      []File
 	Warnings   []string
-}
-
-// NewTree wraps a dest FS and builds the apply view.
-func NewTree(dest *filespine.FS, targetBase string) (*Tree, error) {
-	if dest == nil {
-		return &Tree{targetBase: targetBase}, nil
-	}
-	decls := dest.Files()
-	out := make([]File, 0, len(decls))
-	for _, decl := range decls {
-		base := decl.TargetBase
-		if base == "" {
-			base = targetBase
-		}
-		sf, err := destFile(decl, base)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, sf)
-	}
-	return &Tree{dest: dest, targetBase: targetBase, files: out}, nil
 }
 
 // NewApplyTree is a dest-less Tree for callers that already have apply files.
@@ -45,7 +24,8 @@ func NewApplyTree(files []File, warnings ...string) *Tree {
 }
 
 // Dest is the encoded dest tree. Open returns the combined file.
-func (t *Tree) Dest() *filespine.FS {
+// Paths are relative. When two profiles share a path, Open returns the first.
+func (t *Tree) Dest() fs.FS {
 	if t == nil {
 		return nil
 	}
@@ -75,7 +55,7 @@ type Builder struct {
 	Providers  []Plugin
 }
 
-// Tree runs discovery, then filespine.Compose of cue, static, and templates.
+// Tree runs discovery, renders templates, then composes one tree per profile.
 func (b Builder) Tree(ctx context.Context) (*Tree, error) {
 	var warnings []string
 	ctx = WithWarningSink(ctx, &warnings)
@@ -89,15 +69,10 @@ func (b Builder) Tree(ctx context.Context) (*Tree, error) {
 	if err != nil {
 		return nil, err
 	}
-	dest, err := filespine.Compose(ctx,
-		CueFiles{Config: b.Config},
-		FileSlots{Label: "static", Files: static},
-		FileSlots{Label: "templates", Files: rendered},
-	)
-	if err != nil {
-		return nil, err
-	}
-	tree, err := NewTree(dest, b.TargetBase)
+	discovered := make([]File, 0, len(static)+len(rendered))
+	discovered = append(discovered, static...)
+	discovered = append(discovered, rendered...)
+	tree, err := composeApply(ctx, destRequest{config: b.Config, targetBase: b.TargetBase, files: discovered})
 	if err != nil {
 		return nil, err
 	}

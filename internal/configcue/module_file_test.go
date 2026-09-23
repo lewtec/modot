@@ -1,13 +1,17 @@
 package configcue
 
 import (
+	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/lewtec/lewkit/x/fs/compose"
 	_ "github.com/lucasew/workspaced/pkg/driver/env/native"
-	"github.com/lucasew/workspaced/pkg/filespine"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/pelletier/go-toml/v2"
 )
 
 func TestModuleFileLiftsIntoWorkspacedFile(t *testing.T) {
@@ -24,13 +28,11 @@ module: {
 	config: {
 		name: string | *"world"
 	}
-	file: {
-		"hello.json": {
-			type: "json"
-			values: {
-				ok:   true
-				name: workspaced.modules.greet.config.name
-			}
+	file: home: "hello.json": {
+		type: "json"
+		values: {
+			ok:   true
+			name: workspaced.modules.greet.config.name
 		}
 	}
 }
@@ -55,22 +57,31 @@ workspaced: {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsed, err := cfg.FileMap()
+	parsed, err := cfg.FileProfiles()
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, ok := parsed["hello.json"]
-	if !ok {
-		t.Fatalf("file keys: %v", keysOf(parsed))
+	home := parsed["home"]
+	if home == nil {
+		t.Fatalf("profiles: %v", profileNames(parsed))
 	}
-	if got.Type != filespine.TypeJSON {
-		t.Fatalf("type = %q", got.Type)
+	fsys, err := home.FS(nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got.Data["ok"] != true {
-		t.Fatalf("ok = %#v", got.Data["ok"])
+	body, err := fs.ReadFile(fsys, "hello.json")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got.Data["name"] != "ada" {
-		t.Fatalf("name = %#v", got.Data["name"])
+	var got map[string]any
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("json %s: %v", body, err)
+	}
+	if got["ok"] != true {
+		t.Fatalf("ok = %#v", got["ok"])
+	}
+	if got["name"] != "ada" {
+		t.Fatalf("name = %#v", got["name"])
 	}
 }
 
@@ -86,12 +97,10 @@ func TestModuleFileUserOverlayWithoutType(t *testing.T) {
 module: {
 	meta: {requires: [], recommends: []}
 	config: {}
-	file: {
-		"hello.toml": {
-			type: "toml"
-			values: {
-				onboarding: false
-			}
+	file: home: "hello.toml": {
+		type: "toml"
+		values: {
+			onboarding: false
 		}
 	}
 }
@@ -106,13 +115,9 @@ workspaced: {
 		path:   "modules/greet"
 		enable: true
 	}
-	file: {
-		"hello.toml": {
-			values: {
-				if workspaced.runtime.goos != "" {
-					terminal: default_shell: "/opt/homebrew/bin/bash"
-				}
-			}
+	file: home: "hello.toml": values: {
+		if workspaced.runtime.goos != "" {
+			terminal: default_shell: "/opt/homebrew/bin/bash"
 		}
 	}
 }
@@ -124,30 +129,42 @@ workspaced: {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsed, err := cfg.FileMap()
+	parsed, err := cfg.FileProfiles()
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, ok := parsed["hello.toml"]
-	if !ok {
-		t.Fatalf("file keys: %v", keysOf(parsed))
+	home := parsed["home"]
+	if home == nil {
+		t.Fatalf("profiles: %v", profileNames(parsed))
 	}
-	if got.Type != filespine.TypeTOML {
-		t.Fatalf("type = %q", got.Type)
+	fsys, err := home.FS(nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got.Data["onboarding"] != false {
-		t.Fatalf("onboarding = %#v", got.Data["onboarding"])
+	body, err := fs.ReadFile(fsys, "hello.toml")
+	if err != nil {
+		t.Fatal(err)
 	}
-	term, _ := got.Data["terminal"].(map[string]any)
+	var got map[string]any
+	if err := toml.Unmarshal(body, &got); err != nil {
+		t.Fatalf("toml %s: %v", body, err)
+	}
+	if got["onboarding"] != false {
+		t.Fatalf("onboarding = %#v\n%s", got["onboarding"], body)
+	}
+	term, _ := got["terminal"].(map[string]any)
 	if term["default_shell"] != "/opt/homebrew/bin/bash" {
-		t.Fatalf("terminal = %#v", got.Data["terminal"])
+		t.Fatalf("terminal = %#v\n%s", got["terminal"], body)
+	}
+	if strings.TrimSpace(string(body)) == "" {
+		t.Fatal("empty toml")
 	}
 }
 
-func keysOf(m map[string]filespine.File) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
+func profileNames(profiles map[string]*compose.Tree) []string {
+	out := make([]string, 0, len(profiles))
+	for name := range profiles {
+		out = append(out, name)
 	}
 	return out
 }

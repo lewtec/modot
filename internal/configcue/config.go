@@ -35,16 +35,6 @@ func (c *Config) Cue() cue.Value {
 	return c.cueVal
 }
 
-// FileMap is workspaced.file after unify, filtered by runtime.mode.
-// Flat keys and file.home are home. file.codebase is the repo tree.
-func (c *Config) FileMap() (map[string]filespine.File, error) {
-	if c == nil {
-		return map[string]filespine.File{}, nil
-	}
-	fileVal := c.Cue().LookupPath(cue.ParsePath("file"))
-	return filespine.ParseRoot(fileVal, filespine.ParseRootOptions{Mode: c.RuntimeMode()})
-}
-
 // RuntimeMode is workspaced.runtime.mode. Missing mode is home.
 func (c *Config) RuntimeMode() string {
 	if c == nil {
@@ -207,10 +197,18 @@ func LoadForWorkspace(ctx context.Context, root string) (*Config, error) {
 }
 
 func LoadFiles(ctx context.Context, paths []string) (*Config, error) {
+	return LoadFilesMode(ctx, paths, filespine.ModeHome)
+}
+
+// LoadFilesMode evaluates paths with workspaced.runtime.mode set to mode.
+func LoadFilesMode(ctx context.Context, paths []string, mode string) (*Config, error) {
 	if len(paths) == 0 {
 		return Load(ctx)
 	}
-	configValue, err := buildWorkspacedValue(ctx, paths, nil, DiscoverOptions{Mode: filespine.ModeHome})
+	if mode == "" {
+		mode = filespine.ModeHome
+	}
+	configValue, err := buildWorkspacedValue(ctx, paths, nil, DiscoverOptions{Mode: mode})
 	if err != nil {
 		return nil, err
 	}

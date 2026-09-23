@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/module"
 	"github.com/lucasew/workspaced/internal/modulecue"
 	"github.com/lucasew/workspaced/pkg/filespine"
@@ -28,37 +29,31 @@ type Provider struct{}
 func (p *Provider) ID() string   { return "self" }
 func (p *Provider) Name() string { return "Workspace Module" }
 
-const (
-	presetHome      = "~"
-	presetWorkspace = "<workspace>"
-)
-
-var presetBases = map[string]string{
-	"home":     presetHome,
-	"codebase": presetWorkspace,
-	"etc":      "/etc",
-	"usr":      "/usr",
-	"root":     "/",
-	"var":      "/var",
-	"bin":      "/usr/local/bin",
-}
-
-func resolvePresetBase(name, modulesBaseDir string) (string, error) {
-	base, ok := presetBases[name]
-	if !ok {
-		return "", fmt.Errorf("%w: %q", ErrUnknownPreset, name)
-	}
-	switch base {
-	case presetHome:
+func resolvePresetBase(ctx context.Context, name, modulesBaseDir string) (string, error) {
+	root := cmdarg.PrefixPath(ctx)
+	switch name {
+	case "home":
+		if root != "" {
+			return root, nil
+		}
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("get home directory: %w", err)
 		}
 		return home, nil
-	case presetWorkspace:
+	case "codebase":
+		if root != "" {
+			return root, nil
+		}
 		return filepath.Clean(filepath.Dir(modulesBaseDir)), nil
 	default:
-		return base, nil
+		if filespine.SystemRel(name) == "" && name != "root" {
+			return "", fmt.Errorf("%w: %q", ErrUnknownPreset, name)
+		}
+		if root == "" {
+			root = "/"
+		}
+		return root, nil
 	}
 }
 
@@ -91,7 +86,7 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) (modu
 			return module.ResolveResult{}, fmt.Errorf("%w: %q in module %q", ErrStrictStructureViolation, name, req.Ref)
 		}
 		presetName := preset.Name()
-		targetBase, err := resolvePresetBase(presetName, req.ModulesBaseDir)
+		targetBase, err := resolvePresetBase(ctx, presetName, req.ModulesBaseDir)
 		if err != nil {
 			return module.ResolveResult{}, fmt.Errorf("%w in module %q", err, req.Ref)
 		}
@@ -99,7 +94,7 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) (modu
 		if req.Config != nil {
 			mode = req.Config.RuntimeMode()
 		}
-		if !filespine.NamespaceVisible(mode, presetName) {
+		if !filespine.PresetVisible(mode, presetName) {
 			continue
 		}
 
@@ -114,6 +109,9 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) (modu
 			rel, err := filepath.Rel(presetPath, path)
 			if err != nil {
 				return err
+			}
+			if prefix := filespine.SystemRel(presetName); prefix != "" && prefix != "." {
+				rel = filepath.Join(prefix, rel)
 			}
 			isSymlink := info.Mode()&os.ModeSymlink != 0
 			out = append(out, module.ResolvedFile{

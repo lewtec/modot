@@ -9,6 +9,7 @@ import (
 
 type Plan struct {
 	ShowNoop cmd.Flag `long:"show-noop" help:"Also show files that would not change"`
+	Prefix   Prefix   `long:"prefix" ctx:"prefix" help:"directory that receives codebase files"`
 }
 
 func (Plan) Description() string {

@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"github.com/lucasew/workspaced/internal/atomicfile"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/pkg/filespine"
 	"os"
-	"path/filepath"
 	"sort"
+
+	lewpath "github.com/lewtec/lewkit/x/path"
 )
 
 // StateStore is the interface for state persistence.
@@ -32,19 +34,87 @@ type FileStateStore struct {
 	root string
 }
 
+// NewFileStateStoreIn stores state at rel inside workspace.
+// rel is a path inside the root, not a host path.
+func NewFileStateStoreIn(workspace *lewpath.Root, rel lewpath.Path) (*FileStateStore, error) {
+	parent := rel.Parent()
+	if parent != lewpath.New(".") {
+		if err := parent.MkdirAll(workspace, 0o755); err != nil {
+			return nil, fmt.Errorf("create state directory: %w", err)
+		}
+	}
+	opened, err := parent.OpenRoot(workspace)
+	if err != nil {
+		return nil, err
+	}
+	dir := opened.Name()
+	if err := opened.Close(); err != nil {
+		return nil, err
+	}
+	return &FileStateStore{
+		path: filespine.HostPath(dir, lewpath.New(rel.Name())),
+		root: workspace.Name(),
+	}, nil
+}
+
 // NewFileStateStore creates a FileStateStore.
 // root is the apply target base (e.g. $HOME or the workspace root); paths in
 // the state file are stored relative to it. Empty root keeps absolute keys.
+// A relative path is resolved inside root.
 func NewFileStateStore(path, root string) (*FileStateStore, error) {
 	expanded := envdriver.ExpandPath(path)
-
-	dir := filepath.Dir(expanded)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	name := lewpath.New(expanded)
+	apply := envdriver.ExpandPath(root)
+	if apply != "" && !name.IsAbs() {
+		workspace, err := lewpath.Open(apply)
+		if err != nil {
+			return nil, err
+		}
+		defer workspace.Close()
+		return NewFileStateStoreIn(workspace, name)
+	}
+	parent := name.Parent()
+	if err := mkdirAbs(parent); err != nil {
 		return nil, fmt.Errorf("create state directory: %w", err)
 	}
+	opened, err := filespine.OpenDir(parent)
+	if err != nil {
+		return nil, err
+	}
+	dir := opened.Name()
+	if err := opened.Close(); err != nil {
+		return nil, err
+	}
+	applyRoot := apply
+	if apply != "" {
+		if rootDir, err := lewpath.Open(apply); err == nil {
+			applyRoot = rootDir.Name()
+			rootDir.Close()
+		}
+	}
+	return &FileStateStore{
+		path: filespine.HostPath(dir, lewpath.New(name.Name())),
+		root: applyRoot,
+	}, nil
+}
 
-	root = filepath.Clean(envdriver.ExpandPath(root))
-	return &FileStateStore{path: expanded, root: root}, nil
+func mkdirAbs(dir lewpath.Path) error {
+	if !dir.IsAbs() {
+		return fmt.Errorf("state directory is not absolute")
+	}
+	slash, err := lewpath.Open("/")
+	if err != nil {
+		return err
+	}
+	defer slash.Close()
+	rel, err := dir.Rel(lewpath.New("/"))
+	if err != nil {
+		return err
+	}
+	if rel == lewpath.New(".") {
+		return nil
+	}
+	return rel.MkdirAll(slash, 0o755)
 }
 
 func (s *FileStateStore) Load() (*State, error) {

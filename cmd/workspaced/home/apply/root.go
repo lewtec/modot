@@ -9,6 +9,7 @@ import (
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/apply"
+	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/cmdwire"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/deployer"
@@ -25,7 +26,8 @@ import (
 )
 
 type Command struct {
-	ShowNoop cmd.Flag `long:"show-noop" help:"Also show files that would not change"`
+	ShowNoop cmd.Flag      `long:"show-noop" help:"Also show files that would not change"`
+	Prefix   cmdarg.Prefix `long:"prefix" ctx:"prefix" default:"~" help:"directory that receives home files"`
 }
 
 func (Command) Description() string {
@@ -70,7 +72,8 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 			return fmt.Errorf("refresh workspace lockfile: %w", err)
 		}
 
-		home, err := os.UserHomeDir()
+		home := cmdarg.PrefixPath(ctx)
+		liveHome, err := os.UserHomeDir()
 		if err != nil {
 			return fmt.Errorf("get home directory: %w", err)
 		}
@@ -93,8 +96,8 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 			return err
 		}
 
-		// StateStore — paths on disk are relative to $HOME (~).
-		stateStore, err := deployer.NewFileStateStore("~/.config/workspaced/state.json", home)
+		// StateStore — paths on disk are relative to the home prefix.
+		stateStore, err := deployer.NewFileStateStore(filepath.Join(home, ".config", "workspaced", "state.json"), home)
 		if err != nil {
 			return fmt.Errorf("create state store: %w", err)
 		}
@@ -113,7 +116,7 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 						}
 						// Match DconfPlugin, which places the marker under UserHomeDir
 						// (not os.Getenv("HOME") — those can diverge when HOME is unset).
-						if action.Desired.File != nil && deployer.GetTarget(action.Desired) == filepath.Join(home, ".config", "workspaced", "dconf.marker") {
+						if home == liveHome && action.Desired.File != nil && deployer.GetTarget(action.Desired) == filepath.Join(home, ".config", "workspaced", "dconf.marker") {
 							needsDconfApply = true
 							break
 						}

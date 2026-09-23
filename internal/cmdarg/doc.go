@@ -13,6 +13,8 @@
 //	int / float         cmd.IntArg[T] / cmd.FloatArg[T]
 //	"--" then rest      cmd.Dash then []T
 //	database URL        *db.Command flatten-embed; ctx:"" then db.OpenFromCtx
+//	apply root          cmdarg.Prefix (cmd.DataDirArg; default ~, ., or / on the field)
+//	codebase apply root codebase.Prefix (embeds Prefix; ArgDefault is the workspace root; StatePath is .workspaced/state.json)
 //	opaque token        cmd.StringArg
 //
 // Do not invent a second opener around DBArg. Off the CLI, db.Open / db.OpenArg.

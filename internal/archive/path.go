@@ -39,10 +39,10 @@ func JoinWithin(destDir, name string) (string, error) {
 		return "", fmt.Errorf("%w: empty name", ErrIllegalPath)
 	}
 	p := lewpath.New(name)
-	if p.IsAbs() || !p.Valid() || p.String() == "." {
+	if p.IsAbs() || !p.Valid() || p == lewpath.New(".") {
 		return "", fmt.Errorf("%w: %s", ErrIllegalPath, name)
 	}
-	target := filepath.Join(destDir, filepath.FromSlash(p.String()))
+	target := filepath.Join(destDir, filepath.FromSlash(name))
 	if !PathWithinDest(destDir, target) {
 		return "", fmt.Errorf("%w: %s", ErrIllegalPath, name)
 	}

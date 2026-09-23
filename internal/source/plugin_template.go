@@ -35,25 +35,12 @@ func (p *TemplateExpanderPlugin) Process(ctx context.Context, files []File) ([]F
 
 	for _, f := range files {
 		// Detect if the file is a template
-		filename := filepath.Base(f.RelPath())
-		parts := strings.Split(filename, ".")
-		isTemplate := (len(parts) >= 2 && parts[len(parts)-1] == "tmpl") ||
-			(len(parts) >= 3 && parts[len(parts)-2] == "tmpl")
-
-		if !isTemplate {
-			// Not a template, pass through
+		if !isTemplatePath(f.RelPath()) {
 			result = append(result, f)
 			continue
 		}
 
-		relPath := f.RelPath()
-		if parts[len(parts)-1] == "tmpl" {
-			// file.tmpl → file
-			relPath = strings.TrimSuffix(relPath, ".tmpl")
-		} else {
-			// file.tmpl.ext → file.ext
-			relPath = strings.TrimSuffix(relPath, ".tmpl"+filepath.Ext(relPath)) + filepath.Ext(relPath)
-		}
+		relPath := stripTemplate(f.RelPath())
 
 		// Eagerly render to check if it's multi-file
 		reader, err := f.Reader()

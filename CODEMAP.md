@@ -16,10 +16,10 @@ CUE config (`workspaced.cue`) drives everything.
 
 - `pkg/driver/driver.go` and `pkg/driver/prelude`: driver system
 - Task pools / progress: `github.com/lewtec/lewkit/x/taskgroup` and `x/taskgroup/progress` (AGENTS.md map/reduce rule)
-- `pkg/palette/`, `pkg/logging/`, `pkg/api/`, `pkg/filespine/`: rest of `pkg/` (dest compose: Provider + Compose)
+- `pkg/palette/`, `pkg/logging/`, `pkg/api/`, `pkg/filespine/`: rest of `pkg/` (profile visibility and template paths)
 - `internal/tool`: store path, shims, lazy lock pins (`Pin` → Renovate fields). Backends register from `x/tool/prelude`.
 - Registry install check: `mise run test:registry-install` (sets `WORKSPACED_TEST_TOOL_INSTALL=1`) installs each lewkit catalog tool. Not part of `mise release`. Multi-target CI: `.github/workflows/registry-install.yml` (linux amd64 + arm64). Per-tool failures append to `GITHUB_STEP_SUMMARY` from `internal/tool/registry_install_test.go`.
-- `internal/configcue/`, `internal/modfile/`, `internal/source/`: config, state, rendering; dest compose is `pkg/filespine` (`docs/specs/file-spine.md`)
+- `internal/configcue/`, `internal/modfile/`, `internal/source/`: config, state, rendering; dest bytes are `github.com/lewtec/lewkit/x/fs/compose` (`docs/specs/file-spine.md`)
 - `internal/db/`: sqlite store. Queries in `sqlite/*.sql`, migrations in `sqlite/migrations/`. `go generate ./internal/db` runs lewkit generate db.
 - `internal/apply/`, `internal/deployer/`: apply flow
 - `cmd/workspaced/root.go`: `pkg/driver/prelude`; tool/check preludes load from the cmds that need them
