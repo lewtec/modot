@@ -8,6 +8,8 @@ import (
 	_ "github.com/lucasew/workspaced/pkg/driver/prelude"
 	"github.com/lucasew/workspaced/pkg/driver/shim"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestShimGeneration(t *testing.T) {
@@ -19,32 +21,22 @@ func TestShimGeneration(t *testing.T) {
 
 	// Generate a shim that runs "echo hello world"
 	err := shim.Generate(ctx, shimPath, []string{"echo", "hello", "world"})
-	if err != nil {
-		t.Fatalf("Failed to generate shim: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify file exists and is executable
 	info, err := os.Stat(shimPath)
-	if err != nil {
-		t.Fatalf("Shim file not created: %v", err)
-	}
+	require.NoError(t, err)
 
-	if info.Mode()&0111 == 0 {
-		t.Errorf("Shim file is not executable: %o", info.Mode())
-	}
+	assert.NotZero(t, info.Mode()&0111, "Shim file is not executable: %o", info.Mode())
 
 	// Read shim content
 	content, err := os.ReadFile(shimPath)
-	if err != nil {
-		t.Fatalf("Failed to read shim: %v", err)
-	}
+	require.NoError(t, err)
 
 	t.Logf("Generated shim:\n%s", string(content))
 
 	// Verify it's a bash script
-	if len(content) < 2 || content[0] != '#' || content[1] != '!' {
-		t.Errorf("Shim doesn't have a shebang")
-	}
+	assert.True(t, len(content) >= 2 && content[0] == '#' && content[1] == '!', "Shim doesn't have a shebang")
 }
 
 func TestShimWithSpecialCharacters(t *testing.T) {
@@ -55,14 +47,10 @@ func TestShimWithSpecialCharacters(t *testing.T) {
 
 	// Test with arguments containing spaces and special chars
 	err := shim.Generate(ctx, shimPath, []string{"echo", "hello world", "$VAR", "it's test"})
-	if err != nil {
-		t.Fatalf("Failed to generate shim: %v", err)
-	}
+	require.NoError(t, err)
 
 	content, err := os.ReadFile(shimPath)
-	if err != nil {
-		t.Fatalf("Failed to read shim: %v", err)
-	}
+	require.NoError(t, err)
 
 	t.Logf("Generated shim with special chars:\n%s", string(content))
 }

@@ -2,6 +2,8 @@ package codec
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestDecodeShellcheckLevels(t *testing.T) {
@@ -12,19 +14,14 @@ func TestDecodeShellcheckLevels(t *testing.T) {
 		{"file":"a.sh","line":3,"column":1,"endLine":3,"endColumn":2,"level":"warning","code":1003,"message":"warn"}
 	]`)
 	run, err := decodeShellcheck("shellcheck", raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if run == nil || len(run.Results) != 3 {
-		t.Fatalf("got %v", run)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, run)
+	require.Len(t, run.Results, 3)
 	levels := []string{}
 	for _, r := range run.Results {
 		if r.Level != nil {
 			levels = append(levels, *r.Level)
 		}
 	}
-	if levels[0] != "error" || levels[1] != "note" || levels[2] != "warning" {
-		t.Fatalf("levels=%v", levels)
-	}
+	require.Equal(t, []string{"error", "note", "warning"}, levels)
 }

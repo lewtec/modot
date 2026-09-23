@@ -1,14 +1,13 @@
 package init
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
-	"errors"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"io/fs"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateConfigAtomicWrite(t *testing.T) {
@@ -19,28 +18,18 @@ func TestGenerateConfigAtomicWrite(t *testing.T) {
 	// Seed an existing config so --force-style overwrite cannot wipe it on failure
 	// of a later stage. generateConfig always targets configPath via temp+rename.
 	const prior = "// prior config must survive a failed write path\n"
-	if err := os.WriteFile(configPath, []byte(prior), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(prior), 0o644))
 
-	if err := generateConfig(ctx, configPath); err != nil {
-		t.Fatalf("generateConfig: %v", err)
-	}
+	require.NoError(t, generateConfig(ctx, configPath), "generateConfig")
 
 	got, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) == prior {
-		t.Fatal("config was not replaced with template output")
-	}
-	if !strings.Contains(string(got), "workspaced:") || !strings.Contains(string(got), "modules:") {
-		t.Fatalf("unexpected template output: %q", got)
-	}
+	require.NoError(t, err)
+	require.NotEqual(t, prior, string(got), "config was not replaced with template output")
+	require.Contains(t, string(got), "workspaced:")
+	require.Contains(t, string(got), "modules:")
 	// Temp must not linger after success.
-	if _, err := os.Stat(configPath + ".tmp"); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("temp file still present, err=%v", err)
-	}
+	_, err = os.Stat(configPath + ".tmp")
+	require.ErrorIs(t, err, fs.ErrNotExist, "temp file still present")
 }
 
 func TestGenerateConfigRemovesTempOnSuccess(t *testing.T) {
@@ -48,17 +37,10 @@ func TestGenerateConfigRemovesTempOnSuccess(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "workspaced.cue")
 
-	if err := generateConfig(ctx, configPath); err != nil {
-		t.Fatalf("generateConfig: %v", err)
-	}
+	require.NoError(t, generateConfig(ctx, configPath), "generateConfig")
 	info, err := os.Stat(configPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Size() == 0 {
-		t.Fatal("config is empty")
-	}
-	if _, err := os.Stat(configPath + ".tmp"); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("temp file still present after success, err=%v", err)
-	}
+	require.NoError(t, err)
+	require.NotZero(t, info.Size(), "config is empty")
+	_, err = os.Stat(configPath + ".tmp")
+	require.ErrorIs(t, err, fs.ErrNotExist, "temp file still present after success")
 }

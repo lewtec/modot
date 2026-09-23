@@ -2,16 +2,16 @@ package sudo
 
 import (
 	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"errors"
 	"github.com/lucasew/workspaced/internal/types"
 	_ "github.com/lucasew/workspaced/pkg/driver/prelude"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"io/fs"
+	"github.com/stretchr/testify/require"
 )
 
 func TestQueuePathRejectsTraversal(t *testing.T) {
@@ -30,25 +30,15 @@ func TestQueuePathRejectsTraversal(t *testing.T) {
 	}
 	for _, tc := range cases {
 		_, err := queuePath(dir, tc.slug)
-		if err == nil {
-			t.Fatalf("queuePath(%q) accepted traversal/invalid slug", tc.slug)
-		}
-		if !errors.Is(err, tc.want) {
-			t.Fatalf("queuePath(%q): err=%v want errors.Is %v", tc.slug, err, tc.want)
-		}
+		require.ErrorIs(t, err, tc.want, "queuePath(%q)", tc.slug)
 	}
 }
 
 func TestQueuePathAcceptsSimpleSlug(t *testing.T) {
 	dir := t.TempDir()
 	p, err := queuePath(dir, "abc123")
-	if err != nil {
-		t.Fatalf("queuePath: %v", err)
-	}
-	want := filepath.Join(dir, "abc123.json")
-	if p != want {
-		t.Fatalf("path=%q want %q", p, want)
-	}
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(dir, "abc123.json"), p)
 }
 
 func TestEnqueueJailsSlugAndMode(t *testing.T) {
@@ -62,69 +52,43 @@ func TestEnqueueJailsSlugAndMode(t *testing.T) {
 		Command: "true",
 		Env:     []string{"SECRET=s3cr3t"},
 	})
-	if err == nil {
-		t.Fatal("expected error for path-escaping slug")
-	}
+	require.Error(t, err, "expected error for path-escaping slug")
 	// No escape file next to queue parent
-	if _, err := os.Stat(filepath.Join(home, ".cache/workspaced/escape.json")); err == nil {
-		t.Fatal("escaped write created file outside queue")
-	}
+	_, err = os.Stat(filepath.Join(home, ".cache/workspaced/escape.json"))
+	require.Error(t, err, "escaped write created file outside queue")
 
 	err = Enqueue(ctx, &types.SudoCommand{
 		Slug:    "safe1",
 		Command: "true",
 		Env:     []string{"SECRET=s3cr3t"},
 	})
-	if err != nil {
-		t.Fatalf("Enqueue: %v", err)
-	}
+	require.NoError(t, err)
 	path := filepath.Join(home, ".cache/workspaced/sudo_queue/safe1.json")
 	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatalf("stat queue file: %v", err)
-	}
-	if perm := info.Mode().Perm(); perm != 0o600 {
-		t.Fatalf("queue file mode=%o want 0600", perm)
-	}
+	require.NoError(t, err)
+	require.Equal(t, fs.FileMode(0o600), info.Mode().Perm())
 	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var got types.SudoCommand
-	if err := json.Unmarshal(raw, &got); err != nil {
-		t.Fatal(err)
-	}
-	if got.Command != "true" || !strings.Contains(strings.Join(got.Env, "\n"), "SECRET=s3cr3t") {
-		t.Fatalf("unexpected payload: %+v", got)
-	}
+	require.NoError(t, json.Unmarshal(raw, &got))
+	require.Equal(t, "true", got.Command)
+	require.Contains(t, strings.Join(got.Env, "\n"), "SECRET=s3cr3t")
 
 	// Get / Remove use same jail
-	if _, err := Get("../escape"); err == nil {
-		t.Fatal("Get accepted escaping slug")
-	}
-	if err := Remove("../escape"); err == nil {
-		t.Fatal("Remove accepted escaping slug")
-	}
-	if err := Remove("safe1"); err != nil {
-		t.Fatalf("Remove: %v", err)
-	}
-	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("file still present after Remove: %v", err)
-	}
+	_, err = Get("../escape")
+	require.Error(t, err, "Get accepted escaping slug")
+	require.Error(t, Remove("../escape"), "Remove accepted escaping slug")
+	require.NoError(t, Remove("safe1"))
+	_, err = os.Stat(path)
+	require.ErrorIs(t, err, fs.ErrNotExist, "file still present after Remove")
 }
 
 func TestGetQueueDirMode(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	dir, err := getQueueDir()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	info, err := os.Stat(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if perm := info.Mode().Perm(); perm != 0o700 {
-		t.Fatalf("queue dir mode=%o want 0700", perm)
-	}
+	require.NoError(t, err)
+	require.Equal(t, fs.FileMode(0o700), info.Mode().Perm())
 }

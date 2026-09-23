@@ -1,16 +1,16 @@
 package bash_test
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
-	"errors"
 	_ "github.com/lucasew/workspaced/pkg/driver/prelude"
 	"github.com/lucasew/workspaced/pkg/driver/shim"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"io/fs"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateWritesViaTempRename(t *testing.T) {
@@ -19,38 +19,24 @@ func TestGenerateWritesViaTempRename(t *testing.T) {
 	path := filepath.Join(dir, "tool")
 
 	prior := "#!/bin/sh\necho prior\n"
-	if err := os.WriteFile(path, []byte(prior), 0o755); err != nil {
-		t.Fatalf("seed prior shim: %v", err)
-	}
+	err := os.WriteFile(path, []byte(prior), 0o755)
+	require.NoError(t, err)
 
 	target := filepath.Join(dir, "real-bin")
-	if err := shim.Generate(ctx, path, []string{target}); err != nil {
-		t.Fatalf("Generate: %v", err)
-	}
+	require.NoError(t, shim.Generate(ctx, path, []string{target}))
 
-	if _, err := os.Stat(path + ".tmp"); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("temp path still present after success: %v", err)
-	}
+	_, err = os.Stat(path + ".tmp")
+	require.ErrorIs(t, err, fs.ErrNotExist, "temp path still present after success")
 
 	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read shim: %v", err)
-	}
+	require.NoError(t, err)
 	got := string(content)
-	if strings.Contains(got, "prior") {
-		t.Fatalf("prior content still present:\n%s", got)
-	}
-	if !strings.Contains(got, target) {
-		t.Fatalf("shim missing target %q:\n%s", target, got)
-	}
+	require.NotContains(t, got, "prior")
+	require.Contains(t, got, target)
 
 	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatalf("stat shim: %v", err)
-	}
-	if info.Mode()&0o111 == 0 {
-		t.Fatalf("shim not executable: %o", info.Mode())
-	}
+	require.NoError(t, err)
+	require.NotZero(t, info.Mode()&0o111, "shim not executable: %o", info.Mode())
 }
 
 func TestGeneratePreservesExistingOnTempWriteFailure(t *testing.T) {
@@ -59,40 +45,26 @@ func TestGeneratePreservesExistingOnTempWriteFailure(t *testing.T) {
 	path := filepath.Join(dir, "tool")
 
 	prior := "#!/bin/sh\necho keep-me\n"
-	if err := os.WriteFile(path, []byte(prior), 0o755); err != nil {
-		t.Fatalf("seed prior shim: %v", err)
-	}
+	err := os.WriteFile(path, []byte(prior), 0o755)
+	require.NoError(t, err)
 
 	// Make the directory non-writable so creating path+".tmp" fails while the
 	// existing final path remains readable. Restore perms in cleanup so TempDir
 	// removal succeeds.
-	if err := os.Chmod(dir, 0o555); err != nil {
-		t.Fatalf("chmod dir read-only: %v", err)
-	}
+	require.NoError(t, os.Chmod(dir, 0o555))
 	t.Cleanup(func() {
-		if err := os.Chmod(dir, 0o755); err != nil {
-			t.Errorf("chmod restore: %v", err)
-		}
+		assert.NoError(t, os.Chmod(dir, 0o755), "chmod restore")
 	})
 
-	err := shim.Generate(ctx, path, []string{"/bin/true"})
-	if err == nil {
-		t.Fatal("expected Generate to fail when temp cannot be written")
-	}
+	err = shim.Generate(ctx, path, []string{"/bin/true"})
+	require.Error(t, err, "expected Generate to fail when temp cannot be written")
 
 	// Restore write so we can read the preserved final path.
-	if err := os.Chmod(dir, 0o755); err != nil {
-		t.Fatalf("restore dir perms: %v", err)
-	}
+	require.NoError(t, os.Chmod(dir, 0o755))
 
 	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read preserved shim: %v", err)
-	}
-	if string(content) != prior {
-		t.Fatalf("existing shim was modified on failed write:\ngot %q\nwant %q", content, prior)
-	}
-	if _, err := os.Stat(path + ".tmp"); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("temp path left behind after failure: %v", err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, prior, string(content))
+	_, err = os.Stat(path + ".tmp")
+	require.ErrorIs(t, err, fs.ErrNotExist, "temp path left behind after failure")
 }

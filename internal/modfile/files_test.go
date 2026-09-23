@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestEnsureLockFileCreatesLock(t *testing.T) {
@@ -11,15 +13,10 @@ func TestEnsureLockFileCreatesLock(t *testing.T) {
 
 	root := t.TempDir()
 	sumPath, err := EnsureLockFile(t.Context(), root)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if _, err := os.Stat(sumPath); err != nil {
-		t.Fatalf("sum file was not created: %v", err)
-	}
+	_, err = os.Stat(sumPath)
+	require.NoError(t, err, "sum file was not created")
 
-	if filepath.Dir(sumPath) != root {
-		t.Fatalf("unexpected sum path: %s", sumPath)
-	}
+	require.Equal(t, root, filepath.Dir(sumPath))
 }

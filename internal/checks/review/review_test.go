@@ -2,10 +2,10 @@ package review
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseUnifiedDiffLines(t *testing.T) {
@@ -20,12 +20,10 @@ func TestParseUnifiedDiffLines(t *testing.T) {
 +line twenty two
 `
 	set := parseUnifiedDiffLines(diff)
-	if !set["foo.go:11"] || !set["foo.go:12"] || !set["foo.go:22"] {
-		t.Fatalf("set=%v", set)
-	}
-	if set["foo.go:10"] {
-		t.Fatal("should not include old-only lines")
-	}
+	require.True(t, set["foo.go:11"], "set=%v", set)
+	require.True(t, set["foo.go:12"], "set=%v", set)
+	require.True(t, set["foo.go:22"], "set=%v", set)
+	require.False(t, set["foo.go:10"], "should not include old-only lines")
 }
 
 func TestWriteWorkflowCommand(t *testing.T) {
@@ -33,12 +31,8 @@ func TestWriteWorkflowCommand(t *testing.T) {
 	var buf bytes.Buffer
 	writeWorkflowCommand(&buf, "error", "a.go", 3, 4, "golangci-lint", "boom\nthere")
 	got := buf.String()
-	if !strings.Contains(got, "::error file=a.go,line=3,col=4::") {
-		t.Fatalf("got %q", got)
-	}
-	if strings.Contains(got, "\nthere") {
-		t.Fatalf("newline not sanitized: %q", got)
-	}
+	require.Contains(t, got, "::error file=a.go,line=3,col=4::")
+	require.NotContains(t, got, "\nthere", "newline not sanitized")
 }
 
 func TestAnnotateFiltersByDiff(t *testing.T) {
@@ -55,18 +49,15 @@ func TestAnnotateFiltersByDiff(t *testing.T) {
 			),
 		}))
 	file, line, _, msg, level := extractFinding(run.Results[0])
-	if file != "foo.go" || line != 11 || msg != "m" || level != "error" {
-		t.Fatalf("%s %d %s %s", file, line, msg, level)
-	}
+	require.Equal(t, "foo.go", file)
+	require.Equal(t, 11, line)
+	require.Equal(t, "m", msg)
+	require.Equal(t, "error", level)
 }
 
 func TestIsGitHubActions(t *testing.T) {
 	t.Setenv("GITHUB_ACTIONS", "true")
-	if !IsGitHubActions() {
-		t.Fatal("expected true")
-	}
+	require.True(t, IsGitHubActions())
 	t.Setenv("GITHUB_ACTIONS", "")
-	if IsGitHubActions() {
-		t.Fatal("expected false")
-	}
+	require.False(t, IsGitHubActions())
 }

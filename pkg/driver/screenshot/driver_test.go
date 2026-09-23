@@ -1,11 +1,11 @@
 package screenshot
 
 import (
-	"errors"
 	"strconv"
 	"testing"
 
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseRectParts(t *testing.T) {
@@ -14,31 +14,26 @@ func TestParseRectParts(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		t.Parallel()
 		r, err := ParseRectParts([]string{"10", "20", "300", "400"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if r.X != 10 || r.Y != 20 || r.Width != 300 || r.Height != 400 {
-			t.Fatalf("got %+v", r)
-		}
+		require.NoError(t, err)
+		require.Equal(t, 10, r.X)
+		require.Equal(t, 20, r.Y)
+		require.Equal(t, 300, r.Width)
+		require.Equal(t, 400, r.Height)
 	})
 
 	t.Run("wrong count", func(t *testing.T) {
 		t.Parallel()
-		if _, err := ParseRectParts([]string{"1", "2", "3"}); err == nil {
-			t.Fatal("expected error for wrong field count")
-		}
+		_, err := ParseRectParts([]string{"1", "2", "3"})
+		require.Error(t, err, "expected error for wrong field count")
 	})
 
 	t.Run("non-integer", func(t *testing.T) {
 		t.Parallel()
 		_, err := ParseRectParts([]string{"10", "20", "abc", "400"})
-		if err == nil {
-			t.Fatal("expected error for non-integer field")
-		}
+		require.Error(t, err, "expected error for non-integer field")
 		var ne *strconv.NumError
-		if !errors.As(err, &ne) || ne.Num != "abc" {
-			t.Fatalf("error should wrap NumError for abc: %v", err)
-		}
+		require.ErrorAs(t, err, &ne)
+		require.Equal(t, "abc", ne.Num)
 	})
 }
 
@@ -46,7 +41,5 @@ func TestResolveRectUnknownTarget(t *testing.T) {
 	t.Parallel()
 	ctx := logging.NewWriterContext(t.Output())
 	_, err := ResolveRect(ctx, TargetType(99))
-	if !errors.Is(err, ErrUnknownTargetType) {
-		t.Fatalf("err=%v want errors.Is(..., ErrUnknownTargetType)", err)
-	}
+	require.ErrorIs(t, err, ErrUnknownTargetType)
 }

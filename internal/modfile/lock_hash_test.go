@@ -9,6 +9,7 @@ import (
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 type stubHashProvider struct {
@@ -91,21 +92,12 @@ func TestPopulateSourceLockHashesSkipsExisting(t *testing.T) {
 		"beta":  {Provider: p.id, Repo: "o/beta", Hash: "sha256:keep"},
 	}
 
-	if err := PopulateSourceLockHashes(ctx, mod, t.TempDir(), entries); err != nil {
-		t.Fatalf("PopulateSourceLockHashes: %v", err)
-	}
-	if got := p.calls.Load(); got != 1 {
-		t.Fatalf("calls=%d want 1 (beta already hashed)", got)
-	}
-	if entries["alpha"].Hash != "sha256:alpha" {
-		t.Fatalf("alpha hash=%q", entries["alpha"].Hash)
-	}
-	if entries["alpha"].Ref != "main" || entries["alpha"].URL == "" {
-		t.Fatalf("alpha missing resolved metadata: %+v", entries["alpha"])
-	}
-	if entries["beta"].Hash != "sha256:keep" {
-		t.Fatalf("beta hash changed to %q", entries["beta"].Hash)
-	}
+	require.NoError(t, PopulateSourceLockHashes(ctx, mod, t.TempDir(), entries))
+	require.Equal(t, int64(1), p.calls.Load(), "beta already hashed")
+	require.Equal(t, "sha256:alpha", entries["alpha"].Hash)
+	require.Equal(t, "main", entries["alpha"].Ref, "alpha missing resolved metadata: %+v", entries["alpha"])
+	require.NotEmpty(t, entries["alpha"].URL, "alpha missing resolved metadata: %+v", entries["alpha"])
+	require.Equal(t, "sha256:keep", entries["beta"].Hash)
 }
 
 // nestedInternetHashProvider is httpclient.WithProgress: LockHash Go's an
@@ -166,12 +158,8 @@ func TestPopulateSourceLockHashesNestedInternetDoesNotDeadlock(t *testing.T) {
 		"d": {Provider: p.id, Repo: "o/d"},
 	}
 
-	if err := PopulateSourceLockHashes(ctx, mod, t.TempDir(), entries); err != nil {
-		t.Fatalf("PopulateSourceLockHashes: %v", err)
-	}
-	if got := p.calls.Load(); got != 4 {
-		t.Fatalf("calls=%d want 4", got)
-	}
+	require.NoError(t, PopulateSourceLockHashes(ctx, mod, t.TempDir(), entries))
+	require.Equal(t, int64(4), p.calls.Load())
 }
 
 func TestPopulateSourceLockHashesParallel(t *testing.T) {
@@ -188,15 +176,10 @@ func TestPopulateSourceLockHashesParallel(t *testing.T) {
 		"two": {Provider: p.id, Repo: "o/two"},
 	}
 
-	if err := PopulateSourceLockHashes(ctx, mod, t.TempDir(), entries); err != nil {
-		t.Fatalf("PopulateSourceLockHashes: %v", err)
-	}
-	if got := p.calls.Load(); got != 2 {
-		t.Fatalf("calls=%d want 2", got)
-	}
-	if entries["one"].Hash != "sha256:one" || entries["two"].Hash != "sha256:two" {
-		t.Fatalf("entries=%+v", entries)
-	}
+	require.NoError(t, PopulateSourceLockHashes(ctx, mod, t.TempDir(), entries))
+	require.Equal(t, int64(2), p.calls.Load())
+	require.Equal(t, "sha256:one", entries["one"].Hash, "entries=%+v", entries)
+	require.Equal(t, "sha256:two", entries["two"].Hash, "entries=%+v", entries)
 }
 
 func TestPopulateSourceLockHashesSkipsWhenComplete(t *testing.T) {
@@ -210,12 +193,8 @@ func TestPopulateSourceLockHashesSkipsWhenComplete(t *testing.T) {
 	entries := map[string]LockedSource{
 		"done": {Provider: p.id, Repo: "o/done", Hash: "sha256:done"},
 	}
-	if err := PopulateSourceLockHashes(ctx, mod, t.TempDir(), entries); err != nil {
-		t.Fatalf("PopulateSourceLockHashes: %v", err)
-	}
-	if got := p.calls.Load(); got != 0 {
-		t.Fatalf("calls=%d want 0", got)
-	}
+	require.NoError(t, PopulateSourceLockHashes(ctx, mod, t.TempDir(), entries))
+	require.Equal(t, int64(0), p.calls.Load())
 }
 
 func TestPopulateSourceLockHashesUnsupportedProvider(t *testing.T) {
@@ -228,7 +207,5 @@ func TestPopulateSourceLockHashesUnsupportedProvider(t *testing.T) {
 		"x": {Provider: "no-such-provider"},
 	}
 	err := PopulateSourceLockHashes(ctx, mod, t.TempDir(), entries)
-	if err == nil {
-		t.Fatal("expected error")
-	}
+	require.Error(t, err)
 }

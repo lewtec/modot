@@ -23,7 +23,7 @@ func TestRegisterAndRun(t *testing.T) {
 func TestRegisterWithoutWithIsNoop(t *testing.T) {
 	t.Parallel()
 	Register(t.Context(), func() error {
-		t.Fatal("hook ran without With")
+		require.Fail(t, "hook ran without With")
 		return nil
 	})
 	require.NoError(t, Run(t.Context()))

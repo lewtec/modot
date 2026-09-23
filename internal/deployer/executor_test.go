@@ -10,6 +10,7 @@ import (
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lucasew/workspaced/internal/source"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 type errReadCloser struct {
@@ -39,9 +40,7 @@ func TestExecuteKeepsExistingOnCopyError(t *testing.T) {
 	target := filepath.Join(dir, "managed.txt")
 	// atomicfile.Write leaves the prior regular file in place when the new
 	// write fails before commit.
-	if err := os.WriteFile(target, []byte("good"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(target, []byte("good"), 0o644))
 
 	actions := []Action{{
 		Type:   ActionUpdate,
@@ -66,19 +65,11 @@ func TestExecuteKeepsExistingOnCopyError(t *testing.T) {
 	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
 	_ = g
 	err := NewExecutor().Execute(ctx, actions, state)
-	if err == nil {
-		t.Fatal("expected copy error")
-	}
+	require.Error(t, err, "expected copy error")
 	got, statErr := os.ReadFile(target)
-	if statErr != nil {
-		t.Fatalf("expected prior file kept: %v (execute=%v)", statErr, err)
-	}
-	if string(got) != "good" {
-		t.Fatalf("prior content lost: %q", got)
-	}
-	if _, ok := state.Files[target]; !ok {
-		t.Fatal("state should not drop managed entry when apply fails")
-	}
+	require.NoError(t, statErr, "expected prior file kept (execute=%v)", err)
+	require.Equal(t, "good", string(got), "prior content lost")
+	require.Contains(t, state.Files, target, "state should not drop managed entry when apply fails")
 }
 
 func TestExecuteRemovesEmptyFileOnReaderError(t *testing.T) {
@@ -108,12 +99,9 @@ func TestExecuteRemovesEmptyFileOnReaderError(t *testing.T) {
 	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
 	_ = g
 	err := NewExecutor().Execute(ctx, actions, state)
-	if err == nil {
-		t.Fatal("expected reader error")
-	}
-	if _, statErr := os.Stat(target); !errors.Is(statErr, os.ErrNotExist) {
-		t.Fatalf("empty file still present after reader error: stat=%v execute=%v", statErr, err)
-	}
+	require.Error(t, err, "expected reader error")
+	_, statErr := os.Stat(target)
+	require.ErrorIs(t, statErr, os.ErrNotExist, "empty file still present after reader error (execute=%v)", err)
 }
 
 func TestExecuteWritesRegularFile(t *testing.T) {
@@ -143,19 +131,12 @@ func TestExecuteWritesRegularFile(t *testing.T) {
 
 	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
 	_ = g
-	if err := NewExecutor().Execute(ctx, actions, state); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, NewExecutor().Execute(ctx, actions, state))
 	got, err := os.ReadFile(target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != string(content) {
-		t.Fatalf("got %q, want %q", got, content)
-	}
-	if info, ok := state.Files[target]; !ok || info.SourceInfo != "test:buffer" {
-		t.Fatalf("state not updated: %+v", state.Files)
-	}
+	require.NoError(t, err)
+	require.Equal(t, content, got)
+	require.Contains(t, state.Files, target)
+	require.Equal(t, "test:buffer", state.Files[target].SourceInfo)
 }
 
 func TestExecuteIgnoredCreateOmitsState(t *testing.T) {
@@ -189,17 +170,9 @@ func TestExecuteIgnoredCreateOmitsState(t *testing.T) {
 
 	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
 	_ = g
-	if err := ex.Execute(ctx, actions, state); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, ex.Execute(ctx, actions, state))
 	got, err := os.ReadFile(target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != string(content) {
-		t.Fatalf("got %q want %q", got, content)
-	}
-	if _, ok := state.Files[target]; ok {
-		t.Fatalf("ignored path still in state: %+v", state.Files)
-	}
+	require.NoError(t, err)
+	require.Equal(t, content, got)
+	require.NotContains(t, state.Files, target, "ignored path still in state")
 }

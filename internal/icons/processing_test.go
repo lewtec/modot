@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func iconTestdata(t testing.TB, name string) string {
@@ -19,27 +21,19 @@ func iconTestdata(t testing.TB, name string) string {
 func loadIconImage(t testing.TB, name string) image.Image {
 	t.Helper()
 	f, err := os.Open(iconTestdata(t, name))
-	if err != nil {
-		t.Fatalf("open testdata %s: %v", name, err)
-	}
+	require.NoError(t, err, "open testdata %s", name)
 	defer f.Close()
 	img, _, err := image.Decode(f)
-	if err != nil {
-		t.Fatalf("decode testdata %s: %v", name, err)
-	}
+	require.NoError(t, err, "decode testdata %s", name)
 	return img
 }
 
 func loadBase16Fixture(t testing.TB) map[string]string {
 	t.Helper()
 	b, err := os.ReadFile(iconTestdata(t, "base16_fixture.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var raw map[string]string
-	if err := json.Unmarshal(b, &raw); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, json.Unmarshal(b, &raw))
 	// renderSVG also indexes UPPER keys
 	out := make(map[string]string, len(raw)*2)
 	for k, v := range raw {
@@ -63,18 +57,13 @@ func TestMakeBackgroundTransparentFloodFill(t *testing.T) {
 	// Corners were opaque green background → transparent after flood fill.
 	for _, p := range [][2]int{{0, 0}, {63, 0}, {0, 63}, {63, 63}} {
 		c := nrgbaAt(out, p[0], p[1])
-		if c.A != 0 {
-			t.Fatalf("corner (%d,%d) alpha=%d, want 0", p[0], p[1], c.A)
-		}
+		require.Equal(t, uint8(0), c.A, "corner (%d,%d)", p[0], p[1])
 	}
 	// Center of red square must remain opaque red-ish.
 	c := nrgbaAt(out, 32, 32)
-	if c.A == 0 {
-		t.Fatal("center became transparent")
-	}
-	if c.R < 0x80 || c.G > 0x40 {
-		t.Fatalf("center color unexpected: %#v", c)
-	}
+	require.NotEqual(t, uint8(0), c.A, "center became transparent")
+	require.GreaterOrEqual(t, c.R, uint8(0x80), "center color unexpected: %#v", c)
+	require.LessOrEqual(t, c.G, uint8(0x40), "center color unexpected: %#v", c)
 }
 
 func TestMakeBackgroundTransparentAlreadyClear(t *testing.T) {
@@ -82,9 +71,7 @@ func TestMakeBackgroundTransparentAlreadyClear(t *testing.T) {
 	img := loadIconImage(t, "transparent_bg_32.png")
 	out := makeBackgroundTransparent(img)
 	// Early-return path: same image value when corner already transparent.
-	if out != img {
-		t.Fatal("expected identity return when background already transparent")
-	}
+	require.True(t, out == img, "expected identity return when background already transparent")
 }
 
 func TestCropToContentSquare(t *testing.T) {
@@ -93,12 +80,9 @@ func TestCropToContentSquare(t *testing.T) {
 	out := cropToContentSquare(img)
 	b := out.Bounds()
 	// Content was 16x16 centered in 32x32 → square crop of content.
-	if b.Dx() != b.Dy() {
-		t.Fatalf("expected square, got %dx%d", b.Dx(), b.Dy())
-	}
-	if b.Dx() < 16 || b.Dx() > 32 {
-		t.Fatalf("unexpected crop size %d", b.Dx())
-	}
+	require.Equal(t, b.Dy(), b.Dx(), "expected square, got %dx%d", b.Dx(), b.Dy())
+	require.GreaterOrEqual(t, b.Dx(), 16, "unexpected crop size %d", b.Dx())
+	require.LessOrEqual(t, b.Dx(), 32, "unexpected crop size %d", b.Dx())
 	// Cropped image should have some opaque pixels.
 	opaque := 0
 	for y := b.Min.Y; y < b.Max.Y; y++ {
@@ -112,22 +96,18 @@ func TestCropToContentSquare(t *testing.T) {
 			}
 		}
 	}
-	if opaque == 0 {
-		t.Fatal("crop produced fully transparent image")
-	}
+	require.NotZero(t, opaque, "crop produced fully transparent image")
 }
 
 func TestResizeAndCenter(t *testing.T) {
 	t.Parallel()
 	img := loadIconImage(t, "wide_48x24.png")
 	resized := resizeBilinear(img, 24, 12)
-	if resized.Bounds().Dx() != 24 || resized.Bounds().Dy() != 12 {
-		t.Fatalf("resize bounds = %v", resized.Bounds())
-	}
+	require.Equal(t, 24, resized.Bounds().Dx(), "resize bounds = %v", resized.Bounds())
+	require.Equal(t, 12, resized.Bounds().Dy(), "resize bounds = %v", resized.Bounds())
 	squared := centerInSquare(resized, 32)
-	if squared.Bounds().Dx() != 32 || squared.Bounds().Dy() != 32 {
-		t.Fatalf("center bounds = %v", squared.Bounds())
-	}
+	require.Equal(t, 32, squared.Bounds().Dx(), "center bounds = %v", squared.Bounds())
+	require.Equal(t, 32, squared.Bounds().Dy(), "center bounds = %v", squared.Bounds())
 }
 
 func TestRenderSVGReplaceAndTemplate(t *testing.T) {
@@ -138,40 +118,25 @@ func TestRenderSVGReplaceAndTemplate(t *testing.T) {
 	out, err := renderSVG(iconTestdata(t, "apps/sample.svg"), colors, map[string]string{
 		"ff0000": colors["base08"],
 	}, false, "test-theme", "sample")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out, "#"+colors["base08"]) {
-		t.Fatalf("expected replaced fill with base08 #%s, got:\n%s", colors["base08"], out)
-	}
-	if strings.Contains(strings.ToLower(out), "#ff0000") {
-		t.Fatalf("old #ff0000 still present:\n%s", out)
-	}
+	require.NoError(t, err)
+	require.Contains(t, out, "#"+colors["base08"], "expected replaced fill with base08 #%s", colors["base08"])
+	require.NotContains(t, strings.ToLower(out), "#ff0000")
 
 	// Template path: {{.base00}} / {{.base0D}}
 	tmplOut, err := renderSVG(iconTestdata(t, "apps/templated.svg.tmpl"), colors, nil, false, "test-theme", "templated")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(tmplOut, "#"+colors["base00"]) || !strings.Contains(tmplOut, "#"+colors["base0D"]) {
-		t.Fatalf("template did not expand base slots:\n%s", tmplOut)
-	}
-	if strings.Contains(tmplOut, "{{") {
-		t.Fatalf("unexpanded template left in output:\n%s", tmplOut)
-	}
+	require.NoError(t, err)
+	require.Contains(t, tmplOut, "#"+colors["base00"])
+	require.Contains(t, tmplOut, "#"+colors["base0D"])
+	require.NotContains(t, tmplOut, "{{", "unexpanded template left in output")
 }
 
 func TestMapHexColorsToScheme(t *testing.T) {
 	t.Parallel()
 	colors := loadBase16Fixture(t)
 	in, err := os.ReadFile(iconTestdata(t, "placeholder.svg"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	out := mapHexColorsToScheme(string(in), colors)
-	if strings.Contains(strings.ToLower(out), "#abcdef") {
-		t.Fatalf("source hex not mapped:\n%s", out)
-	}
+	require.NotContains(t, strings.ToLower(out), "#abcdef")
 	// Nearest palette color should be a known base16 hex.
 	found := false
 	for k, v := range colors {
@@ -180,20 +145,14 @@ func TestMapHexColorsToScheme(t *testing.T) {
 			break
 		}
 	}
-	if !found {
-		t.Fatalf("mapped output has no fixture palette color:\n%s", out)
-	}
+	require.True(t, found, "mapped output has no fixture palette color:\n%s", out)
 }
 
 func TestCollectIconInputsTestdata(t *testing.T) {
 	t.Parallel()
 	paths, err := collectIconInputs(iconTestdata(t, "."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(paths) < 3 {
-		t.Fatalf("expected >=3 svg inputs, got %d: %v", len(paths), paths)
-	}
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(paths), 3, "svg inputs: %v", paths)
 }
 
 func BenchmarkMakeBackgroundTransparent(b *testing.B) {
@@ -245,18 +204,15 @@ func BenchmarkRenderSVGMapScheme(b *testing.B) {
 	path := iconTestdata(b, "apps/sample.svg")
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := renderSVG(path, colors, nil, true, "bench-theme", "sample"); err != nil {
-			b.Fatal(err)
-		}
+		_, err := renderSVG(path, colors, nil, true, "bench-theme", "sample")
+		require.NoError(b, err)
 	}
 }
 
 func BenchmarkMapHexColorsToScheme(b *testing.B) {
 	colors := loadBase16Fixture(b)
 	in, err := os.ReadFile(iconTestdata(b, "apps/sample.svg"))
-	if err != nil {
-		b.Fatal(err)
-	}
+	require.NoError(b, err)
 	s := string(in)
 	b.ReportAllocs()
 	for b.Loop() {

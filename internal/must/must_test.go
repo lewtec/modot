@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lucasew/workspaced/internal/must"
 )
 
@@ -18,12 +20,10 @@ func TestMustPanics(t *testing.T) {
 	errBoom := errors.New("boom")
 	defer func() {
 		r := recover()
-		if r != errBoom {
-			t.Fatalf("recover = %v, want %v", r, errBoom)
-		}
+		require.Equal(t, errBoom, r)
 	}()
 	must.Must(func() error { return errBoom })
-	t.Fatal("expected panic")
+	require.Fail(t, "expected panic")
 }
 
 func TestMustContext(t *testing.T) {
@@ -34,29 +34,21 @@ func TestMustContext(t *testing.T) {
 		saw = c
 		return nil
 	})
-	if saw != ctx {
-		t.Fatal("fn did not receive ctx")
-	}
+	require.Equal(t, ctx, saw, "fn did not receive ctx")
 
 	errBoom := errors.New("boom")
 	defer func() {
-		if recover() != errBoom {
-			t.Fatalf("recover mismatch")
-		}
+		require.Equal(t, errBoom, recover())
 	}()
 	must.MustContext(ctx, func(context.Context) error { return errBoom })
-	t.Fatal("expected panic")
+	require.Fail(t, "expected panic")
 }
 
 func TestValueAndValueContext(t *testing.T) {
 	t.Parallel()
-	if v := must.Value(func() (int, error) { return 7, nil }); v != 7 {
-		t.Fatalf("Value = %d", v)
-	}
+	require.Equal(t, 7, must.Value(func() (int, error) { return 7, nil }))
 	ctx := t.Context()
-	if v := must.ValueContext(ctx, func(context.Context) (string, error) { return "ok", nil }); v != "ok" {
-		t.Fatalf("ValueContext = %q", v)
-	}
+	require.Equal(t, "ok", must.ValueContext(ctx, func(context.Context) (string, error) { return "ok", nil }))
 }
 
 func TestErr(t *testing.T) {
@@ -64,10 +56,8 @@ func TestErr(t *testing.T) {
 	must.Err(nil)
 	errBoom := errors.New("boom")
 	defer func() {
-		if recover() != errBoom {
-			t.Fatalf("recover mismatch")
-		}
+		require.Equal(t, errBoom, recover())
 	}()
 	must.Err(errBoom)
-	t.Fatal("expected panic")
+	require.Fail(t, "expected panic")
 }

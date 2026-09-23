@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"log/slog"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNormalizeLogArgs_KeyValuePairs(t *testing.T) {
@@ -29,26 +32,18 @@ func TestReportError_KeyValuePairs(t *testing.T) {
 	h := NewPlainHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})
 	ctx := NewRootContext(slog.New(h))
 
-	if !ReportError(ctx, errSentinel{}, "context", "unit test") {
-		t.Fatal("expected ReportError to report non-nil err")
-	}
+	require.True(t, ReportError(ctx, errSentinel{}, "context", "unit test"), "expected ReportError to report non-nil err")
 	out := buf.String()
-	if out == "" {
-		t.Fatal("expected log output")
-	}
+	require.NotEmpty(t, out, "expected log output")
 	// Plain handler emits key=value; just sanity-check message and attrs land.
 	for _, sub := range []string{"unexpected error", "context", "unit test", "error"} {
-		if !bytes.Contains([]byte(out), []byte(sub)) {
-			t.Errorf("log output missing %q: %q", sub, out)
-		}
+		assert.Contains(t, out, sub)
 	}
 }
 
 func TestReportError_NilErr(t *testing.T) {
 	ctx := NewRootContext(slog.Default())
-	if ReportError(ctx, nil, "context", "should not log") {
-		t.Fatal("expected false for nil err")
-	}
+	require.False(t, ReportError(ctx, nil, "context", "should not log"), "expected false for nil err")
 }
 
 type errSentinel struct{}
@@ -57,12 +52,8 @@ func (errSentinel) Error() string { return "sentinel" }
 
 func assertAnySlice(t *testing.T, got, want []any) {
 	t.Helper()
-	if len(got) != len(want) {
-		t.Fatalf("len got=%d want=%d\ngot=%v\nwant=%v", len(got), len(want), got, want)
-	}
+	require.Len(t, got, len(want))
 	for i := range want {
-		if got[i] != want[i] {
-			t.Errorf("idx %d: got %#v want %#v", i, got[i], want[i])
-		}
+		assert.Equal(t, want[i], got[i], "idx %d", i)
 	}
 }

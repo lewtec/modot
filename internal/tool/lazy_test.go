@@ -1,7 +1,6 @@
 package tool
 
 import (
-	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -13,6 +12,8 @@ import (
 	"github.com/lucasew/workspaced/internal/modfile"
 	_ "github.com/lucasew/workspaced/pkg/driver/env/native"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRefreshLazyToolLocksPreservesExistingLock(t *testing.T) {
@@ -52,47 +53,31 @@ workspaced: {
 `)
 
 	spec, err := lewtool.Parse("github:cli/cli")
-	if err != nil {
-		t.Fatalf("parse spec: %v", err)
-	}
+	require.NoError(t, err)
 	binPath := filepath.Join(home, ".local", "share", "workspaced", "tools", spec.Directory(), "2.89.0", "bin", "gh")
 	writeTestFile(t, binPath, "#!/bin/sh\nexit 0\n")
-	if err := os.Chmod(binPath, 0o755); err != nil {
-		t.Fatalf("chmod bin: %v", err)
-	}
+	require.NoError(t, os.Chmod(binPath, 0o755))
 
 	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
 	t.Cleanup(func() {
 		if err := g.Wait(); err != nil && !t.Failed() {
-			t.Errorf("group wait: %v", err)
+			assert.NoError(t, err, "group wait")
 		}
 	})
 	cfg, err := configcue.LoadForWorkspace(ctx, workspaceRoot)
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
+	require.NoError(t, err)
 
 	ws := modfile.NewWorkspace(workspaceRoot)
 	before, err := os.ReadFile(ws.SumPath())
-	if err != nil {
-		t.Fatalf("read lock before: %v", err)
-	}
+	require.NoError(t, err)
 
 	updated, err := RefreshLazyToolLocks(ctx, ws, cfg)
-	if err != nil {
-		t.Fatalf("refresh lazy tool locks: %v", err)
-	}
-	if updated != 0 {
-		t.Fatalf("expected no tool locks updated, got %d", updated)
-	}
+	require.NoError(t, err)
+	require.Equal(t, 0, updated)
 
 	after, err := os.ReadFile(ws.SumPath())
-	if err != nil {
-		t.Fatalf("read lock after: %v", err)
-	}
-	if !bytes.Equal(before, after) {
-		t.Fatalf("lockfile changed unexpectedly\nbefore:\n%s\nafter:\n%s", before, after)
-	}
+	require.NoError(t, err)
+	require.Equal(t, before, after, "lockfile changed unexpectedly")
 }
 
 func TestApplyLiveToolEnrichmentIdempotent(t *testing.T) {
@@ -111,26 +96,16 @@ func TestApplyLiveToolEnrichmentIdempotent(t *testing.T) {
 		depName:    "cli/cli",
 		datasource: "github-releases",
 	}
-	if applyLiveToolEnrichment(sum, "github:cli/cli", "v2.95.0", live) {
-		t.Fatal("expected no change when enrichment matches existing row")
-	}
-	if applyLiveToolEnrichment(sum, "github:cli/cli", "v2.95.0", staticEnrichTool{
+	require.False(t, applyLiveToolEnrichment(sum, "github:cli/cli", "v2.95.0", live), "expected no change when enrichment matches existing row")
+	require.True(t, applyLiveToolEnrichment(sum, "github:cli/cli", "v2.95.0", staticEnrichTool{
 		depName:     "cli/cli",
 		datasource:  "github-releases",
 		versioning:  "semver",
 		extractVers: `^v(?<version>\d+)`,
-	}) != true {
-		t.Fatal("expected change when enrichment adds metadata")
-	}
-	if got := sum.Dependencies[0].Versioning; got != "semver" {
-		t.Fatalf("Versioning = %q", got)
-	}
-	if applyLiveToolEnrichment(sum, "github:other/other", "1.0.0", nil) != true {
-		t.Fatal("expected change when creating missing row")
-	}
-	if applyLiveToolEnrichment(sum, "github:other/other", "1.0.0", nil) {
-		t.Fatal("expected create to be idempotent on second call")
-	}
+	}), "expected change when enrichment adds metadata")
+	require.Equal(t, "semver", sum.Dependencies[0].Versioning)
+	require.True(t, applyLiveToolEnrichment(sum, "github:other/other", "1.0.0", nil), "expected change when creating missing row")
+	require.False(t, applyLiveToolEnrichment(sum, "github:other/other", "1.0.0", nil), "expected create to be idempotent on second call")
 }
 
 type staticEnrichTool struct {
@@ -153,10 +128,6 @@ func (t staticEnrichTool) Pin() lewtool.Pin {
 
 func writeTestFile(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", path, err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 }

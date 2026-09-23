@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lucasew/workspaced/internal/modfile"
 	_ "github.com/lucasew/workspaced/internal/modfile/sourceprovider/prelude"
 )
@@ -21,16 +23,10 @@ func TestTryResolveSourceRefToPath(t *testing.T) {
 	}
 
 	got, ok, err := mod.TryResolveSourceRefToPath(t.Context(), "papirus:Papirus", "/home/lucasew/.dotfiles/modules")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !ok {
-		t.Fatal("expected source ref to be resolved")
-	}
+	require.NoError(t, err)
+	require.True(t, ok, "expected source ref to be resolved")
 	want := filepath.Clean("/tmp/papirus-icon-theme-20250501/Papirus")
-	if filepath.Clean(got) != want {
-		t.Fatalf("resolved path mismatch: got=%q want=%q", got, want)
-	}
+	require.Equal(t, want, filepath.Clean(got))
 }
 
 func TestTryResolveSourceRefToPathPlainPath(t *testing.T) {
@@ -42,15 +38,9 @@ func TestTryResolveSourceRefToPathPlainPath(t *testing.T) {
 
 	input := "/tmp/papirus-icon-theme-20250501/Papirus"
 	got, ok, err := mod.TryResolveSourceRefToPath(t.Context(), input, "/home/lucasew/.dotfiles/modules")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if ok {
-		t.Fatal("did not expect plain path to be treated as source ref")
-	}
-	if got != input {
-		t.Fatalf("expected input passthrough: got=%q want=%q", got, input)
-	}
+	require.NoError(t, err)
+	require.False(t, ok, "did not expect plain path to be treated as source ref")
+	require.Equal(t, input, got)
 }
 
 func TestTryResolveSourceRefToPathSelf(t *testing.T) {
@@ -71,24 +61,15 @@ func TestTryResolveSourceRefToPathSelf(t *testing.T) {
 	wsRoot := "/home/user/dotfiles"
 
 	got, ok, err := mod.TryResolveSourceRefToPath(t.Context(), "skills_local_skills:.", modulesBase)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !ok {
-		t.Fatal("expected self ref to resolve")
-	}
-	if got != wsRoot {
-		t.Fatalf("self:. got=%q want=%q", got, wsRoot)
-	}
+	require.NoError(t, err)
+	require.True(t, ok, "expected self ref to resolve")
+	require.Equal(t, wsRoot, got)
 
 	got, ok, err = mod.TryResolveSourceRefToPath(t.Context(), "skills_local_skills:codex/skills", modulesBase)
-	if err != nil || !ok {
-		t.Fatalf("unexpected: %v ok=%v", err, ok)
-	}
+	require.NoError(t, err)
+	require.True(t, ok)
 	want := filepath.Join(wsRoot, "codex/skills")
-	if got != want {
-		t.Fatalf("self:subdir got=%q want=%q", got, want)
-	}
+	require.Equal(t, want, got)
 }
 
 func TestTryResolveSourceRefToPathDirectSelf(t *testing.T) {
@@ -99,10 +80,7 @@ func TestTryResolveSourceRefToPathDirectSelf(t *testing.T) {
 
 	modulesBase := "/workspace/modules"
 	got, ok, err := mod.TryResolveSourceRefToPath(t.Context(), "self:.", modulesBase)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	if !ok || got != "/workspace" {
-		t.Fatalf("direct self:. got=%q ok=%v", got, ok)
-	}
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, "/workspace", got)
 }

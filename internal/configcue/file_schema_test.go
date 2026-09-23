@@ -5,23 +5,18 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFileSpineSchema(t *testing.T) {
 	t.Parallel()
 	schemaBytes, err := schemaFS.ReadFile("schema.cue")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	cueCtx := cuecontext.New()
 	schema := cueCtx.CompileBytes(schemaBytes, cue.Filename("schema.cue"))
-	if err := schema.Err(); err != nil {
-		t.Fatalf("schema: %v", err)
-	}
+	require.NoError(t, schema.Err(), "schema")
 	schema, err = mountFileProfiles(schema)
-	if err != nil {
-		t.Fatalf("mount: %v", err)
-	}
+	require.NoError(t, err, "mount")
 
 	unify := func(t *testing.T, user string) error {
 		t.Helper()
@@ -53,9 +48,7 @@ workspaced: file: home: {
 	"a.xml":  {type: "xml", values: {cfg: {name: "x"}}}
 }
 `)
-		if err != nil {
-			t.Fatalf("unify: %v", err)
-		}
+		require.NoError(t, err, "unify")
 	})
 
 	t.Run("accepts lines text and ref", func(t *testing.T) {
@@ -80,9 +73,7 @@ workspaced: file: home: {
 	}
 }
 `)
-		if err != nil {
-			t.Fatalf("unify: %v", err)
-		}
+		require.NoError(t, err, "unify")
 	})
 
 	t.Run("rejects env slot", func(t *testing.T) {
@@ -94,9 +85,7 @@ workspaced: file: home: "x": {
 	values: {a: {kind: "env", env: "EDITOR"}}
 }
 `)
-		if err == nil {
-			t.Fatal("expected schema error")
-		}
+		require.Error(t, err, "expected schema error")
 	})
 
 	t.Run("rejects flat key", func(t *testing.T) {
@@ -110,9 +99,7 @@ workspaced: file: {
 	}
 }
 `)
-		if err == nil {
-			t.Fatal("expected schema error")
-		}
+		require.Error(t, err, "expected schema error")
 	})
 
 	t.Run("accepts profiles", func(t *testing.T) {
@@ -128,9 +115,7 @@ workspaced: file: {
 	}
 }
 `)
-		if err != nil {
-			t.Fatalf("unify: %v", err)
-		}
+		require.NoError(t, err, "unify")
 	})
 
 	t.Run("rejects unknown file type", func(t *testing.T) {
@@ -142,8 +127,6 @@ workspaced: file: home: "x": {
 	values: {a: "{}"}
 }
 `)
-		if err == nil {
-			t.Fatal("expected schema error")
-		}
+		require.Error(t, err, "expected schema error")
 	})
 }

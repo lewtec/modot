@@ -1,6 +1,10 @@
 package modfile
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestBuildRenovateDependenciesFromTools(t *testing.T) {
 	t.Parallel()
@@ -27,40 +31,22 @@ func TestBuildRenovateDependenciesFromTools(t *testing.T) {
 	}
 
 	got := BuildRenovateDependenciesFromLocks(sources, tools)
-	if len(got) != 4 {
-		t.Fatalf("expected 4 dependencies (2 sources + github tool + mise tool), got=%d (%#v)", len(got), got)
-	}
+	require.Len(t, got, 4, "%#v", got)
 	byName := map[string]RenovateDependency{}
 	for _, dep := range got {
 		byName[dep.DepName] = dep
 	}
 	sourceDep, ok := byName["PapirusDevelopmentTeam/papirus-icon-theme"]
-	if !ok {
-		t.Fatalf("missing source dependency for papirus: %#v", got)
-	}
-	if sourceDep.Datasource != "git-refs" {
-		t.Fatalf("datasource mismatch for source dep: got=%q", sourceDep.Datasource)
-	}
-	if sourceDep.PackageName != "https://github.com/PapirusDevelopmentTeam/papirus-icon-theme" {
-		t.Fatalf("packageName mismatch for source dep: got=%q", sourceDep.PackageName)
-	}
+	require.True(t, ok, "missing source dependency for papirus: %#v", got)
+	require.Equal(t, "git-refs", sourceDep.Datasource)
+	require.Equal(t, "https://github.com/PapirusDevelopmentTeam/papirus-icon-theme", sourceDep.PackageName)
 	// Explicit non-SHA ref is the tracked git ref; no commit pin yet.
-	if sourceDep.CurrentValue != "v2026.03.01" {
-		t.Fatalf("currentValue mismatch for source dep: got=%q", sourceDep.CurrentValue)
-	}
-	if sourceDep.CurrentDigest != "" {
-		t.Fatalf("source dep without resolved SHA must not set currentDigest, got=%q", sourceDep.CurrentDigest)
-	}
+	require.Equal(t, "v2026.03.01", sourceDep.CurrentValue)
+	require.Empty(t, sourceDep.CurrentDigest)
 	toolDep, ok := byName["sharkdp/fd"]
-	if !ok {
-		t.Fatalf("missing tool dependency for sharkdp/fd: %#v", got)
-	}
-	if toolDep.Datasource != "github-releases" {
-		t.Fatalf("datasource mismatch for tool dep: got=%q", toolDep.Datasource)
-	}
-	if toolDep.CurrentValue != "v10.3.0" {
-		t.Fatalf("currentValue mismatch for tool dep: got=%q", toolDep.CurrentValue)
-	}
+	require.True(t, ok, "missing tool dependency for sharkdp/fd: %#v", got)
+	require.Equal(t, "github-releases", toolDep.Datasource)
+	require.Equal(t, "v10.3.0", toolDep.CurrentValue)
 
 	// mise tool produces entry keyed by ref, no extra provider/name.
 	var fzfDep *RenovateDependency
@@ -70,29 +56,15 @@ func TestBuildRenovateDependenciesFromTools(t *testing.T) {
 			break
 		}
 	}
-	if fzfDep == nil {
-		t.Fatalf("expected fzf tool dep to be included for lock state")
-	}
-	if fzfDep.Datasource != "" {
-		t.Fatalf("mise tool should not have renovate datasource, got=%s", fzfDep.Datasource)
-	}
+	require.NotNil(t, fzfDep, "expected fzf tool dep to be included for lock state")
+	require.Empty(t, fzfDep.Datasource)
 
 	themeDep, ok := byName["catppuccin/gtk"]
-	if !ok {
-		t.Fatalf("missing source dependency for catppuccin/gtk: %#v", got)
-	}
-	if themeDep.Datasource != "git-refs" {
-		t.Fatalf("datasource mismatch for theme dep: got=%q", themeDep.Datasource)
-	}
-	if themeDep.CurrentValue != "main" {
-		t.Fatalf("tracking ref should be default branch name, got=%q", themeDep.CurrentValue)
-	}
-	if themeDep.CurrentDigest != "9aa0d1fabc1234" {
-		t.Fatalf("currentDigest mismatch for source URL dep: got=%q", themeDep.CurrentDigest)
-	}
-	if themeDep.PackageName != "https://github.com/catppuccin/gtk" {
-		t.Fatalf("packageName mismatch for theme dep: got=%q", themeDep.PackageName)
-	}
+	require.True(t, ok, "missing source dependency for catppuccin/gtk: %#v", got)
+	require.Equal(t, "git-refs", themeDep.Datasource)
+	require.Equal(t, "main", themeDep.CurrentValue)
+	require.Equal(t, "9aa0d1fabc1234", themeDep.CurrentDigest)
+	require.Equal(t, "https://github.com/catppuccin/gtk", themeDep.PackageName)
 }
 
 func TestBuildRenovateDependenciesSkipsHeadWithoutBranch(t *testing.T) {
@@ -108,12 +80,9 @@ func TestBuildRenovateDependenciesSkipsHeadWithoutBranch(t *testing.T) {
 	}
 
 	got := BuildRenovateDependenciesFromLocks(sources, nil)
-	if len(got) != 1 {
-		t.Fatalf("expected 1 (lock state) dependency, got=%d (%#v)", len(got), got)
-	}
-	if got[0].Kind != "source" || got[0].DepName != "" {
-		t.Fatalf("expected basic source lock state without renovate fields, got=%#v", got[0])
-	}
+	require.Len(t, got, 1, "%#v", got)
+	require.Equal(t, "source", got[0].Kind)
+	require.Empty(t, got[0].DepName)
 }
 
 func TestBuildRenovateDependenciesSkipsSHAOnlyWithoutBranch(t *testing.T) {
@@ -129,12 +98,9 @@ func TestBuildRenovateDependenciesSkipsSHAOnlyWithoutBranch(t *testing.T) {
 	}
 
 	got := BuildRenovateDependenciesFromLocks(sources, nil)
-	if len(got) != 1 {
-		t.Fatalf("expected 1 dependency, got=%d", len(got))
-	}
-	if got[0].DepName != "" || got[0].Datasource != "" {
-		t.Fatalf("expected no renovate fields without a named tracking ref, got=%#v", got[0])
-	}
+	require.Len(t, got, 1)
+	require.Empty(t, got[0].DepName)
+	require.Empty(t, got[0].Datasource)
 }
 
 func TestMergeRenovateDependenciesPreservesUntouchedEntries(t *testing.T) {
@@ -170,9 +136,7 @@ func TestMergeRenovateDependenciesPreservesUntouchedEntries(t *testing.T) {
 	}
 
 	got := MergeRenovateDependencies(existing, generated)
-	if len(got) != 2 {
-		t.Fatalf("expected 2 dependencies after merge, got=%d", len(got))
-	}
+	require.Len(t, got, 2)
 
 	byRef := map[string]RenovateDependency{}
 	for _, dep := range got {
@@ -182,11 +146,8 @@ func TestMergeRenovateDependenciesPreservesUntouchedEntries(t *testing.T) {
 		}
 		byRef[k] = dep
 	}
-	if byRef["github:sharkdp/fd"].CurrentValue != "v10.3.0" {
-		t.Fatalf("expected fd to be updated, got=%q", byRef["github:sharkdp/fd"].CurrentValue)
-	}
+	require.Equal(t, "v10.3.0", byRef["github:sharkdp/fd"].CurrentValue)
 	src := byRef["github:PapirusDevelopmentTeam/papirus-icon-theme"]
-	if src.CurrentValue != "master" || src.CurrentDigest != "abc1234deadbeef" {
-		t.Fatalf("expected icons source to be preserved, got=%#v", src)
-	}
+	require.Equal(t, "master", src.CurrentValue)
+	require.Equal(t, "abc1234deadbeef", src.CurrentDigest)
 }

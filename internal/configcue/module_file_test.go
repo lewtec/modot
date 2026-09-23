@@ -12,16 +12,15 @@ import (
 	_ "github.com/lucasew/workspaced/pkg/driver/env/native"
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/pelletier/go-toml/v2"
+	"github.com/stretchr/testify/require"
 )
 
 func TestModuleFileLiftsIntoWorkspacedFile(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
 	modDir := filepath.Join(root, "modules", "greet")
-	if err := os.MkdirAll(modDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(modDir, "module.cue"), []byte(`package module
+	require.NoError(t, os.MkdirAll(modDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(modDir, "module.cue"), []byte(`package module
 
 module: {
 	meta: {requires: [], recommends: []}
@@ -36,11 +35,9 @@ module: {
 		}
 	}
 }
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
+`), 0o644))
 	cuePath := filepath.Join(root, "workspaced.cue")
-	if err := os.WriteFile(cuePath, []byte(`package workspaced
+	require.NoError(t, os.WriteFile(cuePath, []byte(`package workspaced
 workspaced: {
 	modules: greet: {
 		input:  "self"
@@ -49,50 +46,30 @@ workspaced: {
 		config: {name: "ada"}
 	}
 }
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
+`), 0o644))
 	ctx := logging.NewWriterContext(t.Output())
 	cfg, err := LoadFiles(ctx, []string{cuePath})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	parsed, err := cfg.FileProfiles()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	home := parsed["home"]
-	if home == nil {
-		t.Fatalf("profiles: %v", profileNames(parsed))
-	}
+	require.NotNil(t, home, "profiles: %v", profileNames(parsed))
 	fsys, err := home.FS(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	body, err := fs.ReadFile(fsys, "hello.json")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var got map[string]any
-	if err := json.Unmarshal(body, &got); err != nil {
-		t.Fatalf("json %s: %v", body, err)
-	}
-	if got["ok"] != true {
-		t.Fatalf("ok = %#v", got["ok"])
-	}
-	if got["name"] != "ada" {
-		t.Fatalf("name = %#v", got["name"])
-	}
+	require.NoError(t, json.Unmarshal(body, &got), "json %s", body)
+	require.Equal(t, true, got["ok"])
+	require.Equal(t, "ada", got["name"])
 }
 
 func TestModuleFileUserOverlayWithoutType(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
 	modDir := filepath.Join(root, "modules", "greet")
-	if err := os.MkdirAll(modDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(modDir, "module.cue"), []byte(`package module
+	require.NoError(t, os.MkdirAll(modDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(modDir, "module.cue"), []byte(`package module
 
 module: {
 	meta: {requires: [], recommends: []}
@@ -104,11 +81,9 @@ module: {
 		}
 	}
 }
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
+`), 0o644))
 	cuePath := filepath.Join(root, "workspaced.cue")
-	if err := os.WriteFile(cuePath, []byte(`package workspaced
+	require.NoError(t, os.WriteFile(cuePath, []byte(`package workspaced
 workspaced: {
 	modules: greet: {
 		input:  "self"
@@ -121,44 +96,24 @@ workspaced: {
 		}
 	}
 }
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
+`), 0o644))
 	ctx := logging.NewWriterContext(t.Output())
 	cfg, err := LoadFiles(ctx, []string{cuePath})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	parsed, err := cfg.FileProfiles()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	home := parsed["home"]
-	if home == nil {
-		t.Fatalf("profiles: %v", profileNames(parsed))
-	}
+	require.NotNil(t, home, "profiles: %v", profileNames(parsed))
 	fsys, err := home.FS(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	body, err := fs.ReadFile(fsys, "hello.toml")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var got map[string]any
-	if err := toml.Unmarshal(body, &got); err != nil {
-		t.Fatalf("toml %s: %v", body, err)
-	}
-	if got["onboarding"] != false {
-		t.Fatalf("onboarding = %#v\n%s", got["onboarding"], body)
-	}
+	require.NoError(t, toml.Unmarshal(body, &got), "toml %s", body)
+	require.Equal(t, false, got["onboarding"], "%s", body)
 	term, _ := got["terminal"].(map[string]any)
-	if term["default_shell"] != "/opt/homebrew/bin/bash" {
-		t.Fatalf("terminal = %#v\n%s", got["terminal"], body)
-	}
-	if strings.TrimSpace(string(body)) == "" {
-		t.Fatal("empty toml")
-	}
+	require.Equal(t, "/opt/homebrew/bin/bash", term["default_shell"], "terminal = %#v\n%s", got["terminal"], body)
+	require.NotEmpty(t, strings.TrimSpace(string(body)), "empty toml")
 }
 
 func profileNames(profiles map[string]*compose.Tree) []string {

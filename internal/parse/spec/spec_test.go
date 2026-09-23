@@ -1,6 +1,10 @@
 package spec
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestParse(t *testing.T) {
 	tests := []struct {
@@ -101,12 +105,16 @@ func TestParse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := Parse(tt.input)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !tt.wantErr && got != tt.want {
-				t.Errorf("Parse() = %+v, want %+v", got, tt.want)
+			if !tt.wantErr {
+				assert.Equal(t, tt.want, got)
 			}
 		})
 	}
@@ -140,9 +148,8 @@ func TestSpecString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.spec.String(); got != tt.want {
-				t.Errorf("Spec.String() = %v, want %v", got, tt.want)
-			}
+			got := tt.spec.String()
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -181,9 +188,8 @@ func TestSpecDir(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.spec.Dir(); got != tt.want {
-				t.Errorf("Spec.Dir() = %v, want %v", got, tt.want)
-			}
+			got := tt.spec.Dir()
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -211,9 +217,8 @@ func TestToDir(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ToDir(tt.providerID, tt.pkgSpec); got != tt.want {
-				t.Errorf("ToDir() = %v, want %v", got, tt.want)
-			}
+			got := ToDir(tt.providerID, tt.pkgSpec)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

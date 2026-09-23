@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/lucasew/workspaced/pkg/palette/api"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAccentPairStatsMatchesHistoricalTwoPass(t *testing.T) {
@@ -42,12 +43,8 @@ func TestAccentPairStatsMatchesHistoricalTwoPass(t *testing.T) {
 	}
 
 	gotMin, gotPen := accentPairStats(accents)
-	if gotMin != minDist {
-		t.Fatalf("minDist: got %v want %v", gotMin, minDist)
-	}
-	if gotPen != penalty {
-		t.Fatalf("penalty: got %v want %v", gotPen, penalty)
-	}
+	require.Equal(t, minDist, gotMin)
+	require.Equal(t, penalty, gotPen)
 }
 
 func TestImageSimilarityMatchesDeltaEScan(t *testing.T) {
@@ -79,9 +76,7 @@ func TestImageSimilarityMatchesDeltaEScan(t *testing.T) {
 	}
 	want := -total / float64(len(palette))
 	got := calculateImageSimilarity(palette, image)
-	if got != want {
-		t.Fatalf("image similarity: got %v want %v", got, want)
-	}
+	require.Equal(t, want, got)
 }
 
 // historicalImageSimilarity is the pre-optimization full-DeltaE scan, kept only

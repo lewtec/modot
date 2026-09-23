@@ -1,7 +1,6 @@
 package icons
 
 import (
-	"errors"
 	"image"
 	"image/color"
 	"image/png"
@@ -9,6 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWritePNGFileAtomic_Success(t *testing.T) {
@@ -16,17 +18,12 @@ func TestWritePNGFileAtomic_Success(t *testing.T) {
 	path := filepath.Join(dir, "icon-cache.png")
 
 	img := solidNRGBA(2, 2, color.NRGBA{R: 0xff, A: 0xff})
-	if err := writePNGFileAtomic(path, img); err != nil {
-		t.Fatalf("writePNGFileAtomic: %v", err)
-	}
+	require.NoError(t, writePNGFileAtomic(path, img))
 
 	got, err := decodePNG(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Bounds().Dx() != 2 || got.Bounds().Dy() != 2 {
-		t.Fatalf("decoded size = %v, want 2x2", got.Bounds())
-	}
+	require.NoError(t, err)
+	require.Equal(t, 2, got.Bounds().Dx(), "decoded size = %v, want 2x2", got.Bounds())
+	require.Equal(t, 2, got.Bounds().Dy(), "decoded size = %v, want 2x2", got.Bounds())
 }
 
 func TestWritePNGFileAtomic_FailureKeepsExisting(t *testing.T) {
@@ -34,62 +31,39 @@ func TestWritePNGFileAtomic_FailureKeepsExisting(t *testing.T) {
 	path := filepath.Join(dir, "icon-cache.png")
 
 	prior := solidNRGBA(1, 1, color.NRGBA{G: 0xff, A: 0xff})
-	if err := writePNGFileAtomic(path, prior); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, writePNGFileAtomic(path, prior))
 	priorBytes, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// Make dir non-writable so Create cannot open a new temp.
-	if err := os.Chmod(dir, 0o555); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.Chmod(dir, 0o555))
 	t.Cleanup(func() {
-		if err := os.Chmod(dir, 0o755); err != nil {
-			t.Errorf("chmod restore: %v", err)
-		}
+		assert.NoError(t, os.Chmod(dir, 0o755), "chmod restore")
 	})
 
-	if err := writePNGFileAtomic(path, solidNRGBA(3, 3, color.NRGBA{B: 0xff, A: 0xff})); err == nil {
-		t.Fatal("expected error when parent dir is not writable")
-	}
+	err = writePNGFileAtomic(path, solidNRGBA(3, 3, color.NRGBA{B: 0xff, A: 0xff}))
+	require.Error(t, err, "expected error when parent dir is not writable")
 
-	if err := os.Chmod(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.Chmod(dir, 0o755))
 	got, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != string(priorBytes) {
-		t.Fatalf("existing cache was mutated")
-	}
+	require.NoError(t, err)
+	require.Equal(t, priorBytes, got, "existing cache was mutated")
 }
 
 func TestWritePNGFileAtomic_FailureLeavesNoFinal(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "icon-cache.png")
 
-	if err := os.Chmod(dir, 0o555); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.Chmod(dir, 0o555))
 	t.Cleanup(func() {
-		if err := os.Chmod(dir, 0o755); err != nil {
-			t.Errorf("chmod restore: %v", err)
-		}
+		assert.NoError(t, os.Chmod(dir, 0o755), "chmod restore")
 	})
 
-	if err := writePNGFileAtomic(path, solidNRGBA(2, 2, color.NRGBA{R: 1, A: 0xff})); err == nil {
-		t.Fatal("expected error when parent dir is not writable")
-	}
-	if err := os.Chmod(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("final path should not exist after failed first write, err=%v", err)
-	}
+	err := writePNGFileAtomic(path, solidNRGBA(2, 2, color.NRGBA{R: 1, A: 0xff}))
+	require.Error(t, err, "expected error when parent dir is not writable")
+	require.NoError(t, os.Chmod(dir, 0o755))
+	_, err = os.Stat(path)
+	require.ErrorIs(t, err, fs.ErrNotExist, "final path should not exist after failed first write")
 }
 
 func solidNRGBA(w, h int, c color.NRGBA) *image.NRGBA {

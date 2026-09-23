@@ -5,86 +5,57 @@ import (
 	"testing"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPrefixExpandsTilde(t *testing.T) {
 	t.Parallel()
 	var prefix Prefix
-	if err := prefix.Parse("~"); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, prefix.Parse("~"))
 	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if prefix.Value() != home {
-		t.Fatalf("value = %q", prefix.Value())
-	}
+	require.NoError(t, err)
+	require.Equal(t, home, prefix.Value())
 }
 
 func TestPrefixAcceptsSlashAndDot(t *testing.T) {
 	t.Parallel()
 	var root Prefix
-	if err := root.Parse("/"); err != nil {
-		t.Fatal(err)
-	}
-	if root.Value() != "/" {
-		t.Fatalf("root = %q", root.Value())
-	}
+	require.NoError(t, root.Parse("/"))
+	require.Equal(t, "/", root.Value())
 	var here Prefix
-	if err := here.Parse("."); err != nil {
-		t.Fatal(err)
-	}
-	if here.Value() != "." {
-		t.Fatalf("dot = %q", here.Value())
-	}
+	require.NoError(t, here.Parse("."))
+	require.Equal(t, ".", here.Value())
 }
 
 func TestPrefixFieldDefaults(t *testing.T) {
 	t.Parallel()
 	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	type homeArgs struct {
 		Prefix Prefix `long:"prefix" default:"~"`
 	}
 	parsedHome, err := cmd.Parse[homeArgs]()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if parsedHome.Prefix.Value() != home {
-		t.Fatalf("home default = %q", parsedHome.Prefix.Value())
-	}
+	require.NoError(t, err)
+	require.Equal(t, home, parsedHome.Prefix.Value())
 
 	type dotArgs struct {
 		Prefix Prefix `long:"prefix" default:"."`
 	}
 	parsedDot, err := cmd.Parse[dotArgs]()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if parsedDot.Prefix.Value() != "." {
-		t.Fatalf("codebase default = %q", parsedDot.Prefix.Value())
-	}
+	require.NoError(t, err)
+	require.Equal(t, ".", parsedDot.Prefix.Value())
 
 	type rootArgs struct {
 		Prefix Prefix `long:"prefix" default:"/"`
 	}
 	parsedRoot, err := cmd.Parse[rootArgs]()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if parsedRoot.Prefix.Value() != "/" {
-		t.Fatalf("system default = %q", parsedRoot.Prefix.Value())
-	}
+	require.NoError(t, err)
+	require.Equal(t, "/", parsedRoot.Prefix.Value())
 }
 
 func TestPrefixRejectsMissing(t *testing.T) {
 	t.Parallel()
 	var prefix Prefix
-	if err := prefix.Parse(t.TempDir() + "/missing"); err == nil {
-		t.Fatal("expected error")
-	}
+	require.Error(t, prefix.Parse(t.TempDir()+"/missing"))
 }

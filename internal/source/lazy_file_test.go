@@ -5,6 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // trackingCloser records whether Close was called.
@@ -27,9 +30,7 @@ func TestConcatenatedFileReaderCloseClosesComponents(t *testing.T) {
 	}
 	for i, p := range paths {
 		content := []byte{'A' + byte(i)}
-		if err := os.WriteFile(p, content, 0o644); err != nil {
-			t.Fatalf("write %s: %v", p, err)
-		}
+		require.NoError(t, os.WriteFile(p, content, 0o644), "write %s", p)
 	}
 
 	closed := make([]bool, len(paths))
@@ -59,24 +60,14 @@ func TestConcatenatedFileReaderCloseClosesComponents(t *testing.T) {
 	}
 
 	r, err := cf.Reader()
-	if err != nil {
-		t.Fatalf("Reader: %v", err)
-	}
+	require.NoError(t, err, "Reader")
 	got, err := io.ReadAll(r)
-	if err != nil {
-		t.Fatalf("ReadAll: %v", err)
-	}
-	if string(got) != "A\nB" {
-		t.Fatalf("content = %q, want %q", got, "A\nB")
-	}
+	require.NoError(t, err, "ReadAll")
+	require.Equal(t, "A\nB", string(got))
 	// Partial read path already finished; Close must still close components.
-	if err := r.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
-	}
+	require.NoError(t, r.Close(), "Close")
 	for i, c := range closed {
-		if !c {
-			t.Errorf("component %d not closed", i)
-		}
+		assert.True(t, c, "component %d not closed", i)
 	}
 }
 
@@ -84,9 +75,7 @@ func TestConcatenatedFileCloseWithoutFullRead(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	p := filepath.Join(dir, "big.txt")
-	if err := os.WriteFile(p, []byte("hello world"), 0o644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
+	require.NoError(t, os.WriteFile(p, []byte("hello world"), 0o644), "write")
 	var closed bool
 	cf := &ConcatenatedFile{
 		BasicFile: BasicFile{RelPathStr: "out", TargetBaseDir: dir, FileMode: 0o644, FileType: TypeDotD},
@@ -101,19 +90,12 @@ func TestConcatenatedFileCloseWithoutFullRead(t *testing.T) {
 		},
 	}
 	r, err := cf.Reader()
-	if err != nil {
-		t.Fatalf("Reader: %v", err)
-	}
+	require.NoError(t, err, "Reader")
 	buf := make([]byte, 1)
-	if _, err := r.Read(buf); err != nil {
-		t.Fatalf("Read: %v", err)
-	}
-	if err := r.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
-	}
-	if !closed {
-		t.Fatal("component not closed after partial read + Close")
-	}
+	_, err = r.Read(buf)
+	require.NoError(t, err, "Read")
+	require.NoError(t, r.Close(), "Close")
+	require.True(t, closed, "component not closed after partial read + Close")
 }
 
 // trackingFile is a StaticFile whose Reader returns a closer that records Close.

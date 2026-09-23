@@ -8,6 +8,7 @@ import (
 	_ "github.com/lucasew/workspaced/pkg/driver/exec/native"
 	"github.com/lucasew/workspaced/pkg/driver/shell"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWhichDriverExposesPathOnly(t *testing.T) {
@@ -18,18 +19,11 @@ func TestWhichDriverExposesPathOnly(t *testing.T) {
 	t.Setenv("WORKSPACED_FORCE_SHELL_DRIVER", "shell_test_which")
 
 	d, err := shell.Get(ctx)
-	if err != nil {
-		t.Fatalf("Get: %v", err)
-	}
+	require.NoError(t, err)
 	path, err := d.Path(ctx)
-	if err != nil {
-		t.Fatalf("Path: %v", err)
-	}
-	if filepath.Base(path) != "sh" {
-		t.Fatalf("Path base = %q, want sh", filepath.Base(path))
-	}
+	require.NoError(t, err)
+	require.Equal(t, "sh", filepath.Base(path))
 
-	if _, ok := d.(driver.DriverFactory[shell.Driver]); ok {
-		t.Fatal("shell.Driver unexpectedly implements DriverFactory")
-	}
+	_, ok := d.(driver.DriverFactory[shell.Driver])
+	require.False(t, ok, "shell.Driver unexpectedly implements DriverFactory")
 }

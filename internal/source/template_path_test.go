@@ -1,6 +1,10 @@
 package source
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestIsTemplatePath(t *testing.T) {
 	t.Parallel()
@@ -20,9 +24,8 @@ func TestIsTemplatePath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
 			t.Parallel()
-			if got := isTemplatePath(tt.path); got != tt.want {
-				t.Fatalf("isTemplatePath(%q) = %v, want %v", tt.path, got, tt.want)
-			}
+			got := isTemplatePath(tt.path)
+			require.Equal(t, tt.want, got, "isTemplatePath(%q)", tt.path)
 		})
 	}
 }
@@ -41,9 +44,8 @@ func TestStripTemplate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
 			t.Parallel()
-			if got := stripTemplate(tt.path); got != tt.want {
-				t.Fatalf("stripTemplate(%q) = %q, want %q", tt.path, got, tt.want)
-			}
+			got := stripTemplate(tt.path)
+			require.Equal(t, tt.want, got, "stripTemplate(%q)", tt.path)
 		})
 	}
 }

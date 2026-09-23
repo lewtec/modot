@@ -2,25 +2,22 @@ package deployer
 
 import (
 	"encoding/json"
-	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestFileStateStoreRelativeToRoot(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "root")
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(root, 0o755))
 	statePath := filepath.Join(dir, "state.json")
 
 	store, err := NewFileStateStore(statePath, root)
-	if err != nil {
-		t.Fatalf("NewFileStateStore: %v", err)
-	}
+	require.NoError(t, err, "NewFileStateStore")
 
 	absA := filepath.Join(root, "a", "file.txt")
 	absB := filepath.Join(root, "b.txt")
@@ -28,94 +25,61 @@ func TestFileStateStoreRelativeToRoot(t *testing.T) {
 		absA: {SourceInfo: "mod:a"},
 		absB: {SourceInfo: "mod:b"},
 	}}
-	if err := store.Save(in); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	require.NoError(t, store.Save(in), "Save")
 
 	raw, err := os.ReadFile(statePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var disk State
-	if err := json.Unmarshal(raw, &disk); err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := disk.Files[filepath.Join("a", "file.txt")]; !ok {
-		t.Fatalf("expected relative key a/file.txt in disk state, got %#v", disk.Files)
-	}
-	if _, ok := disk.Files["b.txt"]; !ok {
-		t.Fatalf("expected relative key b.txt in disk state, got %#v", disk.Files)
-	}
+	require.NoError(t, json.Unmarshal(raw, &disk))
+	require.Contains(t, disk.Files, filepath.Join("a", "file.txt"), "expected relative key a/file.txt in disk state, got %#v", disk.Files)
+	require.Contains(t, disk.Files, "b.txt", "expected relative key b.txt in disk state, got %#v", disk.Files)
 	for k := range disk.Files {
-		if filepath.IsAbs(k) {
-			t.Fatalf("disk key should be relative, got %q", k)
-		}
+		require.False(t, filepath.IsAbs(k), "disk key should be relative, got %q", k)
 	}
 
 	loaded, err := store.Load()
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if info, ok := loaded.Files[absA]; !ok || info.SourceInfo != "mod:a" {
-		t.Fatalf("load absA: got %#v", loaded.Files)
-	}
-	if info, ok := loaded.Files[absB]; !ok || info.SourceInfo != "mod:b" {
-		t.Fatalf("load absB: got %#v", loaded.Files)
-	}
+	require.NoError(t, err, "Load")
+	info, ok := loaded.Files[absA]
+	require.True(t, ok, "load absA: got %#v", loaded.Files)
+	require.Equal(t, "mod:a", info.SourceInfo)
+	info, ok = loaded.Files[absB]
+	require.True(t, ok, "load absB: got %#v", loaded.Files)
+	require.Equal(t, "mod:b", info.SourceInfo)
 }
 
 func TestFileStateStoreSaveIsAtomic(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "root")
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(root, 0o755))
 	statePath := filepath.Join(dir, "state.json")
 	// Pre-existing state that must remain readable if replace is atomic.
 	old := &State{Files: map[string]ManagedInfo{
 		filepath.Join(root, "old.txt"): {SourceInfo: "old"},
 	}}
 	store, err := NewFileStateStore(statePath, root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Save(old); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NoError(t, store.Save(old))
 
 	next := &State{Files: map[string]ManagedInfo{
 		filepath.Join(root, "new.txt"): {SourceInfo: "new"},
 	}}
-	if err := store.Save(next); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	require.NoError(t, store.Save(next), "Save")
 
-	if _, err := os.Stat(statePath + ".tmp"); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("temp file should be gone after successful Save, err=%v", err)
-	}
+	_, err = os.Stat(statePath + ".tmp")
+	require.ErrorIs(t, err, fs.ErrNotExist, "temp file should be gone after successful Save")
 
 	raw, err := os.ReadFile(statePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var disk State
-	if err := json.Unmarshal(raw, &disk); err != nil {
-		t.Fatalf("final state must be valid JSON: %v\n%s", err, raw)
-	}
-	if _, ok := disk.Files["new.txt"]; !ok {
-		t.Fatalf("expected new.txt after save, got %#v", disk.Files)
-	}
-	if _, ok := disk.Files["old.txt"]; ok {
-		t.Fatalf("old.txt should have been replaced, got %#v", disk.Files)
-	}
+	require.NoError(t, json.Unmarshal(raw, &disk), "final state must be valid JSON: %s", raw)
+	require.Contains(t, disk.Files, "new.txt", "expected new.txt after save, got %#v", disk.Files)
+	require.NotContains(t, disk.Files, "old.txt", "old.txt should have been replaced, got %#v", disk.Files)
 }
 
 func TestFileStateStoreMigratesAbsoluteKeys(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "root")
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(root, 0o755))
 	statePath := filepath.Join(dir, "state.json")
 	abs := filepath.Join(root, "legacy.txt")
 
@@ -124,63 +88,35 @@ func TestFileStateStoreMigratesAbsoluteKeys(t *testing.T) {
 		abs: {SourceInfo: "old"},
 	}}
 	data, err := json.MarshalIndent(legacy, "", "  ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(statePath, data, 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(statePath, data, 0o644))
 
 	store, err := NewFileStateStore(statePath, root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	loaded, err := store.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := loaded.Files[abs]; !ok {
-		t.Fatalf("expected absolute key after load, got %#v", loaded.Files)
-	}
+	require.NoError(t, err)
+	require.Contains(t, loaded.Files, abs, "expected absolute key after load, got %#v", loaded.Files)
 
 	// Re-save should rewrite as relative.
-	if err := store.Save(loaded); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, store.Save(loaded))
 	raw, err := os.ReadFile(statePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var disk State
-	if err := json.Unmarshal(raw, &disk); err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := disk.Files["legacy.txt"]; !ok {
-		t.Fatalf("expected relativized key after save, got %#v", disk.Files)
-	}
+	require.NoError(t, json.Unmarshal(raw, &disk))
+	require.Contains(t, disk.Files, "legacy.txt", "expected relativized key after save, got %#v", disk.Files)
 }
 
 func TestRelToRootAndAbsFromRoot(t *testing.T) {
 	root := "/home/user"
-	if got := RelToRoot("/home/user/.config/foo", root); got != ".config/foo" {
-		t.Fatalf("RelToRoot: got %q", got)
-	}
-	if got := AbsFromRoot(".config/foo", root); got != "/home/user/.config/foo" {
-		t.Fatalf("AbsFromRoot: got %q", got)
-	}
+	require.Equal(t, ".config/foo", RelToRoot("/home/user/.config/foo", root))
+	require.Equal(t, "/home/user/.config/foo", AbsFromRoot(".config/foo", root))
 	// Outside root stays absolute.
-	if got := RelToRoot("/other/x", root); got != "/other/x" {
-		t.Fatalf("RelToRoot outside: got %q", got)
-	}
+	require.Equal(t, "/other/x", RelToRoot("/other/x", root))
 }
 
 func TestPrettyPathUsesRelToRoot(t *testing.T) {
 	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	got := PrettyPath(filepath.Join(home, ".config", "x"))
-	if got != "~/.config/x" {
-		t.Fatalf("PrettyPath: got %q", got)
-	}
+	require.Equal(t, "~/.config/x", got)
 }

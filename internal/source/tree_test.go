@@ -9,6 +9,7 @@ import (
 	"github.com/lucasew/workspaced/internal/configcue"
 	_ "github.com/lucasew/workspaced/pkg/driver/env/native"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBuilderTreeRendersTemplateAndStatic(t *testing.T) {
@@ -16,41 +17,20 @@ func TestBuilderTreeRendersTemplateAndStatic(t *testing.T) {
 	ctx := logging.NewWriterContext(t.Output())
 	src := t.TempDir()
 	dest := t.TempDir()
-	if err := os.WriteFile(filepath.Join(src, "hello.txt.tmpl"), []byte("hi {{ .runtime.goos }}\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(src, "plain.txt"), []byte("static\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(src, "hello.txt.tmpl"), []byte("hi {{ .runtime.goos }}\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(src, "plain.txt"), []byte("static\n"), 0o644))
 	scanner, err := NewScannerPlugin(ScannerConfig{Name: "src", BaseDir: src, TargetBase: dest})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	tree, err := Builder{Config: &configcue.Config{}, TargetBase: dest, Providers: []Plugin{scanner}}.Tree(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if tree.Dest() == nil {
-		t.Fatal("Dest is nil")
-	}
+	require.NoError(t, err)
+	require.NotNil(t, tree.Dest(), "Dest is nil")
 	got, err := fs.ReadFile(tree.Dest(), "plain.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != "static\n" {
-		t.Fatalf("plain=%q", got)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "static\n", string(got))
 	hello, err := fs.ReadFile(tree.Dest(), "hello.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(hello) == 0 {
-		t.Fatal("hello.txt empty")
-	}
-	files := tree.Files()
-	if len(files) != 2 {
-		t.Fatalf("files=%d want 2", len(files))
-	}
+	require.NoError(t, err)
+	require.NotEmpty(t, hello, "hello.txt empty")
+	require.Len(t, tree.Files(), 2)
 }
 
 func TestBuilderTreeMergesCueLines(t *testing.T) {
@@ -58,42 +38,26 @@ func TestBuilderTreeMergesCueLines(t *testing.T) {
 	ctx := logging.NewWriterContext(t.Output())
 	src := t.TempDir()
 	dest := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(src, ".bashrc.d.tmpl"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(src, ".bashrc.d.tmpl", "10-mod.sh"), []byte("from-mod"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Join(src, ".bashrc.d.tmpl"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(src, ".bashrc.d.tmpl", "10-mod.sh"), []byte("from-mod"), 0o644))
 	cuePath := filepath.Join(t.TempDir(), "workspaced.cue")
-	if err := os.WriteFile(cuePath, []byte(`package workspaced
+	require.NoError(t, os.WriteFile(cuePath, []byte(`package workspaced
 workspaced: {
 	file: home: ".bashrc": {
 		type: "lines"
 		values: {"00-cue": "from-cue"}
 	}
 }
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
+`), 0o644))
 	cfg, err := configcue.LoadFiles(ctx, []string{cuePath})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	scanner, err := NewScannerPlugin(ScannerConfig{Name: "src", BaseDir: src, TargetBase: dest})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	tree, err := Builder{Config: cfg, TargetBase: dest, Providers: []Plugin{scanner}}.Tree(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	got, err := fs.ReadFile(tree.Dest(), ".bashrc")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != "from-cue\nfrom-mod" {
-		t.Fatalf("content=%q", got)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "from-cue\nfrom-mod", string(got))
 }
 
 func TestNewApplyTreeHasNoDest(t *testing.T) {
@@ -102,10 +66,6 @@ func TestNewApplyTreeHasNoDest(t *testing.T) {
 		BasicFile: BasicFile{RelPathStr: "a", TargetBaseDir: "/tmp"},
 		Content:   []byte("x"),
 	}})
-	if tree.Dest() != nil {
-		t.Fatal("expected nil Dest")
-	}
-	if len(tree.Files()) != 1 {
-		t.Fatalf("files=%d", len(tree.Files()))
-	}
+	require.Nil(t, tree.Dest())
+	require.Len(t, tree.Files(), 1)
 }

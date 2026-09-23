@@ -4,14 +4,15 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestByteProgress(t *testing.T) {
 	got := byteProgress(512*1024, 2*1024*1024)
 	want := "512.0 KiB / 2.0 MiB"
-	if got != want {
-		t.Fatalf("byteProgress = %q, want %q", got, want)
-	}
+	require.Equal(t, want, got)
 }
 
 func TestHumanBytes(t *testing.T) {
@@ -27,18 +28,14 @@ func TestHumanBytes(t *testing.T) {
 		{1024 * 1024, "1.0 MiB"},
 	}
 	for _, tt := range tests {
-		if got := humanBytes(tt.in); got != tt.want {
-			t.Errorf("humanBytes(%d) = %q, want %q", tt.in, got, tt.want)
-		}
+		assert.Equal(t, tt.want, humanBytes(tt.in), "humanBytes(%d)", tt.in)
 	}
 }
 
 func TestTaskName(t *testing.T) {
 	req := func(raw string) *http.Request {
 		u, err := url.Parse(raw)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		return &http.Request{URL: u}
 	}
 
@@ -54,9 +51,7 @@ func TestTaskName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		got := taskName(req(tt.raw))
-		if got != tt.want {
-			t.Errorf("taskName(%s) = %q, want %q", tt.raw, got, tt.want)
-		}
+		assert.Equal(t, tt.want, got, "taskName(%s)", tt.raw)
 	}
 }
 
@@ -64,7 +59,5 @@ func TestTaskNameWithLabel(t *testing.T) {
 	u, _ := url.Parse("https://api.github.com/repos/o/r/releases/assets/1")
 	req, _ := http.NewRequest(http.MethodGet, u.String(), nil)
 	req = req.WithContext(WithTaskLabel(req.Context(), "tool@1.2.3"))
-	if got := taskName(req); got != "tool@1.2.3" {
-		t.Fatalf("taskName with label = %q, want tool@1.2.3", got)
-	}
+	require.Equal(t, "tool@1.2.3", taskName(req))
 }

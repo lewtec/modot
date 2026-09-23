@@ -6,20 +6,17 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPlaceModuleConfigSchema(t *testing.T) {
 	t.Parallel()
 
 	schemaBytes, err := schemaFS.ReadFile("schema.cue")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	cueCtx := cuecontext.New()
 	schema := cueCtx.CompileBytes(schemaBytes, cue.Filename("schema.cue"))
-	if err := schema.Err(); err != nil {
-		t.Fatalf("schema: %v", err)
-	}
+	require.NoError(t, schema.Err(), "schema")
 
 	unifyUser := func(t *testing.T, user string) error {
 		t.Helper()
@@ -56,9 +53,7 @@ workspaced: modules: best_practices: {
 	}
 }
 `)
-		if err != nil {
-			t.Fatalf("unify: %v", err)
-		}
+		require.NoError(t, err, "unify")
 	})
 
 	t.Run("rejects unknown step op", func(t *testing.T) {
@@ -72,13 +67,11 @@ workspaced: modules: best_practices: {
 	}
 }
 `)
-		if err == nil {
-			t.Fatal("expected schema error for unknown op")
-		}
+		require.Error(t, err, "expected schema error for unknown op")
 		msg := err.Error()
-		if !strings.Contains(msg, "disjunction") && !strings.Contains(msg, "reject") && !strings.Contains(msg, "op") {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		require.True(t,
+			strings.Contains(msg, "disjunction") || strings.Contains(msg, "reject") || strings.Contains(msg, "op"),
+			"unexpected error: %v", err)
 	})
 
 	t.Run("rejects move without from", func(t *testing.T) {
@@ -92,9 +85,7 @@ workspaced: modules: best_practices: {
 	}
 }
 `)
-		if err == nil {
-			t.Fatal("expected schema error for incomplete move")
-		}
+		require.Error(t, err, "expected schema error for incomplete move")
 	})
 
 	t.Run("non-place module config stays open", func(t *testing.T) {
@@ -106,9 +97,7 @@ workspaced: modules: other: {
 	config: {anything: true, nested: {x: 1}}
 }
 `)
-		if err != nil {
-			t.Fatalf("unify: %v", err)
-		}
+		require.NoError(t, err, "unify")
 	})
 
 	t.Run("module without from field (input only)", func(t *testing.T) {
@@ -122,8 +111,6 @@ workspaced: modules: fontconfig: {
 	config: {enable: true}
 }
 `)
-		if err != nil {
-			t.Fatalf("unify: %v", err)
-		}
+		require.NoError(t, err, "unify")
 	})
 }

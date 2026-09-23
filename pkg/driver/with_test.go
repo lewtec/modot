@@ -7,6 +7,7 @@ import (
 
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 type probe interface {
@@ -29,17 +30,15 @@ func TestWithAndWithResult(t *testing.T) {
 	t.Setenv("WORKSPACED_FORCE_DRIVER_TEST_PROBE_DRIVER", "probe_test")
 	ctx := logging.NewWriterContext(t.Output())
 
-	if err := driver.With(ctx, func(p probe) error {
+	err := driver.With(ctx, func(p probe) error {
 		if p.ID() != "probe_test" {
 			return errors.New("bad id")
 		}
 		return nil
-	}); err != nil {
-		t.Fatalf("With: %v", err)
-	}
+	})
+	require.NoError(t, err)
 
 	id, err := driver.WithResult(ctx, func(p probe) (string, error) { return p.ID(), nil })
-	if err != nil || id != "probe_test" {
-		t.Fatalf("WithResult = %q, %v", id, err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "probe_test", id)
 }

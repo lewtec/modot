@@ -6,24 +6,17 @@ import (
 	"testing"
 
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewAPIRequestHeaders(t *testing.T) {
 	t.Setenv(githubTokenProbeEnv, githubTokenProbeVal)
 	ctx := logging.NewWriterContext(io.Discard)
 	req, err := NewAPIRequest(ctx, http.MethodGet, "https://api.github.com/repos/o/r/releases")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := req.Header.Get("User-Agent"); got != UserAgent {
-		t.Fatalf("User-Agent: got %q, want %q", got, UserAgent)
-	}
-	if got := req.Header.Get("X-GitHub-Api-Version"); got != APIVersion {
-		t.Fatalf("X-GitHub-Api-Version: got %q, want %q", got, APIVersion)
-	}
-	if got := req.Header.Get("Authorization"); got != "" {
-		t.Fatalf("Authorization with probe env: got %q, want empty", got)
-	}
+	require.NoError(t, err)
+	require.Equal(t, UserAgent, req.Header.Get("User-Agent"))
+	require.Equal(t, APIVersion, req.Header.Get("X-GitHub-Api-Version"))
+	require.Empty(t, req.Header.Get("Authorization"), "Authorization with probe env")
 }
 
 func TestApplyAPIHeadersNilSafe(t *testing.T) {

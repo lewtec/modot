@@ -5,23 +5,21 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBuildProgressCountsLines(t *testing.T) {
 	w := newBuildProgress(nil)
 	w.total = 3
-	if _, err := w.Write([]byte("github.com/a\ngithub.com/b\n")); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := w.Write([]byte("github.com/c\n")); err != nil {
-		t.Fatal(err)
-	}
-	if w.n != 3 || w.total != 3 {
-		t.Fatalf("progress = %d/%d, want 3/3", w.n, w.total)
-	}
-	if got := w.tail(); got != "github.com/a\ngithub.com/b\ngithub.com/c" {
-		t.Fatalf("tail = %q", got)
-	}
+	_, err := w.Write([]byte("github.com/a\ngithub.com/b\n"))
+	require.NoError(t, err)
+	_, err = w.Write([]byte("github.com/c\n"))
+	require.NoError(t, err)
+	require.Equal(t, int64(3), w.n)
+	require.Equal(t, int64(3), w.total)
+	require.Equal(t, "github.com/a\ngithub.com/b\ngithub.com/c", w.tail())
 }
 
 func TestFindBinary(t *testing.T) {
@@ -30,74 +28,46 @@ func TestFindBinary(t *testing.T) {
 	// Helper to create file
 	createFile := func(path string, mode os.FileMode) {
 		dir := filepath.Dir(path)
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.MkdirAll(dir, 0755))
 		f, err := os.Create(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := f.Close(); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Chmod(path, mode); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
+		require.NoError(t, f.Close())
+		require.NoError(t, os.Chmod(path, mode))
 	}
 
 	t.Run("Exact match workspaced", func(t *testing.T) {
 		dir := filepath.Join(tmpDir, "exact")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.MkdirAll(dir, 0755))
 		createFile(filepath.Join(dir, "workspaced"), 0755)
 
 		found, err := findBinary(dir)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if filepath.Base(found) != "workspaced" {
-			t.Errorf("expected workspaced, got %s", found)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, "workspaced", filepath.Base(found))
 	})
 
 	t.Run("Exact match workspaced.exe", func(t *testing.T) {
 		dir := filepath.Join(tmpDir, "exact_exe")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.MkdirAll(dir, 0755))
 		createFile(filepath.Join(dir, "workspaced.exe"), 0755)
 
 		found, err := findBinary(dir)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if filepath.Base(found) != "workspaced.exe" {
-			t.Errorf("expected workspaced.exe, got %s", found)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, "workspaced.exe", filepath.Base(found))
 	})
 
 	t.Run("Match in bin/", func(t *testing.T) {
 		dir := filepath.Join(tmpDir, "in_bin")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.MkdirAll(dir, 0755))
 		createFile(filepath.Join(dir, "bin", "workspaced"), 0755)
 
 		found, err := findBinary(dir)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if filepath.Base(found) != "workspaced" {
-			t.Errorf("expected workspaced, got %s", found)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, "workspaced", filepath.Base(found))
 	})
 
 	t.Run("Fallback scan single binary", func(t *testing.T) {
 		dir := filepath.Join(tmpDir, "fallback_single")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.MkdirAll(dir, 0755))
 
 		binName := "workspaced-custom"
 		if runtime.GOOS == "windows" {
@@ -107,63 +77,43 @@ func TestFindBinary(t *testing.T) {
 		createFile(filepath.Join(dir, "README.md"), 0644)
 
 		found, err := findBinary(dir)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if filepath.Base(found) != binName {
-			t.Errorf("expected %s, got %s", binName, found)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, binName, filepath.Base(found))
 	})
 
 	// Platform specific fallback tests
 	if runtime.GOOS != "windows" {
 		t.Run("Fallback scan executable bit", func(t *testing.T) {
 			dir := filepath.Join(tmpDir, "fallback_exec")
-			if err := os.MkdirAll(dir, 0755); err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, os.MkdirAll(dir, 0755))
 
 			createFile(filepath.Join(dir, "not_exec"), 0644)
 			createFile(filepath.Join(dir, "is_exec"), 0755) // +x
 
 			found, err := findBinary(dir)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if filepath.Base(found) != "is_exec" {
-				t.Errorf("expected is_exec, got %s", found)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, "is_exec", filepath.Base(found))
 		})
 	} else {
 		t.Run("Fallback scan exe extension", func(t *testing.T) {
 			dir := filepath.Join(tmpDir, "fallback_exe_ext")
-			if err := os.MkdirAll(dir, 0755); err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, os.MkdirAll(dir, 0755))
 
 			createFile(filepath.Join(dir, "not_exe"), 0755)
 			createFile(filepath.Join(dir, "is_exe.exe"), 0755)
 
 			found, err := findBinary(dir)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if filepath.Base(found) != "is_exe.exe" {
-				t.Errorf("expected is_exe.exe, got %s", found)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, "is_exe.exe", filepath.Base(found))
 		})
 	}
 
 	t.Run("No binary found", func(t *testing.T) {
 		dir := filepath.Join(tmpDir, "none")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.MkdirAll(dir, 0755))
 		createFile(filepath.Join(dir, "README.md"), 0644)
 
 		_, err := findBinary(dir)
-		if err == nil {
-			t.Fatal("expected error, got nil")
-		}
+		require.Error(t, err)
 	})
 }

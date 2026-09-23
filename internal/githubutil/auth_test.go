@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/stretchr/testify/require"
 )
 
 func TestResolveTokenSTOP(t *testing.T) {
@@ -16,9 +17,7 @@ func TestResolveTokenSTOP(t *testing.T) {
 	t.Setenv(githubTokenProbeEnv, "")
 	ctx := logging.NewWriterContext(io.Discard)
 	got := resolveToken(ctx)
-	if got != "" {
-		t.Fatalf("resolveToken with GITHUB_TOKEN=STOP: got %q, want empty", got)
-	}
+	require.Empty(t, got, "resolveToken with GITHUB_TOKEN=STOP")
 }
 
 func TestResolveTokenFromEnv(t *testing.T) {
@@ -26,9 +25,7 @@ func TestResolveTokenFromEnv(t *testing.T) {
 	t.Setenv(githubTokenProbeEnv, "")
 	ctx := logging.NewWriterContext(io.Discard)
 	got := resolveToken(ctx)
-	if got != "ghs_test_token" {
-		t.Fatalf("resolveToken: got %q, want ghs_test_token", got)
-	}
+	require.Equal(t, "ghs_test_token", got)
 }
 
 func TestResolveTokenSTOPNotUsedAsBearer(t *testing.T) {
@@ -37,20 +34,14 @@ func TestResolveTokenSTOPNotUsedAsBearer(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", githubTokenStop)
 	t.Setenv(githubTokenProbeEnv, "")
 	ctx := logging.NewWriterContext(io.Discard)
-	if tok := resolveToken(ctx); tok != "" {
-		t.Fatalf("token: got %q, want empty", tok)
-	}
+	require.Empty(t, resolveToken(ctx))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://example.com", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	// Mirror ApplyAuth's rule: only set Authorization when token is non-empty.
 	if tok := resolveToken(ctx); tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
-	if got := req.Header.Get("Authorization"); got != "" {
-		t.Fatalf("Authorization header: got %q, want empty (STOP must not be sent as Bearer)", got)
-	}
+	require.Empty(t, req.Header.Get("Authorization"), "STOP must not be sent as Bearer")
 }
 
 func TestTokenProbeEnvSkipsResolution(t *testing.T) {
@@ -58,9 +49,7 @@ func TestTokenProbeEnvSkipsResolution(t *testing.T) {
 	t.Setenv(githubTokenProbeEnv, githubTokenProbeVal)
 	ctx := logging.NewWriterContext(io.Discard)
 	// Token short-circuits on probe env before Once/env/gh.
-	if got := Token(ctx); got != "" {
-		t.Fatalf("Token with probe env: got %q, want empty", got)
-	}
+	require.Empty(t, Token(ctx), "Token with probe env")
 }
 
 func TestResolveGHBinaryUsesLocatorWhenPATHMissing(t *testing.T) {
@@ -76,12 +65,8 @@ func TestResolveGHBinaryUsesLocatorWhenPATHMissing(t *testing.T) {
 
 	ctx := logging.NewWriterContext(io.Discard)
 	got, err := resolveGHBinary(ctx)
-	if err != nil {
-		t.Fatalf("resolveGHBinary: %v", err)
-	}
-	if got != want {
-		t.Fatalf("resolveGHBinary: got %q, want %q", got, want)
-	}
+	require.NoError(t, err)
+	require.Equal(t, want, got)
 }
 
 func TestResolveGHBinaryLocatorError(t *testing.T) {
@@ -97,9 +82,7 @@ func TestResolveGHBinaryLocatorError(t *testing.T) {
 
 	ctx := logging.NewWriterContext(io.Discard)
 	_, err := resolveGHBinary(ctx)
-	if !errors.Is(err, boom) {
-		t.Fatalf("resolveGHBinary: got %v, want %v", err, boom)
-	}
+	require.ErrorIs(t, err, boom)
 }
 
 func TestResolveGHBinaryNoLocator(t *testing.T) {
@@ -110,7 +93,5 @@ func TestResolveGHBinaryNoLocator(t *testing.T) {
 
 	ctx := logging.NewWriterContext(io.Discard)
 	_, err := resolveGHBinary(ctx)
-	if !errors.Is(err, errGHNotFound) {
-		t.Fatalf("resolveGHBinary: got %v, want %v", err, errGHNotFound)
-	}
+	require.ErrorIs(t, err, errGHNotFound)
 }
