@@ -23,7 +23,7 @@ func (Prefix) ArgDefault() string {
 	// Flag defaults run during parse, before the command context exists.
 	ctx := logging.NewRootContext(slog.Default())
 	if cue, err := configcue.ResolveWorkspaceCuePath(ctx, ""); err == nil && cue != "" {
-		return lewpath.New(cue).Parent().String()
+		return filepath.Dir(cue)
 	}
 	ws, err := modfile.DetectWorkspace(ctx, "")
 	if err != nil || ws == nil || ws.Root == "" {
@@ -47,23 +47,31 @@ func (Prefix) ModulesDir() lewpath.Path {
 	return lewpath.New("modules")
 }
 
-// directory opens rel under workspace when it exists.
-// A missing directory is the root name plus the relative path.
+// directory is the host path of rel inside workspace.
+// An existing directory uses the opened root name. A missing one walks parents.
 func directory(workspace *lewpath.Root, rel lewpath.Path) (string, error) {
 	ok, err := rel.IsDir(workspace)
 	if err != nil {
 		return "", err
 	}
-	if !ok {
-		return filepath.Join(workspace.Name(), filepath.FromSlash(rel.String())), nil
+	if ok {
+		opened, err := rel.OpenRoot(workspace)
+		if err != nil {
+			return "", err
+		}
+		name := opened.Name()
+		err = opened.Close()
+		return name, err
 	}
-	opened, err := rel.OpenRoot(workspace)
+	parent := rel.Parent()
+	if parent == lewpath.New(".") {
+		return filepath.Join(workspace.Name(), rel.Name()), nil
+	}
+	parentName, err := directory(workspace, parent)
 	if err != nil {
 		return "", err
 	}
-	name := opened.Name()
-	err = opened.Close()
-	return name, err
+	return filepath.Join(parentName, rel.Name()), nil
 }
 
 var (

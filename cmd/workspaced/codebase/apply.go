@@ -99,7 +99,7 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 		}
 
 		// Repo-local state. Never use the global ~/.config/workspaced state.
-		stateStore, err := deployer.NewFileStateStoreIn(root, Prefix{}.StatePath())
+		stateStore, err := deployer.NewFileStateStoreIn(workspace, Prefix{}.StatePath())
 		if err != nil {
 			return fmt.Errorf("create state store: %w", err)
 		}

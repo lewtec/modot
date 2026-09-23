@@ -1,6 +1,7 @@
 package codebase
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/lewtec/lewkit/x/cmd"
@@ -26,7 +27,7 @@ func TestPrefixFlagWins(t *testing.T) {
 	}
 	want := lewpath.New(".workspaced", "state.json")
 	if got.Prefix.StatePath() != want {
-		t.Fatalf("state = %s", got.Prefix.StatePath())
+		t.Fatal("state path mismatch")
 	}
 }
 
@@ -42,7 +43,7 @@ func TestPrefixDefaultIsWorkspaceRoot(t *testing.T) {
 	ctx := logging.NewWriterContext(t.Output())
 	want := "."
 	if cue, err := configcue.ResolveWorkspaceCuePath(ctx, ""); err == nil && cue != "" {
-		want = lewpath.New(cue).Parent().String()
+		want = filepath.Dir(cue)
 	} else if ws, err := modfile.DetectWorkspace(ctx, ""); err == nil && ws != nil && ws.Root != "" {
 		want = ws.Root
 	}

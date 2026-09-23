@@ -1,6 +1,10 @@
 package source
 
-import lewpath "github.com/lewtec/lewkit/x/path"
+import (
+	"strings"
+
+	lewpath "github.com/lewtec/lewkit/x/path"
+)
 
 // isTemplatePath reports a file the template expander renders.
 // A .tmpl suffix anywhere in the file name counts, so file.tmpl.sh is a template.
@@ -19,11 +23,12 @@ func isTemplatePath(rel string) bool {
 func stripTemplate(rel string) string {
 	name := lewpath.New(rel)
 	if name.Suffix() == ".tmpl" {
-		return name.WithSuffix("").String()
+		return strings.TrimSuffix(rel, ".tmpl")
 	}
 	stem := lewpath.New(name.Stem())
 	if stem.Suffix() != ".tmpl" {
-		return name.String()
+		return rel
 	}
-	return name.WithStem(stem.WithSuffix("").String()).String()
+	dir := strings.TrimSuffix(rel, name.Name())
+	return dir + strings.TrimSuffix(name.Stem(), ".tmpl") + name.Suffix()
 }

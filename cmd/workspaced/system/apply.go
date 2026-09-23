@@ -87,10 +87,17 @@ func applySystemFiles(ctx context.Context, prefix string, cfg *configcue.Config,
 	if err != nil {
 		return err
 	}
-	statePath := lewpath.New(prefix, "var/lib/workspaced/state.json").String()
-	stateStore, err := deployer.NewFileStateStore(statePath, prefix)
+	workspace, err := lewpath.Open(prefix)
+	if err != nil {
+		return fmt.Errorf("open prefix: %w", err)
+	}
+	stateStore, err := deployer.NewFileStateStoreIn(workspace, lewpath.New("var", "lib", "workspaced", "state.json"))
+	closeErr := workspace.Close()
 	if err != nil {
 		return fmt.Errorf("create state store: %w", err)
+	}
+	if closeErr != nil {
+		return closeErr
 	}
 	manager, err := dotfiles.NewManager(dotfiles.Config{
 		Tree:       tree,

@@ -88,7 +88,7 @@ func composeTracked(ctx context.Context, status *taskgroup.Status, request destR
 		}
 		profile := grouped[name]
 		if profile == nil {
-			profile = &profileFiles{recorded: map[string]recordedFile{}}
+			profile = &profileFiles{recorded: map[lewpath.Path]recordedFile{}}
 			grouped[name] = profile
 		}
 		// Plain copies do not enter Tree.Add. That scan is quadratic, and a
@@ -116,7 +116,7 @@ func composeTracked(ctx context.Context, status *taskgroup.Status, request destR
 		}
 		profile := grouped[name]
 		var base fs.FS
-		var recorded map[string]recordedFile
+		var recorded map[lewpath.Path]recordedFile
 		if profile != nil {
 			if err := profile.absorbLineTargets(); err != nil {
 				return nil, fmt.Errorf("file.%s: %w", name, err)
@@ -228,16 +228,16 @@ func (filesystem profileFilesystem) Open(name string) (fs.File, error) {
 	return nil, missing
 }
 
-func applyFiles(ctx context.Context, tree *compose.Tree, base fs.FS, recorded map[string]recordedFile, targetBase string) ([]File, error) {
+func applyFiles(ctx context.Context, tree *compose.Tree, base fs.FS, recorded map[lewpath.Path]recordedFile, targetBase string) ([]File, error) {
 	var out []File
 	for name, declared := range tree.All() {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		key := name.String()
-		sourceInfo, module := recordedNote(recorded, key)
+		label := strings.Join(name.Parts(), "/")
+		sourceInfo, module := recordedNote(recorded, name)
 		basic := BasicFile{
-			RelPathStr:    key,
+			RelPathStr:    label,
 			TargetBaseDir: targetBase,
 			FileMode:      permission(declared.Mode),
 			Info:          sourceInfo,
@@ -246,24 +246,24 @@ func applyFiles(ctx context.Context, tree *compose.Tree, base fs.FS, recorded ma
 		if declared.Type == compose.TypeLink {
 			target, ok := linkTarget(declared)
 			if !ok {
-				return nil, fmt.Errorf("file %s: %w", key, compose.ErrSlot)
+				return nil, fmt.Errorf("file %s: %w", label, compose.ErrSlot)
 			}
 			basic.FileType = TypeSymlink
 			absolute := ""
-			if found, exists := recorded[key]; exists {
+			if found, exists := recorded[name]; exists {
 				absolute = found.absolutePath
 			}
 			out = append(out, &StaticFile{BasicFile: basic, AbsPath: absolute, Link: target})
 			continue
 		}
-		if found, ok := recorded[key]; ok && found.absolutePath != "" && declared.Type == compose.TypeRef {
+		if found, ok := recorded[name]; ok && found.absolutePath != "" && declared.Type == compose.TypeRef {
 			basic.FileType = TypeStatic
 			out = append(out, &StaticFile{BasicFile: basic, AbsPath: found.absolutePath})
 			continue
 		}
 		body, err := compose.Encode(declared, base)
 		if err != nil {
-			return nil, fmt.Errorf("file %s: %w", key, err)
+			return nil, fmt.Errorf("file %s: %w", label, err)
 		}
 		basic.FileType = TypeStatic
 		out = append(out, &BufferFile{BasicFile: basic, Content: body})
@@ -299,7 +299,7 @@ func placeInProfile(file File, mode, primary string) (string, File, error) {
 	if nested == "" {
 		return chosen, file, nil
 	}
-	return chosen, rebasedFile{File: file, rel: lewpath.New(nested, file.RelPath()).String()}, nil
+	return chosen, rebasedFile{File: file, rel: filepath.ToSlash(filepath.Join(nested, file.RelPath()))}, nil
 }
 
 func insideDir(root, target string) (string, bool) {
@@ -345,7 +345,7 @@ func squashContext(ctx context.Context, fsys fs.FS) (*compose.Tree, error) {
 			return err
 		}
 		current := lewpath.New(name)
-		if current.String() == "." {
+		if current == lewpath.New(".") {
 			return nil
 		}
 		if dotDirectory(current) {
@@ -361,9 +361,9 @@ func squashContext(ctx context.Context, fsys fs.FS) (*compose.Tree, error) {
 			return nil
 		}
 		if entry.Type()&fs.ModeSymlink != 0 {
-			return addLink(tree, fsys, current)
+			return addLink(tree, fsys, current, name)
 		}
-		return addRef(tree, current, entry)
+		return addRef(tree, current, name, entry)
 	})
 	if err != nil {
 		return nil, err
@@ -376,7 +376,7 @@ func addDotDirectory(ctx context.Context, tree *compose.Tree, fsys fs.FS, direct
 	if err != nil {
 		return fmt.Errorf("file %s: %w", directory, err)
 	}
-	entries, err := fs.ReadDir(fsys, directory.String())
+	entries, err := directory.ReadDir(fsys)
 	if err != nil {
 		return err
 	}
@@ -391,7 +391,7 @@ func addDotDirectory(ctx context.Context, tree *compose.Tree, fsys fs.FS, direct
 		if child.Suffix() == ".tmpl" {
 			continue
 		}
-		body, err := fs.ReadFile(fsys, child.String())
+		body, err := child.ReadFile(fsys)
 		if err != nil {
 			return err
 		}
@@ -424,23 +424,23 @@ func linesPath(directory lewpath.Path) (lewpath.Path, error) {
 	return trimmed, nil
 }
 
-func addLink(tree *compose.Tree, fsys fs.FS, name lewpath.Path) error {
-	target, err := name.ReadLink(fsys)
+func addLink(tree *compose.Tree, fsys fs.FS, name lewpath.Path, raw string) error {
+	target, err := fs.ReadLink(fsys, raw)
 	if err != nil {
 		return err
 	}
 	return tree.Add(name, compose.File{
 		Type:   compose.TypeLink,
 		Mode:   lstatPerm(fsys, name),
-		Values: map[string]compose.Slot{"target": compose.Link(target.String())},
+		Values: map[string]compose.Slot{"target": compose.Link(target)},
 	})
 }
 
-func addRef(tree *compose.Tree, name lewpath.Path, entry fs.DirEntry) error {
+func addRef(tree *compose.Tree, name lewpath.Path, raw string, entry fs.DirEntry) error {
 	return tree.Add(name, compose.File{
 		Type:   compose.TypeRef,
 		Mode:   entryPerm(entry),
-		Values: map[string]compose.Slot{"src": compose.Ref(name.String())},
+		Values: map[string]compose.Slot{"src": compose.Ref(raw)},
 	})
 }
 
@@ -469,27 +469,44 @@ func linkTarget(file compose.File) (string, bool) {
 	return "", false
 }
 
-func recordedNote(recorded map[string]recordedFile, name string) (string, string) {
+func recordedNote(recorded map[lewpath.Path]recordedFile, name lewpath.Path) (string, string) {
 	if found, ok := recorded[name]; ok {
-		return noteText(found, name)
+		return noteText(found, strings.Join(name.Parts(), "/"))
 	}
-	directory := lewpath.New(name + ".d.tmpl")
-	var best string
+	directory := name.Parent().Join(name.Name() + ".d.tmpl")
+	var best lewpath.Path
 	var chosen recordedFile
+	var foundChild bool
 	for child := range directory.Under(recordedPaths(recorded)) {
-		childName := child.String()
-		if childName == directory.String() {
+		if child == directory {
 			continue
 		}
-		if best == "" || childName < best {
-			best = childName
-			chosen = recorded[childName]
+		if !foundChild || pathBefore(child, best) {
+			best = child
+			chosen = recorded[child]
+			foundChild = true
 		}
 	}
-	if best == "" {
-		return "filespine:" + name, ""
+	label := strings.Join(name.Parts(), "/")
+	if !foundChild {
+		return "filespine:" + label, ""
 	}
-	return noteText(chosen, name)
+	return noteText(chosen, label)
+}
+
+func pathBefore(left, right lewpath.Path) bool {
+	a, b := left.Parts(), right.Parts()
+	n := len(a)
+	if len(b) < n {
+		n = len(b)
+	}
+	for i := range n {
+		if a[i] == b[i] {
+			continue
+		}
+		return a[i] < b[i]
+	}
+	return len(a) < len(b)
 }
 
 func noteText(recorded recordedFile, name string) (string, string) {
@@ -499,10 +516,10 @@ func noteText(recorded recordedFile, name string) (string, string) {
 	return recorded.sourceInfo, recorded.module
 }
 
-func recordedPaths(recorded map[string]recordedFile) iter.Seq2[lewpath.Path, error] {
+func recordedPaths(recorded map[lewpath.Path]recordedFile) iter.Seq2[lewpath.Path, error] {
 	return func(yield func(lewpath.Path, error) bool) {
 		for pathName := range recorded {
-			if !yield(lewpath.New(pathName), nil) {
+			if !yield(pathName, nil) {
 				return
 			}
 		}
@@ -525,7 +542,7 @@ func (recorded recordedFile) same(other recordedFile) bool {
 
 type profileFiles struct {
 	members  []lewfs.File
-	recorded map[string]recordedFile
+	recorded map[lewpath.Path]recordedFile
 	direct   map[string]File
 	paths    pathSet
 }
@@ -536,7 +553,7 @@ func indexTree(tree *compose.Tree) pathSet {
 		return set
 	}
 	for name := range tree.All() {
-		set.add(name.String())
+		set.add(name)
 	}
 	return set
 }
@@ -548,28 +565,47 @@ func needsMerge(rel string, cue pathSet) bool {
 	return cue.overlaps(rel)
 }
 
-func linesDest(rel string) (string, bool) {
-	const marker = ".d.tmpl"
-	index := strings.Index(rel, marker)
-	if index <= 0 {
-		return "", false
+func linesDest(rel lewpath.Path) (lewpath.Path, bool) {
+	for current := rel.Parent(); current != lewpath.New("."); current = current.Parent() {
+		if dotDirectory(current) {
+			dest, err := linesPath(current)
+			if err != nil {
+				return lewpath.Path{}, false
+			}
+			return dest, true
+		}
+		if current.Parent() == current {
+			break
+		}
 	}
-	return rel[:index], true
+	return lewpath.Path{}, false
+}
+
+func directFile(direct map[string]File, name lewpath.Path) (File, bool) {
+	for rel, file := range direct {
+		if lewpath.New(rel) == name {
+			return file, true
+		}
+	}
+	return nil, false
 }
 
 type pathSet struct {
-	files map[string]struct{}
-	dirs  map[string]struct{}
+	files map[lewpath.Path]struct{}
+	dirs  map[lewpath.Path]struct{}
 }
 
-func (set *pathSet) add(path string) {
+func (set *pathSet) add(name lewpath.Path) {
 	if set.files == nil {
-		set.files = map[string]struct{}{}
-		set.dirs = map[string]struct{}{}
+		set.files = map[lewpath.Path]struct{}{}
+		set.dirs = map[lewpath.Path]struct{}{}
 	}
-	set.files[path] = struct{}{}
-	for parent := pathParent(path); parent != ""; parent = pathParent(parent) {
+	set.files[name] = struct{}{}
+	for parent := name.Parent(); parent != lewpath.New("."); parent = parent.Parent() {
 		set.dirs[parent] = struct{}{}
+		if parent.Parent() == parent {
+			break
+		}
 	}
 }
 
@@ -577,26 +613,22 @@ func (set *pathSet) overlaps(path string) bool {
 	if set == nil || set.files == nil {
 		return false
 	}
-	if _, ok := set.files[path]; ok {
+	name := lewpath.New(path)
+	if _, ok := set.files[name]; ok {
 		return true
 	}
-	if _, ok := set.dirs[path]; ok {
+	if _, ok := set.dirs[name]; ok {
 		return true
 	}
-	for parent := pathParent(path); parent != ""; parent = pathParent(parent) {
+	for parent := name.Parent(); parent != lewpath.New("."); parent = parent.Parent() {
 		if _, ok := set.files[parent]; ok {
 			return true
 		}
+		if parent.Parent() == parent {
+			break
+		}
 	}
 	return false
-}
-
-func pathParent(path string) string {
-	index := strings.LastIndex(path, "/")
-	if index <= 0 {
-		return ""
-	}
-	return path[:index]
 }
 
 type rootedFile struct {
@@ -620,7 +652,7 @@ func (profile *profileFiles) addDirect(file File) error {
 		return fmt.Errorf("file %s: %w", rel, compose.ErrPath)
 	}
 	profile.direct[rel] = markSymlink(file)
-	profile.paths.add(rel)
+	profile.paths.add(lewpath.New(rel))
 	return nil
 }
 
@@ -662,11 +694,16 @@ func (profile *profileFiles) absorbLineTargets() error {
 		if !ok {
 			continue
 		}
-		file, exists := profile.direct[dest]
+		file, exists := directFile(profile.direct, dest)
 		if !exists {
 			continue
 		}
-		delete(profile.direct, dest)
+		for key := range profile.direct {
+			if lewpath.New(key) == dest {
+				delete(profile.direct, key)
+				break
+			}
+		}
 		if err := profile.add(file); err != nil {
 			return err
 		}
@@ -675,22 +712,22 @@ func (profile *profileFiles) absorbLineTargets() error {
 }
 
 func (profile *profileFiles) add(file File) error {
-	name := lewpath.New(file.RelPath())
-	if !name.Valid() || name.IsAbs() || name.String() == "." {
-		return fmt.Errorf("file %s: %w", file.RelPath(), errInvalidRelativePath)
+	rel := file.RelPath()
+	name := lewpath.New(rel)
+	if !name.Valid() || name.IsAbs() || name == lewpath.New(".") {
+		return fmt.Errorf("file %s: %w", rel, errInvalidRelativePath)
 	}
-	key := name.String()
 	recorded, member, err := fileMember(name, file)
 	if err != nil {
 		return err
 	}
-	if previous, ok := profile.recorded[key]; ok {
+	if previous, ok := profile.recorded[name]; ok {
 		if !previous.same(recorded) {
-			return fmt.Errorf("file %s: %w", key, errPathConflict)
+			return fmt.Errorf("file %s: %w", rel, errPathConflict)
 		}
 		return nil
 	}
-	profile.recorded[key] = recorded
+	profile.recorded[name] = recorded
 	profile.members = append(profile.members, member)
 	return nil
 }
@@ -709,7 +746,7 @@ func (profile *profileFiles) filesystem(ctx context.Context) (fs.FS, error) {
 	links := map[string]string{}
 	for name, recorded := range profile.recorded {
 		if recorded.linkTarget != "" {
-			links[name] = recorded.linkTarget
+			links[strings.Join(name.Parts(), "/")] = recorded.linkTarget
 		}
 	}
 	if len(links) == 0 {
@@ -743,15 +780,15 @@ func fileMember(name lewpath.Path, file File) (recordedFile, lewfs.File, error) 
 	if !ok {
 		reader, err := file.Reader()
 		if err != nil {
-			return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
+			return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", file.RelPath(), err)
 		}
 		body, err := io.ReadAll(reader)
 		closeErr := reader.Close()
 		if err != nil {
-			return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
+			return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", file.RelPath(), err)
 		}
 		if closeErr != nil {
-			return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, closeErr)
+			return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", file.RelPath(), closeErr)
 		}
 		recorded.body = body
 		return recorded, lewfs.File{
@@ -762,40 +799,39 @@ func fileMember(name lewpath.Path, file File) (recordedFile, lewfs.File, error) 
 		}, nil
 	}
 	if staticFile.AbsPath == "" {
-		return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, errStaticNoSource)
+		return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", file.RelPath(), errStaticNoSource)
 	}
-	absolute := lewpath.New(staticFile.AbsPath)
-	root, err := lewpath.Open(absolute.Parent().String())
+	root, err := lewpath.Open(filepath.Dir(staticFile.AbsPath))
 	if err != nil {
-		return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
+		return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", file.RelPath(), err)
 	}
 	defer root.Close()
-	base := lewpath.New(absolute.Name())
+	base := lewpath.New(filepath.Base(staticFile.AbsPath))
 	linkInfo, err := base.Lstat(root)
 	if err != nil {
-		return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
+		return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", file.RelPath(), err)
 	}
 	recorded.absolutePath = staticFile.AbsPath
 	mode = permission(linkInfo.Mode())
 	if linkInfo.Mode()&fs.ModeSymlink != 0 {
-		target, err := base.ReadLink(root)
+		target, err := os.Readlink(staticFile.AbsPath)
 		if err != nil {
-			return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
+			return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", file.RelPath(), err)
 		}
-		recorded.linkTarget = target.String()
+		recorded.linkTarget = target
 		return recorded, lewfs.File{Name: name, Mode: mode | fs.ModeSymlink, Reader: bytes.NewReader(nil)}, nil
 	}
 	opened, err := base.Open(root)
 	if err != nil {
 		if recorded.linkTarget == "" {
-			return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
+			return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", file.RelPath(), err)
 		}
 		return recorded, lewfs.File{Name: name, Mode: mode, Reader: bytes.NewReader(nil)}, nil
 	}
 	openedInfo, err := base.Stat(root)
 	if err != nil {
 		opened.Close()
-		return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", name, err)
+		return recordedFile{}, lewfs.File{}, fmt.Errorf("file %s: %w", file.RelPath(), err)
 	}
 	return recorded, lewfs.File{Name: name, Mode: mode, Size: openedInfo.Size(), Reader: opened}, nil
 }

@@ -34,10 +34,24 @@ type FileStateStore struct {
 	root string
 }
 
-// NewFileStateStoreIn stores state at rel under root.
-// rel is a path inside the workspace, not a host path.
-func NewFileStateStoreIn(root string, rel lewpath.Path) (*FileStateStore, error) {
-	return NewFileStateStore(filepath.FromSlash(rel.String()), root)
+// NewFileStateStoreIn stores state at rel inside workspace.
+// rel is a path inside the root, not a host path.
+func NewFileStateStoreIn(workspace *lewpath.Root, rel lewpath.Path) (*FileStateStore, error) {
+	parent := rel.Parent()
+	if parent != lewpath.New(".") {
+		if err := parent.MkdirAll(workspace, 0o755); err != nil {
+			return nil, fmt.Errorf("create state directory: %w", err)
+		}
+	}
+	opened, err := parent.OpenRoot(workspace)
+	if err != nil {
+		return nil, err
+	}
+	statePath := filepath.Join(opened.Name(), rel.Name())
+	if err := opened.Close(); err != nil {
+		return nil, err
+	}
+	return NewFileStateStore(statePath, workspace.Name())
 }
 
 // NewFileStateStore creates a FileStateStore.
