@@ -24,9 +24,6 @@ func RunApply(ctx context.Context, action string) error {
 	logger := logging.GetLogger(ctx)
 	dryRun := cmdctx.IsDryRun(ctx)
 	root := cmdarg.PrefixPath(ctx)
-	if root == "" {
-		return fmt.Errorf("prefix is not set")
-	}
 
 	dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 	if err != nil {
