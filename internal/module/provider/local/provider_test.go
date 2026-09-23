@@ -61,12 +61,14 @@ func TestResolvePresetBaseUsesContextPrefix(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	ctx := cmdarg.WithPrefix(t.Context(), dir)
-	got, err := resolvePresetBase(ctx, "etc", "/ws/modules")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != dir {
-		t.Fatalf("base=%q want %q", got, dir)
+	for _, preset := range []string{"home", "codebase", "etc"} {
+		got, err := resolvePresetBase(ctx, preset, "/ws/modules")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != dir {
+			t.Fatalf("%s base=%q want %q", preset, got, dir)
+		}
 	}
 }
 

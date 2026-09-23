@@ -34,7 +34,7 @@ func (c *Apply) Run(ctx context.Context) error {
 }
 
 // Schedule wires codebase plan/apply.
-// target is always the workspace root.
+// The apply target is --prefix. The workspace root is where the cue and modules are read.
 func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 	taskName := "codebase:apply"
 	updateMsg := "applying to repo root"
@@ -95,9 +95,9 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 		configDir := filepath.Join(workspaceRoot, ".workspaced", "config")
 		modulesDir := filepath.Join(workspaceRoot, "modules")
 
-		target := workspaceRoot
-		if prefix := cmdarg.PrefixPath(ctx); prefix != "" && prefix != "." {
-			target = prefix
+		target := cmdarg.PrefixPath(ctx)
+		if target == "" {
+			return fmt.Errorf("prefix is not set")
 		}
 		stdOpts := source.StandardDotfilesOptions{
 			ConfigTreeTarget: target,
@@ -117,9 +117,9 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 			return err
 		}
 
-		// State lives in the repo next to the lock.
+		// State lives next to the apply target.
 		// Repo-local state for codebase operations. Never use the global
-		// ~/.config/workspaced state. Paths on disk are relative to workspace root.
+		// ~/.config/workspaced state. Paths on disk are relative to the prefix.
 		statePath := filepath.Join(target, ".workspaced", "state.json")
 		stateStore, err := deployer.NewFileStateStore(statePath, target)
 		if err != nil {

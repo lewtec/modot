@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/git-pkgs/gitignore"
+	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/module"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	"github.com/lucasew/workspaced/pkg/filespine"
@@ -93,9 +94,13 @@ func (placeModule) Resolve(ctx context.Context, req module.ResolveRequest) (modu
 		return module.ResolveResult{}, fmt.Errorf("module %s: %w", req.ModuleName, err)
 	}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return module.ResolveResult{}, err
+	home := cmdarg.PrefixPath(ctx)
+	if home == "" {
+		var err error
+		home, err = os.UserHomeDir()
+		if err != nil {
+			return module.ResolveResult{}, err
+		}
 	}
 
 	stepNames := make([]string, 0, len(cfg.Steps))

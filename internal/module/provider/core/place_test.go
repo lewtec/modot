@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/module"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
@@ -86,6 +87,31 @@ func TestPlaceResolveIgnoreMissing(t *testing.T) {
 			t.Fatalf("files=%d want 0: %+v", len(out.Files), out.Files)
 		}
 	})
+}
+
+func TestPlacePrefixWins(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	src := filepath.Join(dir, "a.txt")
+	if err := os.WriteFile(src, []byte("a"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	ctx := cmdarg.WithPrefix(logging.NewWriterContext(t.Output()), root)
+	out, err := placeModule{}.Resolve(ctx, module.ResolveRequest{
+		ModuleName: "test-place",
+		ModuleConfig: map[string]any{
+			"items": map[string]any{
+				".": src,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Files) != 1 || out.Files[0].TargetBase != root {
+		t.Fatalf("files=%+v", out.Files)
+	}
 }
 
 func TestPlaceResolveDirectory(t *testing.T) {

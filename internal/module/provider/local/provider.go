@@ -42,6 +42,9 @@ func resolvePresetBase(ctx context.Context, name, modulesBaseDir string) (string
 		}
 		return home, nil
 	case "codebase":
+		if root != "" {
+			return root, nil
+		}
 		return filepath.Clean(filepath.Dir(modulesBaseDir)), nil
 	default:
 		if filespine.SystemRel(name) == "" && name != "root" {

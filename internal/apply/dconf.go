@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"github.com/lucasew/workspaced/internal/cmdarg"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/source"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
@@ -24,10 +25,6 @@ func (p *DconfPlugin) Name() string {
 }
 
 func (p *DconfPlugin) Process(ctx context.Context, files []source.File) ([]source.File, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
 	dconfContent, err := buildHomeDconfContent(ctx)
 	if err != nil {
 		return nil, err
@@ -35,14 +32,21 @@ func (p *DconfPlugin) Process(ctx context.Context, files []source.File) ([]sourc
 	if dconfContent == "" {
 		return files, nil
 	}
+	home := cmdarg.PrefixPath(ctx)
+	if home == "" {
+		home, err = os.UserHomeDir()
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// Use content hash as marker to track changes
 	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(dconfContent)))
 
 	marker := &source.BufferFile{
 		BasicFile: source.BasicFile{
-			RelPathStr:    "dconf.marker",
-			TargetBaseDir: filepath.Join(home, ".config", "workspaced"),
+			RelPathStr:    filepath.Join(".config", "workspaced", "dconf.marker"),
+			TargetBaseDir: home,
 			FileMode:      0644,
 			Info:          "dconf (marker)",
 			FileType:      source.TypeStatic,

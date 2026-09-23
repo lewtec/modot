@@ -74,11 +74,7 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 
 		home := cmdarg.PrefixPath(ctx)
 		if home == "" {
-			var err error
-			home, err = os.UserHomeDir()
-			if err != nil {
-				return fmt.Errorf("get home directory: %w", err)
-			}
+			return fmt.Errorf("prefix is not set")
 		}
 		liveHome, err := os.UserHomeDir()
 		if err != nil {
