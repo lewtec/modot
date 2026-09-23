@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	kitlog "github.com/lewtec/lewkit/x/logging"
 )
 
 type DetectedRoot struct {
@@ -208,7 +209,7 @@ func cmdTag(pkg string) string {
 }
 
 func main() {
-	rootLogger := slog.New(logging.NewPlainHandler(os.Stderr, &slog.HandlerOptions{
+	rootLogger := slog.New(kitlog.NewHandler(os.Stderr, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
 	rootCtx := logging.NewRootContext(rootLogger)
