@@ -1,11 +1,6 @@
 package codec
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-
-	"github.com/lucasew/workspaced/internal/checks"
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
 
@@ -21,39 +16,19 @@ type actionlintIssue struct {
 }
 
 func decodeActionlint(toolName string, data []byte) (*sarif.Run, error) {
-	if len(bytes.TrimSpace(data)) == 0 {
-		return nil, nil
+	issues, err := decodeJSONArray[actionlintIssue](data, "actionlint")
+	if err != nil || len(issues) == 0 {
+		return nil, err
 	}
-	var issues []actionlintIssue
-	if err := json.Unmarshal(data, &issues); err != nil {
-		return nil, fmt.Errorf("parse actionlint output: %w", err)
-	}
-	if len(issues) == 0 {
-		return nil, nil
-	}
-	name := toolName
-	if name == "" {
-		name = "actionlint"
-	}
-	driver := sarif.NewDriver(name)
-	driver.InformationURI = checks.StringPtr(actionlintInfoURI)
-	run := sarif.NewRun(*sarif.NewTool(driver))
+	run := newNamedRun(toolName, "actionlint", actionlintInfoURI)
 	for _, issue := range issues {
-		region := sarif.NewRegion().
-			WithStartLine(issue.Line).
-			WithStartColumn(issue.Column)
-		if issue.EndColumn > 0 {
-			region.WithEndColumn(issue.EndColumn)
-		}
-		loc := sarif.NewLocation().
-			WithPhysicalLocation(sarif.NewPhysicalLocation().
-				WithArtifactLocation(sarif.NewArtifactLocation().WithUri(issue.Filepath)).
-				WithRegion(region))
 		run.AddResult(
 			sarif.NewRuleResult(issue.Kind).
 				WithLevel("error").
 				WithMessage(sarif.NewTextMessage(issue.Message)).
-				WithLocations([]*sarif.Location{loc}),
+				WithLocations([]*sarif.Location{
+					resultLocation(issue.Filepath, issue.Line, issue.Column, 0, issue.EndColumn),
+				}),
 		)
 	}
 	return run, nil
