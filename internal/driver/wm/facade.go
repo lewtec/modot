@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	lewdriver "github.com/lewtec/lewkit/x/driver"
-	kitwm "github.com/lewtec/lewkit/x/driver/wm"
+	lewwm "github.com/lewtec/lewkit/x/driver/wm"
 	"github.com/lewtec/modot/internal/atomicfile"
 	"github.com/lewtec/modot/internal/driver/media"
 	"github.com/lewtec/modot/internal/logging"
@@ -20,7 +20,7 @@ var wmMu sync.Mutex
 
 // switchToWorkspace is the internal lock-free implementation to avoid deadlocks.
 func switchToWorkspace(ctx context.Context, ws string, move bool) error {
-	d, err := lewdriver.Get[kitwm.Driver](ctx)
+	d, err := lewdriver.Get[lewwm.Driver](ctx)
 	if err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func SwitchToWorkspace(ctx context.Context, ws string, move bool) error {
 func ToggleScratchpad(ctx context.Context) error {
 	wmMu.Lock()
 	defer wmMu.Unlock()
-	d, err := lewdriver.Get[kitwm.Driver](ctx)
+	d, err := lewdriver.Get[lewwm.Driver](ctx)
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func RotateWorkspaces(ctx context.Context) error {
 	wmMu.Lock()
 	defer wmMu.Unlock()
 
-	d, err := lewdriver.Get[kitwm.Driver](ctx)
+	d, err := lewdriver.Get[lewwm.Driver](ctx)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func RotateWorkspaces(ctx context.Context) error {
 
 // GetFocusedOutput returns the name and geometry of the currently focused output.
 func GetFocusedOutput(ctx context.Context) (string, *Rect, error) {
-	d, err := lewdriver.Get[kitwm.Driver](ctx)
+	d, err := lewdriver.Get[lewwm.Driver](ctx)
 	if err != nil {
 		return "", nil, err
 	}
@@ -164,7 +164,7 @@ func GetFocusedOutput(ctx context.Context) (string, *Rect, error) {
 
 // GetFocusedWindowRect returns the geometry of the currently focused window.
 func GetFocusedWindowRect(ctx context.Context) (*Rect, error) {
-	d, err := lewdriver.Get[kitwm.Driver](ctx)
+	d, err := lewdriver.Get[lewwm.Driver](ctx)
 	if err != nil {
 		return nil, err
 	}

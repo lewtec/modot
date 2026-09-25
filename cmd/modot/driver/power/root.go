@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	kitpower "github.com/lewtec/lewkit/x/driver/power"
+	lewpower "github.com/lewtec/lewkit/x/driver/power"
 	"github.com/lewtec/modot/internal/driver/power"
 )
 
@@ -24,28 +24,28 @@ type Lock struct{}
 
 func (Lock) Description() string { return "Lock the session" }
 func (*Lock) Run(ctx context.Context) error {
-	return kitpower.Lock(ctx)
+	return lewpower.Lock(ctx)
 }
 
 type Reboot struct{}
 
 func (Reboot) Description() string { return "Reboot the system" }
 func (*Reboot) Run(ctx context.Context) error {
-	return kitpower.Reboot(ctx)
+	return lewpower.Reboot(ctx)
 }
 
 type Shutdown struct{}
 
 func (Shutdown) Description() string { return "Power off the system" }
 func (*Shutdown) Run(ctx context.Context) error {
-	return kitpower.Shutdown(ctx)
+	return lewpower.Shutdown(ctx)
 }
 
 type Suspend struct{}
 
 func (Suspend) Description() string { return "Suspend the system" }
 func (*Suspend) Run(ctx context.Context) error {
-	return kitpower.Suspend(ctx)
+	return lewpower.Suspend(ctx)
 }
 
 type Wake struct {

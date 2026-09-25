@@ -3,7 +3,7 @@ package brightness
 import (
 	"context"
 
-	kitbrightness "github.com/lewtec/lewkit/x/driver/brightness"
+	lewbrightness "github.com/lewtec/lewkit/x/driver/brightness"
 	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	"github.com/lewtec/modot/internal/driver"
 	"github.com/lewtec/modot/internal/driver/notification"
@@ -42,18 +42,18 @@ func (*Show) Run(ctx context.Context) error {
 }
 
 func adjustBrightness(ctx context.Context, delta float64) error {
-	status, err := kitbrightness.Status(ctx)
+	status, err := lewbrightness.Status(ctx)
 	if err != nil {
 		return err
 	}
-	if err := kitbrightness.SetBrightness(ctx, driver.Clamp01(status.Brightness+delta)); err != nil {
+	if err := lewbrightness.SetBrightness(ctx, driver.Clamp01(status.Brightness+delta)); err != nil {
 		return err
 	}
 	return showBrightness(ctx)
 }
 
 func showBrightness(ctx context.Context) error {
-	status, err := kitbrightness.Status(ctx)
+	status, err := lewbrightness.Status(ctx)
 	if err != nil {
 		return err
 	}

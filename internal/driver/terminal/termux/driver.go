@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	lewdriver "github.com/lewtec/lewkit/x/driver"
-	kitterminal "github.com/lewtec/lewkit/x/driver/terminal"
+	lewterminal "github.com/lewtec/lewkit/x/driver/terminal"
 	"github.com/lewtec/modot/internal/driver"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 )
 
 func init() {
-	lewdriver.Register[kitterminal.Driver](factory{})
+	lewdriver.Register[lewterminal.Driver](factory{})
 }
 
 type factory struct{}
@@ -25,13 +25,13 @@ func (factory) CheckCompatibility(context.Context) error {
 	return driver.RequireTermux()
 }
 
-func (factory) New(context.Context) (kitterminal.Driver, error) {
+func (factory) New(context.Context) (lewterminal.Driver, error) {
 	return backend{}, nil
 }
 
 type backend struct{}
 
-func (backend) Open(ctx context.Context, opts kitterminal.Options) error {
+func (backend) Open(ctx context.Context, opts lewterminal.Options) error {
 	if opts.Command == "" {
 		return execdriver.MustRun(ctx, "am", "start", "--user", "0", "-n", "com.termux/.app.TermuxActivity").Run()
 	}

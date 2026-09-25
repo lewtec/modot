@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	kitmedia "github.com/lewtec/lewkit/x/driver/media"
+	lewmedia "github.com/lewtec/lewkit/x/driver/media"
 	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	"github.com/lewtec/modot/internal/driver/notification"
 	"github.com/lewtec/modot/internal/logging"
@@ -15,13 +15,13 @@ func RunAction(ctx context.Context, action string) error {
 	var err error
 	switch action {
 	case "next":
-		err = kitmedia.Next(ctx)
+		err = lewmedia.Next(ctx)
 	case "previous":
-		err = kitmedia.Previous(ctx)
+		err = lewmedia.Previous(ctx)
 	case "play-pause":
-		err = kitmedia.PlayPause(ctx)
+		err = lewmedia.PlayPause(ctx)
 	case "stop":
-		err = kitmedia.Stop(ctx)
+		err = lewmedia.Stop(ctx)
 	case "show":
 	default:
 		return fmt.Errorf("unknown action: %s", action)
@@ -36,7 +36,7 @@ func RunAction(ctx context.Context, action string) error {
 }
 
 func ShowStatus(ctx context.Context) error {
-	meta, err := kitmedia.GetMetadata(ctx)
+	meta, err := lewmedia.GetMetadata(ctx)
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func Notify(ctx context.Context, meta *Metadata) error {
 }
 
 func Watch(ctx context.Context) {
-	err := kitmedia.Watch(ctx, func(meta *Metadata) {
+	err := lewmedia.Watch(ctx, func(meta *Metadata) {
 		if err := Notify(ctx, meta); err != nil {
 			logging.ReportError(ctx, err)
 		}

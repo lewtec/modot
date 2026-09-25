@@ -5,14 +5,14 @@ import (
 	"fmt"
 
 	lewdriver "github.com/lewtec/lewkit/x/driver"
-	kitpower "github.com/lewtec/lewkit/x/driver/power"
+	lewpower "github.com/lewtec/lewkit/x/driver/power"
 	"github.com/lewtec/modot/internal/api"
 	"github.com/lewtec/modot/internal/driver"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 )
 
 func init() {
-	lewdriver.Register[kitpower.Driver](factory{})
+	lewdriver.Register[lewpower.Driver](factory{})
 }
 
 type factory struct{}
@@ -25,7 +25,7 @@ func (factory) CheckCompatibility(context.Context) error {
 	return driver.RequireTermux()
 }
 
-func (factory) New(context.Context) (kitpower.Driver, error) {
+func (factory) New(context.Context) (lewpower.Driver, error) {
 	return backend{}, nil
 }
 

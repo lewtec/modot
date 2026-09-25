@@ -3,23 +3,23 @@ package screenshot
 import (
 	"errors"
 
-	kitscreenshot "github.com/lewtec/lewkit/x/driver/screenshot"
+	lewscreenshot "github.com/lewtec/lewkit/x/driver/screenshot"
 )
 
 var (
-	ErrSelectionToolNotFound = kitscreenshot.ErrSelectionToolNotFound
-	ErrEmptySelection        = kitscreenshot.ErrEmptySelection
+	ErrSelectionToolNotFound = lewscreenshot.ErrSelectionToolNotFound
+	ErrEmptySelection        = lewscreenshot.ErrEmptySelection
 	ErrDirNotConfigured      = errors.New("screenshot dir not configured")
-	ErrUnknownTargetType     = kitscreenshot.ErrUnknownTargetType
+	ErrUnknownTargetType     = lewscreenshot.ErrUnknownTargetType
 )
 
-type TargetType = kitscreenshot.TargetType
+type TargetType = lewscreenshot.TargetType
 
 const (
-	TargetAll       = kitscreenshot.TargetAll
-	TargetOutput    = kitscreenshot.TargetOutput
-	TargetWindow    = kitscreenshot.TargetWindow
-	TargetSelection = kitscreenshot.TargetSelection
+	TargetAll       = lewscreenshot.TargetAll
+	TargetOutput    = lewscreenshot.TargetOutput
+	TargetWindow    = lewscreenshot.TargetWindow
+	TargetSelection = lewscreenshot.TargetSelection
 )
 
-type Driver = kitscreenshot.Driver
+type Driver = lewscreenshot.Driver

@@ -2,4 +2,4 @@
 
 package prelude
 
-import _ "github.com/lewtec/modot/internal/driver/audio/fromkit"
+import _ "github.com/lewtec/modot/internal/driver/audio/lew"

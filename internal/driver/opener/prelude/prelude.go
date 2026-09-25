@@ -3,6 +3,6 @@
 package prelude
 
 import (
-	_ "github.com/lewtec/modot/internal/driver/opener/fromkit"
+	_ "github.com/lewtec/modot/internal/driver/opener/lew"
 	_ "github.com/lewtec/modot/internal/driver/opener/termux"
 )

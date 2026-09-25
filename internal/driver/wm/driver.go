@@ -1,9 +1,9 @@
 package wm
 
-import kitwm "github.com/lewtec/lewkit/x/driver/wm"
+import lewwm "github.com/lewtec/lewkit/x/driver/wm"
 
-type Rect = kitwm.Rect
-type Workspace = kitwm.Workspace
-type Output = kitwm.Output
-type Node = kitwm.Node
-type Driver = kitwm.Driver
+type Rect = lewwm.Rect
+type Workspace = lewwm.Workspace
+type Output = lewwm.Output
+type Node = lewwm.Node
+type Driver = lewwm.Driver

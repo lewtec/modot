@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	kitclip "github.com/lewtec/lewkit/x/driver/clipboard"
+	lewclip "github.com/lewtec/lewkit/x/driver/clipboard"
 	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
-	kitscreenshot "github.com/lewtec/lewkit/x/driver/screenshot"
+	lewscreenshot "github.com/lewtec/lewkit/x/driver/screenshot"
 	"github.com/lewtec/modot/internal/atomicfile"
 	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/driver/notification"
@@ -19,12 +19,12 @@ import (
 )
 
 func Capture(ctx context.Context, targetType TargetType) (string, error) {
-	rect, err := kitscreenshot.ResolveRect(ctx, targetType)
+	rect, err := lewscreenshot.ResolveRect(ctx, targetType)
 	if err != nil {
 		return "", err
 	}
 
-	img, err := kitscreenshot.Capture(ctx, rect)
+	img, err := lewscreenshot.Capture(ctx, rect)
 	if err != nil {
 		return "", err
 	}
@@ -58,7 +58,7 @@ func Capture(ctx context.Context, targetType TargetType) (string, error) {
 
 	// Post-processing: Clipboard
 	go func() {
-		if err := kitclip.WriteImage(ctx, img); err != nil {
+		if err := lewclip.WriteImage(ctx, img); err != nil {
 			logging.ReportError(ctx, err)
 		}
 	}()

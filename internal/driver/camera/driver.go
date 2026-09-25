@@ -1,6 +1,6 @@
 package camera
 
-import kitcamera "github.com/lewtec/lewkit/x/driver/camera"
+import lewcamera "github.com/lewtec/lewkit/x/driver/camera"
 
-type Driver = kitcamera.Driver
-type Camera = kitcamera.Camera
+type Driver = lewcamera.Driver
+type Camera = lewcamera.Camera

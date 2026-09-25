@@ -9,23 +9,23 @@ import (
 	"path/filepath"
 	"strings"
 
-	kitmedia "github.com/lewtec/lewkit/x/driver/media"
+	lewmedia "github.com/lewtec/lewkit/x/driver/media"
 	"github.com/lewtec/modot/internal/atomicfile"
 	"github.com/lewtec/modot/internal/driver"
 	"github.com/lewtec/modot/internal/driver/httpclient"
 	"github.com/lewtec/modot/internal/logging"
 )
 
-type PlaybackStatus = kitmedia.PlaybackStatus
+type PlaybackStatus = lewmedia.PlaybackStatus
 
 const (
-	StatusPlaying = kitmedia.StatusPlaying
-	StatusPaused  = kitmedia.StatusPaused
-	StatusStopped = kitmedia.StatusStopped
+	StatusPlaying = lewmedia.StatusPlaying
+	StatusPaused  = lewmedia.StatusPaused
+	StatusStopped = lewmedia.StatusStopped
 )
 
-type Metadata = kitmedia.Metadata
-type Driver = kitmedia.Driver
+type Metadata = lewmedia.Metadata
+type Driver = lewmedia.Driver
 
 func GetArtCachePath(ctx context.Context, url string) (string, error) {
 	if after, ok := strings.CutPrefix(url, "file://"); ok {

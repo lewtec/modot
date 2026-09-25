@@ -3,6 +3,6 @@
 package prelude
 
 import (
-	_ "github.com/lewtec/modot/internal/driver/notification/fromkit"
+	_ "github.com/lewtec/modot/internal/driver/notification/lew"
 	_ "github.com/lewtec/modot/internal/driver/notification/termux"
 )

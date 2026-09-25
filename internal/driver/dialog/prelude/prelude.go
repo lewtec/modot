@@ -2,4 +2,4 @@
 
 package prelude
 
-import _ "github.com/lewtec/modot/internal/driver/dialog/fromkit"
+import _ "github.com/lewtec/modot/internal/driver/dialog/lew"

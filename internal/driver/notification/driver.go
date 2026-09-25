@@ -1,6 +1,6 @@
 package notification
 
-import kitnotify "github.com/lewtec/lewkit/x/driver/notification"
+import lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 
 const (
 	StatusNotificationID   uint32 = 100
@@ -8,5 +8,5 @@ const (
 	BackupNotificationID   uint32 = 102
 )
 
-type Notification = kitnotify.Notification
-type Driver = kitnotify.Driver
+type Notification = lewnotify.Notification
+type Driver = lewnotify.Driver

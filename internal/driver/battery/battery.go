@@ -3,22 +3,22 @@ package battery
 import (
 	"context"
 
-	kitbattery "github.com/lewtec/lewkit/x/driver/battery"
+	lewbattery "github.com/lewtec/lewkit/x/driver/battery"
 )
 
-var ErrNoBattery = kitbattery.ErrNoBattery
+var ErrNoBattery = lewbattery.ErrNoBattery
 
-type Status = kitbattery.Status
+type Status = lewbattery.Status
 
 const (
-	Charging    = kitbattery.Charging
-	Discharging = kitbattery.Discharging
-	Full        = kitbattery.Full
-	Unknown     = kitbattery.Unknown
+	Charging    = lewbattery.Charging
+	Discharging = lewbattery.Discharging
+	Full        = lewbattery.Full
+	Unknown     = lewbattery.Unknown
 )
 
-type Driver = kitbattery.Driver
+type Driver = lewbattery.Driver
 
 func BatteryStatus(ctx context.Context) (Status, error) {
-	return kitbattery.BatteryStatus(ctx)
+	return lewbattery.BatteryStatus(ctx)
 }

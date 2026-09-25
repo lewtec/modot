@@ -1,5 +1,5 @@
 package wallpaper
 
-import kitwall "github.com/lewtec/lewkit/x/driver/wallpaper"
+import lewwall "github.com/lewtec/lewkit/x/driver/wallpaper"
 
-type Driver = kitwall.Driver
+type Driver = lewwall.Driver

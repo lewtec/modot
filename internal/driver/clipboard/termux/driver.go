@@ -8,14 +8,14 @@ import (
 	"strings"
 
 	lewdriver "github.com/lewtec/lewkit/x/driver"
-	kitclip "github.com/lewtec/lewkit/x/driver/clipboard"
+	lewclip "github.com/lewtec/lewkit/x/driver/clipboard"
 	dapi "github.com/lewtec/modot/internal/api"
 	"github.com/lewtec/modot/internal/driver"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 )
 
 func init() {
-	lewdriver.Register[kitclip.Driver](factory{})
+	lewdriver.Register[lewclip.Driver](factory{})
 }
 
 type factory struct{}
@@ -31,7 +31,7 @@ func (factory) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (factory) New(context.Context) (kitclip.Driver, error) {
+func (factory) New(context.Context) (lewclip.Driver, error) {
 	return backend{}, nil
 }
 

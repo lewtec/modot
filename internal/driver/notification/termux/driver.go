@@ -5,12 +5,12 @@ import (
 	"fmt"
 
 	lewdriver "github.com/lewtec/lewkit/x/driver"
-	kitnotify "github.com/lewtec/lewkit/x/driver/notification"
+	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 )
 
 func init() {
-	lewdriver.Register[kitnotify.Driver](factory{})
+	lewdriver.Register[lewnotify.Driver](factory{})
 }
 
 type factory struct{}
@@ -23,13 +23,13 @@ func (factory) CheckCompatibility(ctx context.Context) error {
 	return execdriver.RequireBinary(ctx, "termux-notification")
 }
 
-func (factory) New(context.Context) (kitnotify.Driver, error) {
+func (factory) New(context.Context) (lewnotify.Driver, error) {
 	return backend{}, nil
 }
 
 type backend struct{}
 
-func (backend) Notify(ctx context.Context, n kitnotify.Notification) error {
+func (backend) Notify(ctx context.Context, n lewnotify.Notification) error {
 	args := []string{
 		"--title", n.Title,
 		"--content", n.Message,
