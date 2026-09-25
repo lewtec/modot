@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"github.com/lewtec/modot/internal/git"
+	lewgit "github.com/lewtec/lewkit/x/git"
 	"github.com/lewtec/modot/internal/logging"
 	"iter"
 	"log/slog"
@@ -159,10 +159,11 @@ func (autoRegistry) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	root, err := git.GetRoot(ctx, wd)
-	if err != nil {
-		return err
+	info, ok := (&lewgit.Git{}).Info(ctx, wd)
+	if !ok || info.Toplevel == "" {
+		return fmt.Errorf("find git root: %s", wd)
 	}
+	root := info.Toplevel
 	return HandleRegistryCodegen(ctx, DetectedRoot{
 		Dir:        path.Join(root, "cmd", "modot"),
 		Package:    "main",

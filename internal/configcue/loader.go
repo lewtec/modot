@@ -19,10 +19,10 @@ import (
 	"github.com/pbnjay/memory"
 
 	"cuelang.org/go/cue/ast"
+	lewgit "github.com/lewtec/lewkit/x/git"
 	"github.com/lewtec/modot/internal/driver"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	"github.com/lewtec/modot/internal/filespine"
-	"github.com/lewtec/modot/internal/git"
 	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/modulecue"
 
@@ -833,8 +833,9 @@ func findUp(ctx context.Context, start string, name string) (string, error) {
 	// Determine the git root of the starting point (if any). We will not
 	// walk above it when looking for modot.cue. This ensures nested
 	// git repos don't see outer modot.cue files.
-	gitRoot, gitErr := git.GetRoot(ctx, dir)
-	hasGitBoundary := gitErr == nil && gitRoot != ""
+	gitInfo, gitOK := (&lewgit.Git{}).Info(ctx, dir)
+	gitRoot := gitInfo.Toplevel
+	hasGitBoundary := gitOK && gitRoot != ""
 	var absGit string
 	if hasGitBoundary {
 		var absErr error

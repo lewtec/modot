@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lewtec/modot/internal/git"
+	lewgit "github.com/lewtec/lewkit/x/git"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/logging"
 
@@ -49,8 +49,8 @@ func AnnotateIfApplicable(ctx context.Context, report *sarif.Report, opts Annota
 		}
 		root = wd
 	}
-	if r, err := git.GetRoot(ctx, root); err == nil {
-		root = r
+	if info, ok := (&lewgit.Git{}).Info(ctx, root); ok && info.Toplevel != "" {
+		root = info.Toplevel
 	}
 
 	diffLines, err := RelevantDiffLines(ctx, root)

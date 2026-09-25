@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	lewgit "github.com/lewtec/lewkit/x/git"
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/checks/formatter"
-	"github.com/lewtec/modot/internal/git"
 )
 
 type Format struct {
@@ -25,10 +25,11 @@ func (f *Format) Run(ctx context.Context) error {
 		return err
 	}
 
-	root, err := git.GetRoot(ctx, absPath)
-	if err != nil {
-		return fmt.Errorf("find git root (format must run inside a git repo): %w", err)
+	info, ok := (&lewgit.Git{}).Info(ctx, absPath)
+	if !ok || info.Toplevel == "" {
+		return fmt.Errorf("find git root (format must run inside a git repo): %s", absPath)
 	}
+	root := info.Toplevel
 
 	taskgroup.Go(ctx, "codebase:format", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update("running formatters")

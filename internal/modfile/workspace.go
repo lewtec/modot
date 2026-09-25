@@ -3,7 +3,7 @@ package modfile
 import (
 	"context"
 	"fmt"
-	"github.com/lewtec/modot/internal/git"
+	lewgit "github.com/lewtec/lewkit/x/git"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	"os"
 	"path/filepath"
@@ -27,8 +27,8 @@ func DetectWorkspace(ctx context.Context, wd string) (*Workspace, error) {
 		}
 	}
 
-	if root, err := git.GetRoot(ctx, currentDir); err == nil && root != "" {
-		return NewWorkspace(root), nil
+	if info, ok := (&lewgit.Git{}).Info(ctx, currentDir); ok && info.Toplevel != "" {
+		return NewWorkspace(info.Toplevel), nil
 	}
 
 	root, err := envdriver.GetDotfilesRoot(ctx)

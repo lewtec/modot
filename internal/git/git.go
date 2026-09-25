@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/driver/notification"
@@ -14,7 +13,7 @@ import (
 
 // QuickSync walks repoDir for git checkouts and SyncRepo's each one.
 // Callers load modot quicksync.repo_dir (or pass any directory of repos).
-// Does not import configcue so lower packages can use GetRoot without a cycle.
+// Repository root lookup is github.com/lewtec/lewkit/x/git.
 func QuickSync(ctx context.Context, repoDir string) error {
 	logger := logging.GetLogger(ctx)
 	entries, err := os.ReadDir(repoDir)
@@ -107,18 +106,4 @@ func SyncRepo(ctx context.Context, path string) error {
 	}
 
 	return nil
-}
-
-// GetRoot returns the root directory of the git repository containing path.
-func GetRoot(ctx context.Context, path string) (string, error) {
-	if _, err := os.Stat(path); err != nil {
-		return "", err
-	}
-
-	cmd := execdriver.MustRun(ctx, "git", "-C", path, "rev-parse", "--show-toplevel")
-	out, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("git root: %w", err)
-	}
-	return strings.TrimSpace(string(out)), nil
 }

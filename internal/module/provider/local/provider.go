@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	lewgit "github.com/lewtec/lewkit/x/git"
 	"github.com/lewtec/modot/internal/cmdarg"
 	"github.com/lewtec/modot/internal/filespine"
-	"github.com/lewtec/modot/internal/git"
 	"github.com/lewtec/modot/internal/module"
 	"github.com/lewtec/modot/internal/modulecue"
 	"os"
@@ -141,8 +141,9 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) (modu
 }
 
 func moduleContributesTemplates(ctx context.Context, modPath string) (bool, error) {
-	root, err := git.GetRoot(ctx, modPath)
-	if err != nil || strings.TrimSpace(root) == "" {
+	info, ok := (&lewgit.Git{}).Info(ctx, modPath)
+	root := strings.TrimSpace(info.Toplevel)
+	if !ok || root == "" {
 		return false, nil
 	}
 	absMod, err := filepath.Abs(modPath)

@@ -2,10 +2,11 @@ package codebase
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lewtec/modot/internal/git"
+	lewgit "github.com/lewtec/lewkit/x/git"
 	"github.com/lewtec/modot/internal/tool"
 )
 
@@ -26,10 +27,11 @@ func (c *CIStatus) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	run.Dir, err = git.GetRoot(ctx, wd)
-	if err != nil {
-		return err
+	info, ok := (&lewgit.Git{}).Info(ctx, wd)
+	if !ok || info.Toplevel == "" {
+		return fmt.Errorf("find git root: %s", wd)
 	}
+	run.Dir = info.Toplevel
 	run.Stdin = os.Stdin
 	run.Stdout = run.Stderr
 	return run.Run()
