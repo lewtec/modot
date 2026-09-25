@@ -9,21 +9,17 @@ import (
 	"strings"
 	"time"
 
+	kitclip "github.com/lewtec/lewkit/x/driver/clipboard"
+	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	kitscreenshot "github.com/lewtec/lewkit/x/driver/screenshot"
 	"github.com/lewtec/modot/internal/atomicfile"
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/driver/clipboard"
 	"github.com/lewtec/modot/internal/driver/notification"
-	"github.com/lewtec/modot/internal/driver/wm"
 	"github.com/lewtec/modot/internal/logging"
 )
 
-func ResolveRect(ctx context.Context, targetType TargetType) (*wm.Rect, error) {
-	return kitscreenshot.ResolveRect(ctx, targetType)
-}
-
 func Capture(ctx context.Context, targetType TargetType) (string, error) {
-	rect, err := ResolveRect(ctx, targetType)
+	rect, err := kitscreenshot.ResolveRect(ctx, targetType)
 	if err != nil {
 		return "", err
 	}
@@ -62,7 +58,7 @@ func Capture(ctx context.Context, targetType TargetType) (string, error) {
 
 	// Post-processing: Clipboard
 	go func() {
-		if err := clipboard.WriteImage(ctx, img); err != nil {
+		if err := kitclip.WriteImage(ctx, img); err != nil {
 			logging.ReportError(ctx, err)
 		}
 	}()
@@ -91,7 +87,7 @@ func notifySaved(ctx context.Context, path string, target TargetType) {
 		Message: path,
 		Icon:    "camera-photo",
 	}
-	if err := notification.Notify(ctx, &n); err != nil {
+	if err := lewnotify.Notify(ctx, n); err != nil {
 		logging.ReportError(ctx, err)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	kitmedia "github.com/lewtec/lewkit/x/driver/media"
+	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	"github.com/lewtec/modot/internal/driver/notification"
 	"github.com/lewtec/modot/internal/logging"
 )
@@ -90,7 +91,7 @@ func Notify(ctx context.Context, meta *Metadata) error {
 		"icon", iconPath,
 	)
 
-	return notification.Notify(ctx, &n)
+	return lewnotify.Notify(ctx, n)
 }
 
 func Watch(ctx context.Context) {

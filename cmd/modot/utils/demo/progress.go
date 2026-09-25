@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	"github.com/lewtec/modot/internal/driver/notification"
 	"github.com/lewtec/modot/internal/logging"
 )
@@ -25,14 +26,14 @@ func (*Progress) Run(ctx context.Context) error {
 		n.HasProgress = true
 		n.ID = 69
 		n.Progress = float64(percent) / 100.0
-		if err := notification.Notify(ctx, n); err != nil {
+		if err := lewnotify.Notify(ctx, *n); err != nil {
 			logger.Error("error sending progress notification", "error", err)
 		}
 		time.Sleep(time.Second)
 	}
 	n.Message = "Demo complete!"
 	n.Progress = 1.0
-	if err := notification.Notify(ctx, n); err != nil {
+	if err := lewnotify.Notify(ctx, *n); err != nil {
 		logger.Error("error sending final notification", "error", err)
 	}
 	return nil

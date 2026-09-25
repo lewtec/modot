@@ -3,28 +3,11 @@ package power
 import (
 	"context"
 	"fmt"
-	kitpower "github.com/lewtec/lewkit/x/driver/power"
 	"github.com/lewtec/modot/internal/api"
 	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/logging"
 	"net"
 )
-
-func Lock(ctx context.Context) error {
-	return kitpower.Lock(ctx)
-}
-
-func Reboot(ctx context.Context) error {
-	return kitpower.Reboot(ctx)
-}
-
-func Shutdown(ctx context.Context) error {
-	return kitpower.Shutdown(ctx)
-}
-
-func Suspend(ctx context.Context) error {
-	return kitpower.Suspend(ctx)
-}
 
 func Wake(ctx context.Context, host string) error {
 	cfg, err := configcue.LoadForWorkspace(ctx, "")

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 
+	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	"github.com/lewtec/modot/internal/api"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
@@ -146,7 +147,7 @@ func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) 
 	updateProgress := func(msg string, prog float64) {
 		n.Message = msg
 		n.Progress = prog
-		logging.ReportError(ctx, notification.Notify(ctx, n))
+		logging.ReportError(ctx, lewnotify.Notify(ctx, *n))
 		logger.Info(msg, "progress", prog)
 	}
 
