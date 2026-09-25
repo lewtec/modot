@@ -2,7 +2,7 @@ package local
 
 import (
 	"context"
-	"github.com/lucasew/workspaced/internal/modfile"
+	"github.com/lewtec/modot/internal/modfile"
 	"path/filepath"
 	"strings"
 )

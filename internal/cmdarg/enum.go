@@ -1,6 +1,6 @@
 package cmdarg
 
-import "github.com/lucasew/workspaced/pkg/palette/api"
+import "github.com/lewtec/modot/internal/palette/api"
 
 // LintFormat is codebase lint --format.
 type LintFormat int

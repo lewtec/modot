@@ -1,0 +1,32 @@
+package kitty
+
+import (
+	"context"
+	"github.com/lewtec/modot/internal/driver"
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/driver/terminal"
+)
+
+func init() {
+	driver.Register[terminal.Driver](&Factory{})
+}
+
+type Factory struct{}
+
+func (f *Factory) ID() string   { return "terminal_kitty" }
+func (f *Factory) Name() string { return "Kitty" }
+
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
+	return execdriver.RequireBinary(ctx, "kitty")
+}
+
+func (f *Factory) New(ctx context.Context) (terminal.Driver, error) {
+	return &Driver{}, nil
+}
+
+type Driver struct{}
+
+func (d *Driver) Open(ctx context.Context, opts terminal.Options) error {
+	cmd := execdriver.MustRun(ctx, "kitty", terminal.BuildOpenArgs(opts, "--title", false)...)
+	return cmd.Start()
+}

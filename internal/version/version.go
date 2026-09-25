@@ -9,7 +9,7 @@ import (
 
 var version = "dev"
 
-// Version returns the workspaced version.
+// Version returns the modot version.
 // It defaults to "dev" when ldflags injection is not provided.
 func Version() string {
 	v := strings.TrimSpace(version)

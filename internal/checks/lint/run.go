@@ -6,9 +6,9 @@ import (
 	"fmt"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lucasew/workspaced/internal/checks"
-	"github.com/lucasew/workspaced/internal/checks/codec"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/checks"
+	"github.com/lewtec/modot/internal/checks/codec"
+	"github.com/lewtec/modot/internal/logging"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )

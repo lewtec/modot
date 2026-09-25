@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/lucasew/workspaced/internal/configcue"
-	_ "github.com/lucasew/workspaced/internal/module/prelude"
-	_ "github.com/lucasew/workspaced/pkg/driver/env/native"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/configcue"
+	_ "github.com/lewtec/modot/internal/module/prelude"
+	_ "github.com/lewtec/modot/internal/driver/env/native"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 func TestCloneModuleConfigIsolatesNestedMaps(t *testing.T) {
@@ -53,7 +53,7 @@ func TestModuleScannerProcessMapReduceOrder(t *testing.T) {
 	writeFile(t, filepath.Join(srcA, "a.txt"), "a")
 	writeFile(t, filepath.Join(srcB, "b.txt"), "b")
 
-	writeFile(t, filepath.Join(root, "workspaced.cue"), `package workspaced
+	writeFile(t, filepath.Join(root, "modot.cue"), `package modot
 
 modules: {
 	zebra: {
@@ -80,7 +80,7 @@ modules: {
 	}
 }
 `)
-	writeFile(t, filepath.Join(root, "workspaced.lock.json"), `{"dependencies":[]}`)
+	writeFile(t, filepath.Join(root, "modot.lock.json"), `{"dependencies":[]}`)
 
 	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
 	t.Cleanup(func() {
@@ -90,7 +90,7 @@ modules: {
 		}
 	})
 
-	cfg, err := configcue.LoadFiles(ctx, []string{filepath.Join(root, "workspaced.cue")})
+	cfg, err := configcue.LoadFiles(ctx, []string{filepath.Join(root, "modot.cue")})
 	require.NoError(t, err, "load config")
 
 	plugin := NewModuleScannerPlugin(modulesDir, cfg, 100)

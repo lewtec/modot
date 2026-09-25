@@ -40,7 +40,7 @@ func TestPlaceModuleConfigSchema(t *testing.T) {
 	t.Run("accepts move and require steps", func(t *testing.T) {
 		t.Parallel()
 		err := unifyUser(t, `
-package workspaced
+package modot
 modules: best_practices: {
 	from: "core:place"
 	config: {
@@ -59,7 +59,7 @@ modules: best_practices: {
 	t.Run("rejects unknown step op", func(t *testing.T) {
 		t.Parallel()
 		err := unifyUser(t, `
-package workspaced
+package modot
 modules: best_practices: {
 	from: "core:place"
 	config: {
@@ -77,7 +77,7 @@ modules: best_practices: {
 	t.Run("rejects move without from", func(t *testing.T) {
 		t.Parallel()
 		err := unifyUser(t, `
-package workspaced
+package modot
 modules: best_practices: {
 	from: "core:place"
 	config: {
@@ -91,7 +91,7 @@ modules: best_practices: {
 	t.Run("non-place module config stays open", func(t *testing.T) {
 		t.Parallel()
 		err := unifyUser(t, `
-package workspaced
+package modot
 modules: other: {
 	from: "self"
 	config: {anything: true, nested: {x: 1}}
@@ -104,7 +104,7 @@ modules: other: {
 		t.Parallel()
 		// Regression: if from == "core:place" must not require optional from.
 		err := unifyUser(t, `
-package workspaced
+package modot
 modules: fontconfig: {
 	input: "self"
 	path:  "fontconfig"

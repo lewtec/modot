@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lucasew/workspaced/pkg/palette/api"
+	"github.com/lewtec/modot/internal/palette/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lucasew/workspaced/internal/source"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/source"
+	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 

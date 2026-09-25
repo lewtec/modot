@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lucasew/workspaced/internal/configcue"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/configcue"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 // Proxy is the editor-facing LSP router.
@@ -141,7 +141,7 @@ func (p *Proxy) onInitialize(ctx context.Context, msg *Message) error {
 	}
 
 	if len(params.WorkspaceFolders) > 1 {
-		return p.client.WriteError(msg.ID, CodeInvalidParams, "workspaced lsp requires a single workspace folder")
+		return p.client.WriteError(msg.ID, CodeInvalidParams, "modot lsp requires a single workspace folder")
 	}
 
 	rootURI := params.RootURI

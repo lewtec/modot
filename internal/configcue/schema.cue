@@ -1,4 +1,4 @@
-package workspaced
+package modot
 
 #Input: {
 	from:    string
@@ -159,13 +159,13 @@ lazy_tools?: [string]: #LazyTool
 drivers?: [string]: [string]: int
 concurrency?: #Concurrency
 
-// LSP router: language servers behind `workspaced codebase lsp`.
+// LSP router: language servers behind `modot codebase lsp`.
 // Empty / omitted means the proxy still speaks LSP but routes nowhere.
 lsp?: #LSP
 
-// Linters for `workspaced codebase lint` (CUE-defined tools + codecs).
+// Linters for `modot codebase lint` (CUE-defined tools + codecs).
 lint?: #Checks
-// Formatters for `workspaced codebase format`.
+// Formatters for `modot codebase format`.
 formatter?: #Checks
 
 // #Checks is a map of named check tools (lint or formatter).

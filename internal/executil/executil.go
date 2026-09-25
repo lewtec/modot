@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 type stdoutKey struct{}

@@ -11,11 +11,11 @@ import (
 	"strings"
 
 	"github.com/git-pkgs/gitignore"
-	"github.com/lucasew/workspaced/internal/cmdarg"
-	"github.com/lucasew/workspaced/internal/module"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
-	"github.com/lucasew/workspaced/pkg/filespine"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/cmdarg"
+	"github.com/lewtec/modot/internal/module"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	"github.com/lewtec/modot/internal/filespine"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 func init() {

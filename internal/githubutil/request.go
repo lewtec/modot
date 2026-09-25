@@ -5,8 +5,8 @@ import (
 	"net/http"
 )
 
-// UserAgent identifies workspaced on GitHub HTTP calls (API and downloads).
-const UserAgent = "workspaced (+https://github.com/lucasew/.dotfiles)"
+// UserAgent identifies modot on GitHub HTTP calls (API and downloads).
+const UserAgent = "modot (+https://github.com/lucasew/.dotfiles)"
 
 // APIVersion is the GitHub REST API version header value.
 const APIVersion = "2022-11-28"

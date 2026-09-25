@@ -2,7 +2,7 @@ package modfile
 
 import (
 	"fmt"
-	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lewtec/modot/internal/configcue"
 	"path/filepath"
 	"strings"
 )

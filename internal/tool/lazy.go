@@ -9,13 +9,13 @@ import (
 	"sort"
 	"strings"
 
+	lewgit "github.com/lewtec/lewkit/x/git"
 	"github.com/lewtec/lewkit/x/taskgroup"
 	lewtool "github.com/lewtec/lewkit/x/tool"
-	"github.com/lucasew/workspaced/internal/configcue"
-	"github.com/lucasew/workspaced/internal/git"
-	"github.com/lucasew/workspaced/internal/modfile"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/configcue"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/modfile"
 )
 
 var (
@@ -254,8 +254,8 @@ func selectLazyToolWorkspaceFrom(ctx context.Context, homeMode bool, wd string) 
 	if abs, err := filepath.Abs(cwd); err == nil {
 		cwd = abs
 	}
-	if root, err := git.GetRoot(ctx, cwd); err == nil && root != "" {
-		return modfile.NewWorkspace(root), nil
+	if info, ok := (&lewgit.Git{}).Info(ctx, cwd); ok && info.Toplevel != "" {
+		return modfile.NewWorkspace(info.Toplevel), nil
 	}
 	// For explicit target directories (e.g. codebase lint path), keep lockfile local
 	// even when the directory is not inside a git repository.

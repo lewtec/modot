@@ -10,22 +10,22 @@ import (
 	"sync/atomic"
 	"time"
 
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"github.com/lucasew/workspaced/pkg/logging"
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 // githubTokenStop is a legacy re-entry sentinel formerly planted as
 // GITHUB_TOKEN=STOP on the `gh auth token` child. Still recognized so nested
-// workspaced processes with that env never treat STOP as a Bearer token.
+// modot processes with that env never treat STOP as a Bearer token.
 // Prefer githubTokenProbeEnv for new probes: setting GITHUB_TOKEN=STOP poisons
 // a real gh CLI (it echoes STOP as the token instead of keyring credentials).
 const githubTokenStop = "STOP"
 
 // githubTokenProbeEnv is planted on the `gh auth token` child. Nested
-// workspaced (PATH shim → open lazy → ensure) sees it and skips Token's gh
+// modot (PATH shim → open lazy → ensure) sees it and skips Token's gh
 // probe, breaking the forkbomb without overriding gh's own auth sources.
 const (
-	githubTokenProbeEnv = "WORKSPACED_GITHUB_TOKEN_PROBE"
+	githubTokenProbeEnv = "MODOT_GITHUB_TOKEN_PROBE"
 	githubTokenProbeVal = "1"
 )
 
@@ -78,7 +78,7 @@ func probeEnvActive() bool {
 		return true
 	}
 	// lewkit x/tool/github sets this on `gh auth token`. A PATH shim that
-	// re-enters workspaced must not probe again.
+	// re-enters modot must not probe again.
 	return strings.TrimSpace(os.Getenv("LEWKIT_GITHUB_TOKEN_PROBE")) == "1"
 }
 

@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/icons"
-	"github.com/lucasew/workspaced/internal/modfile"
-	"github.com/lucasew/workspaced/internal/text"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
-	shimdriver "github.com/lucasew/workspaced/pkg/driver/shim"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/icons"
+	"github.com/lewtec/modot/internal/modfile"
+	"github.com/lewtec/modot/internal/text"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	shimdriver "github.com/lewtec/modot/internal/driver/shim"
+	"github.com/lewtec/modot/internal/logging"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,7 +20,7 @@ import (
 // ErrFileSkipped is returned when a template calls {{ skip }}.
 var ErrFileSkipped = errors.New("file skipped")
 
-// makeFuncMap creates the default workspaced FuncMap.
+// makeFuncMap creates the default modot FuncMap.
 func makeFuncMap(ctx context.Context) template.FuncMap {
 	lockTool, lockSource := makeLockLookups(ctx)
 	return template.FuncMap{
@@ -129,7 +129,7 @@ func makeLockLookups(ctx context.Context) (func(string) map[string]any, func(str
 				sum = &modfile.SumFile{}
 				return
 			}
-			loaded, err := modfile.LoadSumFile(filepath.Join(dotfilesRoot, "workspaced.lock.json"))
+			loaded, err := modfile.LoadSumFile(filepath.Join(dotfilesRoot, "modot.lock.json"))
 			if err != nil {
 				sum = &modfile.SumFile{}
 				return

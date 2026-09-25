@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lucasew/workspaced/internal/checks"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/checks"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 // RunAll loads CUE formatter tools and runs applicable ones serially.

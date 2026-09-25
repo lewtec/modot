@@ -2,7 +2,7 @@ package dotfiles
 
 import (
 	"context"
-	"github.com/lucasew/workspaced/internal/deployer"
+	"github.com/lewtec/modot/internal/deployer"
 )
 
 // Hook allows executing code before/after deployment.

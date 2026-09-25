@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/lucasew/workspaced/internal/modfile"
+	"github.com/lewtec/modot/internal/modfile"
 	"github.com/stretchr/testify/require"
 )
 
@@ -55,7 +55,7 @@ func TestLockMatchesDesired(t *testing.T) {
 func TestUpsertSourceIdempotentAfterReload(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	sumPath := filepath.Join(dir, "workspaced.lock.json")
+	sumPath := filepath.Join(dir, "modot.lock.json")
 	sum := &modfile.SumFile{}
 	entry := modfile.LockedSource{
 		Provider: "github",

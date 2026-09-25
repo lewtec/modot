@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/lucasew/workspaced/internal/cmdctx"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/cmdctx"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 func testCtx(t *testing.T) context.Context {

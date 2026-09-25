@@ -2,6 +2,7 @@ package local
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -9,15 +10,16 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 
-	"github.com/lucasew/workspaced/internal/cmdarg"
-	"github.com/lucasew/workspaced/internal/module"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/cmdarg"
+	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/module"
 )
 
 func TestResolvePresetBases(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
+	initRepo(t, root)
 	modulesDir := filepath.Join(root, "modules")
 	modPath := filepath.Join(modulesDir, "demo")
 	writeModuleTree(t, modPath, map[string]string{
@@ -25,7 +27,7 @@ func TestResolvePresetBases(t *testing.T) {
 		"codebase/.gitignore":  "repo\n",
 		"etc/nginx/nginx.conf": "nginx\n",
 		"README.md":            "docs\n",
-		"module.cue":           "package module\n\nmodule: { config: {} }\n",
+		"modot.cue":            "package module\n\nmodule: { config: {} }\n",
 	})
 
 	home, err := os.UserHomeDir()
@@ -68,11 +70,12 @@ func TestResolveUnknownPreset(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
+	initRepo(t, root)
 	modulesDir := filepath.Join(root, "modules")
 	modPath := filepath.Join(modulesDir, "demo")
 	writeModuleTree(t, modPath, map[string]string{
 		"nope/file.txt": "x\n",
-		"module.cue":    "package module\n\nmodule: { config: {} }\n",
+		"modot.cue":     "package module\n\nmodule: { config: {} }\n",
 	})
 
 	_, err := (&Provider{}).Resolve(logging.NewWriterContext(t.Output()), module.ResolveRequest{
@@ -80,6 +83,13 @@ func TestResolveUnknownPreset(t *testing.T) {
 		ModulesBaseDir: modulesDir,
 	})
 	require.ErrorIs(t, err, ErrUnknownPreset)
+}
+
+func initRepo(t *testing.T, dir string) {
+	t.Helper()
+	cmd := exec.Command("git", "init", dir)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
 }
 
 func TestResolvePresetBase(t *testing.T) {

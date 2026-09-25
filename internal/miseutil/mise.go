@@ -9,12 +9,12 @@ import (
 	"strings"
 
 	lewtool "github.com/lewtec/lewkit/x/tool"
-	"github.com/lucasew/workspaced/internal/atomicfile"
-	"github.com/lucasew/workspaced/internal/tool"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"github.com/lucasew/workspaced/pkg/driver/shim/bash"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/atomicfile"
+	"github.com/lewtec/modot/internal/tool"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/driver/shim/bash"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 var (
@@ -24,7 +24,7 @@ var (
 
 // Ensure returns a path to the mise CLI via lazy_tools.mise (registry:mise).
 // Version comes from the workspace lockfile. Same path as
-// `workspaced open lazy mise`.
+// `modot open lazy mise`.
 func Ensure(ctx context.Context) (string, error) {
 	return tool.ResolveLazyTool(ctx, "mise", "mise")
 }
@@ -94,21 +94,21 @@ func ResolveBinPath(ctx context.Context, binName, toolSpec string) (string, erro
 // standard lazy route (open lazy --home mise). Integration only — not a
 // separate install path for the binary.
 //
-// workspacedBin is the absolute path to the workspaced binary; when empty,
+// modotBin is the absolute path to the modot binary; when empty,
 // the default under the user data dir is used.
-func EnsureLocalBinWrapper(ctx context.Context, workspacedBin string) error {
+func EnsureLocalBinWrapper(ctx context.Context, modotBin string) error {
 	logger := logging.GetLogger(ctx)
 	home, err := envdriver.ResolveHomeDir()
 	if err != nil {
 		return fmt.Errorf("get home directory: %w", err)
 	}
 
-	if strings.TrimSpace(workspacedBin) == "" {
+	if strings.TrimSpace(modotBin) == "" {
 		dataDir, derr := envdriver.GetUserDataDir(ctx)
 		if derr != nil {
-			dataDir = filepath.Join(home, ".local", "share", "workspaced")
+			dataDir = filepath.Join(home, ".local", "share", "modot")
 		}
-		workspacedBin = filepath.Join(dataDir, "bin", "workspaced")
+		modotBin = filepath.Join(dataDir, "bin", "modot")
 	}
 
 	wrapperDir := filepath.Join(home, ".local", "bin")
@@ -117,7 +117,7 @@ func EnsureLocalBinWrapper(ctx context.Context, workspacedBin string) error {
 	// Same argv shape as modules/mise and open lazy --home.
 	expectedContent := fmt.Sprintf(
 		"#!%s\nexec -a \"$0\" %s open lazy --home --bin mise mise -- \"$@\"\n",
-		shell, workspacedBin,
+		shell, modotBin,
 	)
 
 	if content, err := os.ReadFile(wrapperPath); err == nil && string(content) == expectedContent {
@@ -131,6 +131,6 @@ func EnsureLocalBinWrapper(ctx context.Context, workspacedBin string) error {
 		return fmt.Errorf("write mise wrapper: %w", err)
 	}
 
-	logger.Info("created mise wrapper", "path", wrapperPath, "workspaced", workspacedBin)
+	logger.Info("created mise wrapper", "path", wrapperPath, "modot", modotBin)
 	return nil
 }

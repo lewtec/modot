@@ -62,7 +62,7 @@ func initializeResult(rootURI string) map[string]any {
 	return map[string]any{
 		"capabilities": advertisedCapabilities(),
 		"serverInfo": map[string]any{
-			"name":    "workspaced",
+			"name":    "modot",
 			"version": "lsp-router",
 		},
 	}

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lucasew/workspaced/internal/module"
+	"github.com/lewtec/modot/internal/module"
 )
 
 func init() {

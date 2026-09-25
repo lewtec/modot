@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	lewtest "github.com/lewtec/lewkit/x/test"
-	"github.com/lucasew/workspaced/internal/backup"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/backup"
+	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 

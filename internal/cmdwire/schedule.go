@@ -3,8 +3,8 @@ package cmdwire
 import (
 	"context"
 
-	"github.com/lucasew/workspaced/internal/afterwait"
-	"github.com/lucasew/workspaced/internal/cmdctx"
+	"github.com/lewtec/modot/internal/afterwait"
+	"github.com/lewtec/modot/internal/cmdctx"
 )
 
 // ScheduleFunc wires plan/apply work into the session and returns a report

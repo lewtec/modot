@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/lucasew/workspaced/internal/configcue"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"github.com/lewtec/modot/internal/configcue"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
 
 	"github.com/pbnjay/memory"
 )
@@ -20,9 +20,16 @@ func buildTemplateData(ctx context.Context, cfg *configcue.Config, f File) (map[
 	module := map[string]any{}
 	moduleName := moduleNameOf(f)
 	if moduleName != "" && cfg != nil {
-		if raw, err := cfg.Lookup("modules." + moduleName + ".config"); err == nil {
+		if raw, err := cfg.Lookup(moduleName); err == nil {
 			if mapped, ok := raw.(map[string]any); ok {
 				module = mapped
+			}
+		}
+		if len(module) == 0 {
+			if raw, err := cfg.Lookup("modules." + moduleName + ".config"); err == nil {
+				if mapped, ok := raw.(map[string]any); ok {
+					module = mapped
+				}
 			}
 		}
 		if len(module) == 0 {

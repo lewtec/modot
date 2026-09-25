@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/lucasew/workspaced/internal/cmdarg"
-	"github.com/lucasew/workspaced/internal/module"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/cmdarg"
+	"github.com/lewtec/modot/internal/module"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 func TestPlaceResolveIgnoreMissing(t *testing.T) {

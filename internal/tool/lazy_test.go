@@ -8,10 +8,10 @@ import (
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	lewtool "github.com/lewtec/lewkit/x/tool"
-	"github.com/lucasew/workspaced/internal/configcue"
-	"github.com/lucasew/workspaced/internal/modfile"
-	_ "github.com/lucasew/workspaced/pkg/driver/env/native"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/configcue"
+	"github.com/lewtec/modot/internal/modfile"
+	_ "github.com/lewtec/modot/internal/driver/env/native"
+	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,7 +21,7 @@ func TestRefreshLazyToolLocksPreservesExistingLock(t *testing.T) {
 	t.Setenv("HOME", home)
 
 	workspaceRoot := t.TempDir()
-	writeTestFile(t, filepath.Join(workspaceRoot, "workspaced.cue"), `package workspaced
+	writeTestFile(t, filepath.Join(workspaceRoot, "modot.cue"), `package modot
 
 lazy_tools: {
 	gh: {
@@ -33,7 +33,7 @@ lazy_tools: {
 
 	// Pin every lazy tool that the codebase prelude injects (plus gh from the
 	// test cue) so refresh has nothing to resolve and must leave the lock untouched.
-	writeTestFile(t, filepath.Join(workspaceRoot, "workspaced.lock.json"), `{
+	writeTestFile(t, filepath.Join(workspaceRoot, "modot.lock.json"), `{
   "dependencies": [
     {"kind": "tool", "ref": "github:cli/cli", "currentValue": "0.1.0", "depName": "cli/cli", "datasource": "github-releases"},
     {"kind": "tool", "ref": "github:golangci/golangci-lint", "currentValue": "1.0.0", "depName": "golangci/golangci-lint", "datasource": "github-releases"},
@@ -52,7 +52,7 @@ lazy_tools: {
 
 	spec, err := lewtool.Parse("github:cli/cli")
 	require.NoError(t, err)
-	binPath := filepath.Join(home, ".local", "share", "workspaced", "tools", spec.Directory(), "2.89.0", "bin", "gh")
+	binPath := filepath.Join(home, ".local", "share", "modot", "tools", spec.Directory(), "2.89.0", "bin", "gh")
 	writeTestFile(t, binPath, "#!/bin/sh\nexit 0\n")
 	require.NoError(t, os.Chmod(binPath, 0o755))
 

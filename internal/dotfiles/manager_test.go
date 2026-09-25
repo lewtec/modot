@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lucasew/workspaced/internal/deployer"
-	"github.com/lucasew/workspaced/internal/source"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/deployer"
+	"github.com/lewtec/modot/internal/source"
+	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 
@@ -52,7 +52,7 @@ func TestApplyPersistsDropOfGitignoredStateOnIdle(t *testing.T) {
 		},
 	})
 
-	statePath := filepath.Join(root, ".workspaced", "state.json")
+	statePath := filepath.Join(root, ".modot", "state.json")
 	store, err := deployer.NewFileStateStore(statePath, root)
 	require.NoError(t, err)
 	require.NoError(t, store.Save(&deployer.State{Files: map[string]deployer.ManagedInfo{

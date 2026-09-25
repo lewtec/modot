@@ -3,7 +3,7 @@ package source
 import (
 	"context"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/template"
+	"github.com/lewtec/modot/internal/template"
 	"path/filepath"
 	"sort"
 	"strings"

@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/lucasew/workspaced/internal/configcue"
-	_ "github.com/lucasew/workspaced/pkg/driver/env/native"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/configcue"
+	_ "github.com/lewtec/modot/internal/driver/env/native"
+	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,8 +40,8 @@ func TestBuilderTreeMergesCueLines(t *testing.T) {
 	dest := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(src, ".bashrc.d.tmpl"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(src, ".bashrc.d.tmpl", "10-mod.sh"), []byte("from-mod"), 0o644))
-	cuePath := filepath.Join(t.TempDir(), "workspaced.cue")
-	require.NoError(t, os.WriteFile(cuePath, []byte(`package workspaced
+	cuePath := filepath.Join(t.TempDir(), "modot.cue")
+	require.NoError(t, os.WriteFile(cuePath, []byte(`package modot
 file: home: ".bashrc": {
 	type: "lines"
 	values: {"00-cue": "from-cue"}

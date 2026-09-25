@@ -1,4 +1,4 @@
-// Package tool chooses the workspaced tool directory, shims, and lock rows.
+// Package tool chooses the modot tool directory, shims, and lock rows.
 // Versioned installs are github.com/lewtec/lewkit/x/tool.
 package tool
 
@@ -8,24 +8,24 @@ import (
 
 	lewtool "github.com/lewtec/lewkit/x/tool"
 
-	"github.com/lucasew/workspaced/internal/cmdctx"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"github.com/lewtec/modot/internal/cmdctx"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
 )
 
 func GetToolsDir() (string, error) {
-	return workspacedShareDir("tools")
+	return modotShareDir("tools")
 }
 
 func GetShimsDir() (string, error) {
-	return workspacedShareDir("shims")
+	return modotShareDir("shims")
 }
 
-func workspacedShareDir(leaf string) (string, error) {
+func modotShareDir(leaf string) (string, error) {
 	home, err := envdriver.ResolveHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".local", "share", "workspaced", leaf), nil
+	return filepath.Join(home, ".local", "share", "modot", leaf), nil
 }
 
 // WithCmdFlags copies --no-cache and --dry-run onto ctx for lewtool.Store.

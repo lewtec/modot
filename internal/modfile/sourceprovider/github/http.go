@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/githubutil"
-	"github.com/lucasew/workspaced/pkg/driver"
-	httpclientdriver "github.com/lucasew/workspaced/pkg/driver/httpclient"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/githubutil"
+	"github.com/lewtec/modot/internal/driver"
+	httpclientdriver "github.com/lewtec/modot/internal/driver/httpclient"
+	"github.com/lewtec/modot/internal/logging"
 	"net/http"
 )
 

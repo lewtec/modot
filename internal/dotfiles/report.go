@@ -3,8 +3,8 @@ package dotfiles
 import (
 	"context"
 
-	"github.com/lucasew/workspaced/internal/deployer"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/deployer"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 // LogApplyOptions controls how ApplyResult is reported after plan/apply.

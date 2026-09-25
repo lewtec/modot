@@ -2,6 +2,7 @@ package source
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -9,19 +10,22 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/lucasew/workspaced/internal/configcue"
-	_ "github.com/lucasew/workspaced/internal/module/prelude"
-	_ "github.com/lucasew/workspaced/pkg/driver/env/native"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/configcue"
+	_ "github.com/lewtec/modot/internal/driver/env/native"
+	"github.com/lewtec/modot/internal/logging"
+	_ "github.com/lewtec/modot/internal/module/prelude"
 )
 
 func TestStandardDotfilesKeepsCodebasePresetOnly(t *testing.T) {
 	root := t.TempDir()
+	gitInit := exec.Command("git", "init", root)
+	out, err := gitInit.CombinedOutput()
+	require.NoError(t, err, string(out))
 	modDir := filepath.Join(root, "modules", "demo")
-	writeFile(t, filepath.Join(modDir, "module.cue"), "package module\n\nmodule: { config: {} }\n")
+	writeFile(t, filepath.Join(modDir, "modot.cue"), "package module\n\nmodule: { config: {} }\n")
 	writeFile(t, filepath.Join(modDir, "home", ".bashrc"), "from-home\n")
 	writeFile(t, filepath.Join(modDir, "codebase", ".gitignore"), "from-codebase\n")
-	writeFile(t, filepath.Join(root, "workspaced.cue"), `package workspaced
+	writeFile(t, filepath.Join(root, "modot.cue"), `package modot
 
 modules: {
 	demo: {
@@ -31,7 +35,7 @@ modules: {
 	}
 }
 `)
-	writeFile(t, filepath.Join(root, "workspaced.lock.json"), `{"dependencies":[]}`)
+	writeFile(t, filepath.Join(root, "modot.lock.json"), `{"dependencies":[]}`)
 
 	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
 	t.Cleanup(func() {
@@ -42,7 +46,7 @@ modules: {
 	})
 	cfgCode, err := configcue.LoadForWorkspace(ctx, root)
 	require.NoError(t, err, "load codebase config")
-	cfgHome, err := configcue.LoadFiles(ctx, []string{filepath.Join(root, "workspaced.cue")})
+	cfgHome, err := configcue.LoadFiles(ctx, []string{filepath.Join(root, "modot.cue")})
 	require.NoError(t, err, "load home config")
 
 	t.Run("codebase mode", func(t *testing.T) {

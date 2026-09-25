@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/lucasew/workspaced/internal/modfile"
-	_ "github.com/lucasew/workspaced/internal/modfile/sourceprovider/prelude"
+	"github.com/lewtec/modot/internal/modfile"
+	_ "github.com/lewtec/modot/internal/modfile/sourceprovider/prelude"
 )
 
 func TestTryResolveSourceRefToPath(t *testing.T) {

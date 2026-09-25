@@ -2,7 +2,7 @@ package module
 
 import (
 	"context"
-	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lewtec/modot/internal/configcue"
 	"os"
 )
 

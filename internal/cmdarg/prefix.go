@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
 )
 
 type prefixKey struct{}

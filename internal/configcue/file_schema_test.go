@@ -39,7 +39,7 @@ func TestFileSpineSchema(t *testing.T) {
 	t.Run("accepts structured types", func(t *testing.T) {
 		t.Parallel()
 		err := unify(t, `
-package workspaced
+package modot
 file: home: {
 	"a.json": {type: "json", values: {port: 8080, name: "x"}}
 	"a.toml": {type: "toml", values: {port: 8080}}
@@ -54,7 +54,7 @@ file: home: {
 	t.Run("accepts lines text and ref", func(t *testing.T) {
 		t.Parallel()
 		err := unify(t, `
-package workspaced
+package modot
 file: home: {
 	".bashrc": {
 		type: "lines"
@@ -79,7 +79,7 @@ file: home: {
 	t.Run("rejects env slot", func(t *testing.T) {
 		t.Parallel()
 		err := unify(t, `
-package workspaced
+package modot
 file: home: "x": {
 	type: "text"
 	values: {a: {kind: "env", env: "EDITOR"}}
@@ -91,7 +91,7 @@ file: home: "x": {
 	t.Run("rejects flat key", func(t *testing.T) {
 		t.Parallel()
 		err := unify(t, `
-package workspaced
+package modot
 file: {
 	".codex/config.toml": {type: "toml", values: {model: "x"}}
 	codebase: {
@@ -105,7 +105,7 @@ file: {
 	t.Run("accepts profiles", func(t *testing.T) {
 		t.Parallel()
 		err := unify(t, `
-package workspaced
+package modot
 file: {
 	home: {
 		".codex/config.toml": {type: "toml", values: {model: "x"}}
@@ -121,7 +121,7 @@ file: {
 	t.Run("rejects unknown file type", func(t *testing.T) {
 		t.Parallel()
 		err := unify(t, `
-package workspaced
+package modot
 file: home: "x": {
 	type: "plist"
 	values: {a: "{}"}

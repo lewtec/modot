@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/lucasew/workspaced/internal/atomicfile"
-	"github.com/lucasew/workspaced/internal/cmdctx"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/atomicfile"
+	"github.com/lewtec/modot/internal/cmdctx"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 var (
@@ -23,7 +23,7 @@ func EnsureCachedDir(ctx context.Context, provider string, key string, fetch fun
 	if err != nil {
 		return "", err
 	}
-	cacheRoot := filepath.Join(home, ".cache", "workspaced", "sources", provider)
+	cacheRoot := filepath.Join(home, ".cache", "modot", "sources", provider)
 	if err := os.MkdirAll(cacheRoot, 0755); err != nil {
 		return "", err
 	}

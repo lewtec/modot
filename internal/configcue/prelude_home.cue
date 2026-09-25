@@ -1,4 +1,4 @@
-package workspaced
+package modot
 
 // Home-only prelude layer.
 workspaces: {

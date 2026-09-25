@@ -14,15 +14,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/lucasew/workspaced/internal/executil"
-	"github.com/lucasew/workspaced/internal/icons"
-	"github.com/lucasew/workspaced/internal/sudo"
-	"github.com/lucasew/workspaced/internal/types"
-	"github.com/lucasew/workspaced/pkg/api"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"github.com/lucasew/workspaced/pkg/driver/notification"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/executil"
+	"github.com/lewtec/modot/internal/icons"
+	"github.com/lewtec/modot/internal/sudo"
+	"github.com/lewtec/modot/internal/types"
+	"github.com/lewtec/modot/internal/api"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/driver/notification"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 var buildCache sync.Map // key: sourcePath#attribute, value: resultPath

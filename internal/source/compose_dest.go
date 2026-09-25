@@ -16,8 +16,8 @@ import (
 	"github.com/lewtec/lewkit/x/fs/compose"
 	lewpath "github.com/lewtec/lewkit/x/path"
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lucasew/workspaced/internal/configcue"
-	"github.com/lucasew/workspaced/pkg/filespine"
+	"github.com/lewtec/modot/internal/configcue"
+	"github.com/lewtec/modot/internal/filespine"
 )
 
 var (

@@ -4,9 +4,9 @@ import (
 	"context"
 	"io/fs"
 
-	"github.com/lucasew/workspaced/internal/configcue"
-	"github.com/lucasew/workspaced/internal/template"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/configcue"
+	"github.com/lewtec/modot/internal/template"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 // Tree is dest files after profiles compose.

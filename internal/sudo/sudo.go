@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lucasew/workspaced/internal/atomicfile"
-	"github.com/lucasew/workspaced/internal/types"
-	"github.com/lucasew/workspaced/pkg/driver/notification"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/atomicfile"
+	"github.com/lewtec/modot/internal/types"
+	"github.com/lewtec/modot/internal/driver/notification"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 // ErrEmptyQueueSlug is returned when queuePath is given an empty slug.
@@ -32,7 +32,7 @@ func getQueueDir() (string, error) {
 		return "", err
 	}
 	// Owner-only: queue files carry full process env (secrets).
-	dir := filepath.Join(home, ".cache/workspaced/sudo_queue")
+	dir := filepath.Join(home, ".cache/modot/sudo_queue")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", err
 	}

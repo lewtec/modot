@@ -3,8 +3,8 @@ package modfile
 import (
 	"context"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/git"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	lewgit "github.com/lewtec/lewkit/x/git"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
 	"os"
 	"path/filepath"
 )
@@ -27,8 +27,8 @@ func DetectWorkspace(ctx context.Context, wd string) (*Workspace, error) {
 		}
 	}
 
-	if root, err := git.GetRoot(ctx, currentDir); err == nil && root != "" {
-		return NewWorkspace(root), nil
+	if info, ok := (&lewgit.Git{}).Info(ctx, currentDir); ok && info.Toplevel != "" {
+		return NewWorkspace(info.Toplevel), nil
 	}
 
 	root, err := envdriver.GetDotfilesRoot(ctx)
@@ -52,7 +52,7 @@ func (w *Workspace) UpdateSumFile(ctx context.Context, mutate func(sum *SumFile)
 }
 
 func (w *Workspace) SumPath() string {
-	return filepath.Join(w.Root, "workspaced.lock.json")
+	return filepath.Join(w.Root, "modot.lock.json")
 }
 
 func (w *Workspace) ModulesBaseDir() string {

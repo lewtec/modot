@@ -1,3 +1,3 @@
 package backup
 
-const BackupGitRemoteName = "workspaced"
+const BackupGitRemoteName = "modot"

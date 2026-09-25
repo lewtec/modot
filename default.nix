@@ -1,6 +1,6 @@
 { writeShellScriptBin }:
 
-writeShellScriptBin "workspaced" ''
+writeShellScriptBin "modot" ''
   dotfilesFolder=
   if [ -d ~/.internal/dotfiles ]; then
     dotfilesFolder=~/.internal/dotfiles
@@ -13,5 +13,5 @@ writeShellScriptBin "workspaced" ''
     echo "can't find internal/dotfiles folder" >&2
     exit 1
   fi
-  exec "$dotfilesFolder/bin/shim/workspaced" "$@"
+  exec "$dotfilesFolder/bin/shim/modot" "$@"
 ''

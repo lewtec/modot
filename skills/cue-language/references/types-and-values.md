@@ -189,7 +189,7 @@ Exact set is implementation/version dependent. Frequently used in constraints:
 - Math, time, path, encoding builtins in standard CUE: verify with `cue help`
   / docs for the version you target.
 
-Host programs (workspaced, custom loaders) may inject additional constraints
+Host programs (modot, custom loaders) may inject additional constraints
 or builtins; treat those as environment-specific.
 
 ## JSON / data interop mental note

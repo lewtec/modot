@@ -9,9 +9,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/lucasew/workspaced/internal/configcue"
-	"github.com/lucasew/workspaced/pkg/filespine"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/configcue"
+	"github.com/lewtec/modot/internal/filespine"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 func TestFileSpineLowersDotD(t *testing.T) {
@@ -45,8 +45,8 @@ func TestFileSpineMergesCueLines(t *testing.T) {
 	t.Parallel()
 	ctx := logging.NewWriterContext(t.Output())
 	home := t.TempDir()
-	cuePath := filepath.Join(t.TempDir(), "workspaced.cue")
-	src := `package workspaced
+	cuePath := filepath.Join(t.TempDir(), "modot.cue")
+	src := `package modot
 file: home: ".bashrc": {
 	type: "lines"
 	values: {"00-cue": "from-cue"}
@@ -78,8 +78,8 @@ func TestFileSpineTypeConflict(t *testing.T) {
 	ctx := logging.NewWriterContext(t.Output())
 	home := t.TempDir()
 	dir := t.TempDir()
-	cuePath := filepath.Join(dir, "workspaced.cue")
-	require.NoError(t, os.WriteFile(cuePath, []byte(`package workspaced
+	cuePath := filepath.Join(dir, "modot.cue")
+	require.NoError(t, os.WriteFile(cuePath, []byte(`package modot
 file: home: "x": {type: "lines", values: {a: "1"}}
 `), 0o644))
 	cfg, err := configcue.LoadFiles(ctx, []string{cuePath})
@@ -171,7 +171,7 @@ func TestFileSpineNestedTargetStaysInHome(t *testing.T) {
 		&BufferFile{
 			BasicFile: BasicFile{
 				RelPathStr:    "dconf.marker",
-				TargetBaseDir: filepath.Join(home, ".config", "workspaced"),
+				TargetBaseDir: filepath.Join(home, ".config", "modot"),
 				FileMode:      0o644,
 			},
 			Content: []byte("abc"),
@@ -180,7 +180,7 @@ func TestFileSpineNestedTargetStaysInHome(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, out, 1)
 	require.Equal(t, home, out[0].TargetBase())
-	require.Equal(t, ".config/workspaced/dconf.marker", out[0].RelPath())
+	require.Equal(t, ".config/modot/dconf.marker", out[0].RelPath())
 }
 
 func TestFileSpineKeepsSymlink(t *testing.T) {
@@ -263,8 +263,8 @@ func TestFileSpineSameRelPathOnTwoProfiles(t *testing.T) {
 func systemConfig(t *testing.T) *configcue.Config {
 	t.Helper()
 	dir := t.TempDir()
-	path := filepath.Join(dir, "workspaced.cue")
-	require.NoError(t, os.WriteFile(path, []byte("package workspaced\n"), 0o644))
+	path := filepath.Join(dir, "modot.cue")
+	require.NoError(t, os.WriteFile(path, []byte("package modot\n"), 0o644))
 	cfg, err := configcue.LoadFilesMode(logging.NewWriterContext(t.Output()), []string{path}, filespine.ModeSystem)
 	require.NoError(t, err)
 	return cfg

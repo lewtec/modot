@@ -9,41 +9,36 @@ import (
 	"testing"
 
 	"github.com/lewtec/lewkit/x/fs/compose"
-	_ "github.com/lucasew/workspaced/pkg/driver/env/native"
-	"github.com/lucasew/workspaced/pkg/logging"
+	_ "github.com/lewtec/modot/internal/driver/env/native"
+	"github.com/lewtec/modot/internal/logging"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 )
 
-func TestModuleFileLiftsIntoWorkspacedFile(t *testing.T) {
+func TestModuleFileLiftsIntoModotFile(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
 	modDir := filepath.Join(root, "modules", "greet")
 	require.NoError(t, os.MkdirAll(modDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(modDir, "module.cue"), []byte(`package module
+	require.NoError(t, os.WriteFile(filepath.Join(modDir, "modot.cue"), []byte(`package picuinha
 
-module: {
-	meta: {requires: [], recommends: []}
-	config: {
-		name: string | *"world"
-	}
-	file: home: "hello.json": {
-		type: "json"
-		values: {
-			ok:   true
-			name: modules.greet.config.name
-		}
+greet: name: string | *"world"
+file: home: "hello.json": {
+	type: "json"
+	values: {
+		ok:   true
+		name: greet.name
 	}
 }
 `), 0o644))
-	cuePath := filepath.Join(root, "workspaced.cue")
-	require.NoError(t, os.WriteFile(cuePath, []byte(`package workspaced
+	cuePath := filepath.Join(root, "modot.cue")
+	require.NoError(t, os.WriteFile(cuePath, []byte(`package modot
 modules: greet: {
 	input:  "self"
 	path:   "modules/greet"
 	enable: true
-	config: {name: "ada"}
 }
+greet: name: "ada"
 `), 0o644))
 	ctx := logging.NewWriterContext(t.Output())
 	cfg, err := LoadFiles(ctx, []string{cuePath})
@@ -67,21 +62,17 @@ func TestModuleFileUserOverlayWithoutType(t *testing.T) {
 	root := t.TempDir()
 	modDir := filepath.Join(root, "modules", "greet")
 	require.NoError(t, os.MkdirAll(modDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(modDir, "module.cue"), []byte(`package module
+	require.NoError(t, os.WriteFile(filepath.Join(modDir, "modot.cue"), []byte(`package picuinha
 
-module: {
-	meta: {requires: [], recommends: []}
-	config: {}
-	file: home: "hello.toml": {
-		type: "toml"
-		values: {
-			onboarding: false
-		}
+file: home: "hello.toml": {
+	type: "toml"
+	values: {
+		onboarding: false
 	}
 }
 `), 0o644))
-	cuePath := filepath.Join(root, "workspaced.cue")
-	require.NoError(t, os.WriteFile(cuePath, []byte(`package workspaced
+	cuePath := filepath.Join(root, "modot.cue")
+	require.NoError(t, os.WriteFile(cuePath, []byte(`package modot
 modules: greet: {
 	input:  "self"
 	path:   "modules/greet"

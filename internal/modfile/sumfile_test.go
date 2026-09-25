@@ -13,7 +13,7 @@ func TestLoadSumFileRequiresSource(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	sumPath := filepath.Join(dir, "workspaced.lock.json")
+	sumPath := filepath.Join(dir, "modot.lock.json")
 	content, err := json.Marshal(map[string]any{
 		"modules": map[string]any{
 			"foo": map[string]any{"version": "v1.0.0"},
@@ -31,7 +31,7 @@ func TestLoadSumFileRequiresSourceProvider(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	sumPath := filepath.Join(dir, "workspaced.lock.json")
+	sumPath := filepath.Join(dir, "modot.lock.json")
 	content, err := json.Marshal(map[string]any{
 		"sources": map[string]any{
 			"papirus": map[string]any{"path": "/tmp/papirus"},
@@ -49,7 +49,7 @@ func TestLoadSumFileRequiresSourceHash(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	sumPath := filepath.Join(dir, "workspaced.lock.json")
+	sumPath := filepath.Join(dir, "modot.lock.json")
 	content, err := json.Marshal(map[string]any{
 		"sources": map[string]any{
 			"papirus": map[string]any{
@@ -91,7 +91,7 @@ func TestLoadSumFileToolLockUsesCurrentValueOverVersion(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	sumPath := filepath.Join(dir, "workspaced.lock.json")
+	sumPath := filepath.Join(dir, "modot.lock.json")
 	require.NoError(t, os.WriteFile(sumPath, []byte(`{
   "dependencies": [
     {

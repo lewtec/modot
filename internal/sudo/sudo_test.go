@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lucasew/workspaced/internal/types"
-	_ "github.com/lucasew/workspaced/pkg/driver/prelude"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/types"
+	_ "github.com/lewtec/modot/internal/driver/prelude"
+	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 
@@ -54,7 +54,7 @@ func TestEnqueueJailsSlugAndMode(t *testing.T) {
 	})
 	require.Error(t, err, "expected error for path-escaping slug")
 	// No escape file next to queue parent
-	_, err = os.Stat(filepath.Join(home, ".cache/workspaced/escape.json"))
+	_, err = os.Stat(filepath.Join(home, ".cache/modot/escape.json"))
 	require.Error(t, err, "escaped write created file outside queue")
 
 	err = Enqueue(ctx, &types.SudoCommand{
@@ -63,7 +63,7 @@ func TestEnqueueJailsSlugAndMode(t *testing.T) {
 		Env:     []string{"SECRET=s3cr3t"},
 	})
 	require.NoError(t, err)
-	path := filepath.Join(home, ".cache/workspaced/sudo_queue/safe1.json")
+	path := filepath.Join(home, ".cache/modot/sudo_queue/safe1.json")
 	info, err := os.Stat(path)
 	require.NoError(t, err)
 	require.Equal(t, fs.FileMode(0o600), info.Mode().Perm())

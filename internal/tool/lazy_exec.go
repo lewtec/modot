@@ -7,7 +7,7 @@ import (
 
 	lewtool "github.com/lewtec/lewkit/x/tool"
 
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
 )
 
 // EnsureAndRunLazy handles the lifecycle for a tool configured dynamically in a workspace.

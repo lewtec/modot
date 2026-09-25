@@ -24,15 +24,15 @@ linters:
     # The previous default "Main" list behavior (from enabling-all) was effectively inverted
     # or too coarse (e.g. "cmd" substring in cmdregistry caused spurious "not allowed from list 'Main'"
     # on legitimate cobra usage). We explicitly define the rule the correct way:
-    #   non-cmd packages (pkg/..., internal/..., etc.) must not import workspaced/cmd/... packages.
+    #   non-cmd packages (pkg/..., internal/..., etc.) must not import modot/cmd/... packages.
     # cmd/... (the application entrypoints + their internal wiring) are allowed to import each other
     # and pkg/... / internal/... as needed.
     depguard:
       rules:
         "non-cmd-must-not-import-cmd":
           deny:
-            - pkg: "workspaced/cmd"
-              desc: "pkg/... and internal/... must not import workspaced/cmd/..."
+            - pkg: "modot/cmd"
+              desc: "pkg/... and internal/... must not import modot/cmd/..."
           files:
             # Scope to non-cmd code only. A negation-only pattern like "!cmd/**" is treated
             # as a positive match in depguard v2 and falsely flags every cmd→cmd import.
@@ -48,7 +48,7 @@ linters:
       # Forbid specific identifiers (function calls, packages, etc).
       # Use this to warn/error on calls that should be avoided per project rules (AGENTS.md).
       # After adding these, run lint and add targeted //nolint:forbidigo comments only in the
-      # legitimate implementation sites (e.g. inside pkg/driver/exec/*, pkg/logging/*, cmd/workspaced/root.go initial setup).
+      # legitimate implementation sites (e.g. inside pkg/driver/exec/*, pkg/logging/*, cmd/modot/root.go initial setup).
       forbid:
         # Logging
         - pattern: ^fmt\.Print(f|ln)?$
@@ -87,7 +87,7 @@ linters:
 # Default caps (max-same-issues=3) hide most findings for chatty rules like
 # wrapcheck/depguard, so janitor passes only see the first few hits.
 # Fully uncapped (0) inflates SARIF to thousands of results and trips
-# `workspaced codebase lint` aggregation. 50 is enough to see real clusters
+# `modot codebase lint` aggregation. 50 is enough to see real clusters
 # without turning the report into noise.
 issues:
   max-issues-per-linter: 50

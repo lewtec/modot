@@ -3,12 +3,12 @@ package modfile
 import (
 	"context"
 	"encoding/json"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/logging"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/lucasew/workspaced/internal/atomicfile"
+	"github.com/lewtec/modot/internal/atomicfile"
 )
 
 func IsLockableProvider(provider string) bool {

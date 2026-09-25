@@ -11,9 +11,9 @@ import (
 
 	"cuelang.org/go/cue"
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lucasew/workspaced/pkg/driver"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
-	"github.com/lucasew/workspaced/pkg/filespine"
+	"github.com/lewtec/modot/internal/driver"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	"github.com/lewtec/modot/internal/filespine"
 )
 
 var (
@@ -208,11 +208,11 @@ func LoadFilesMode(ctx context.Context, paths []string, mode string) (*Config, e
 	if mode == "" {
 		mode = filespine.ModeHome
 	}
-	configValue, err := buildWorkspacedValue(ctx, paths, nil, DiscoverOptions{Mode: mode})
+	configValue, err := buildModotValue(ctx, paths, nil, DiscoverOptions{Mode: mode})
 	if err != nil {
 		return nil, err
 	}
-	data, err := marshalWorkspacedValue(ctx, configValue, paths, nil)
+	data, err := marshalModotValue(ctx, configValue, paths, nil)
 	if err != nil {
 		return nil, err
 	}

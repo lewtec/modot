@@ -5,11 +5,11 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/cmdarg"
-	"github.com/lucasew/workspaced/internal/configcue"
-	"github.com/lucasew/workspaced/internal/source"
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/cmdarg"
+	"github.com/lewtec/modot/internal/configcue"
+	"github.com/lewtec/modot/internal/source"
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/logging"
 	"os"
 	"path/filepath"
 	"sort"
@@ -45,7 +45,7 @@ func (p *DconfPlugin) Process(ctx context.Context, files []source.File) ([]sourc
 
 	marker := &source.BufferFile{
 		BasicFile: source.BasicFile{
-			RelPathStr:    filepath.Join(".config", "workspaced", "dconf.marker"),
+			RelPathStr:    filepath.Join(".config", "modot", "dconf.marker"),
 			TargetBaseDir: home,
 			FileMode:      0644,
 			Info:          "dconf (marker)",
@@ -77,7 +77,7 @@ func ApplyHomeDconf(ctx context.Context) error {
 
 // writeTempDconfIni writes content to a unique temp file (0600). Caller removes it.
 func writeTempDconfIni(ctx context.Context, content string) (string, error) {
-	f, err := os.CreateTemp("", "workspaced-dconf-*.ini")
+	f, err := os.CreateTemp("", "modot-dconf-*.ini")
 	if err != nil {
 		return "", err
 	}

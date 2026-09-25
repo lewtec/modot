@@ -1,0 +1,147 @@
+package demo
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/lewtec/lewkit/x/taskgroup"
+	"github.com/lewtec/modot/internal/logging"
+)
+
+var ErrSimulated503 = errors.New("simulated 503 from registry (demo failure)")
+
+type Command struct {
+	Tasks  *Tasks
+	Plain  *Plain
+	Nested *Nested
+	Loop   *Loop
+	Map    *MapCmd `cmd:"map"`
+	Cpu10k *Cpu10k
+	Lines  *Lines
+}
+
+func (Command) Description() string {
+	return `Showcase the output rendering and task system
+
+The demo command exercises lewkit x/taskgroup (Go + Status + context slog)
+and the root progress view.
+
+All demos use the same rules as production code:
+- only root may New the session; everything else does MustFromContext / Go
+- schedule with taskgroup.Go(ctx, ..., func(ctx, s){ ... s.Update/Progress })
+- progress UI is started by the CLI (TERM=dumb / CI / non-tty stay plain)
+
+Run subcommands to see different aspects:
+  modot experiments demo          - default tasks showcase
+  modot experiments demo tasks    - same as above
+  modot experiments demo plain    - same schedule; set TERM=dumb for a transcript
+  modot experiments demo nested   - Isolate error boundary + child tasks
+  modot experiments demo loop     - 5x sleep+log+progress
+  modot experiments demo map      - taskgroup.Map over a slice
+  modot experiments demo cpu10k   - 10k CPU-bound Map items
+  modot experiments demo lines    - three LineWriter counters rewriting in place`
+}
+
+func (*Command) Run(ctx context.Context) error {
+	return runTasksDemo(ctx)
+}
+
+func runTasksDemo(ctx context.Context) error {
+	logger := logging.GetLogger(ctx)
+
+	logger.Info("Scheduling work on the session obtained via context.")
+	logger.Info("Tasks use IO / CPU / Internet pools, have dependencies, emit logs, and report progress.")
+
+	// Internet task with determinate progress + logs.
+	// Layout is "ICON BAR title: subtitle" — subtitle is size/phase only, not
+	// a repeated title or a percent (the bar already shows fraction).
+	download := taskgroup.Go(ctx, "bundle.tar.gz", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+		logger := logging.GetLogger(ctx)
+		logger.Info("starting download")
+
+		s.Update("connecting")
+		time.Sleep(120 * time.Millisecond)
+		logger.Info("GET", "url", "https://cdn.example.com/bundle.tar.gz")
+		const total int64 = 10 * 1024 * 1024 // simulated 10 MiB
+		s.Progress(0, total)
+		s.Update(fmt.Sprintf("0 B / %.0f MiB", float64(total)/(1024*1024)))
+		for i := 1; i <= 10; i++ {
+			cur := total * int64(i) / 10
+			s.Progress(cur, total)
+			s.Update(fmt.Sprintf("%.1f MiB / %.0f MiB", float64(cur)/(1024*1024), float64(total)/(1024*1024)))
+			time.Sleep(70 * time.Millisecond)
+			if i == 5 {
+				logger.Info("midpoint received, checking partial checksum")
+			}
+		}
+		logger.Info("download complete", "sha256", "verified")
+		return nil
+	})
+
+	// CPU-bound work that depends on the download.
+	build := taskgroup.Go(ctx, "build", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+		logger := logging.GetLogger(ctx)
+		s.Update("preparing sources")
+		time.Sleep(80 * time.Millisecond)
+		for step := 1; step <= 4; step++ {
+			logger.Info("gcc -c", "src", fmt.Sprintf("part%d.c", step), "opt", "-O2")
+			s.Update(fmt.Sprintf("part %d/4", step))
+			time.Sleep(140 * time.Millisecond)
+		}
+		s.Update("linking")
+		time.Sleep(160 * time.Millisecond)
+		logger.Info("build finished", "binary", "./bin/app")
+		return nil
+	}, download)
+
+	// Another CPU task in parallel with build (after download).
+	taskgroup.Go(ctx, "check", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+		logger := logging.GetLogger(ctx)
+		s.Update("static analysis")
+		time.Sleep(90 * time.Millisecond)
+		logger.Info("golangci-lint", "issues", 0)
+		logger.Info("govulncheck", "status", "clean")
+		time.Sleep(220 * time.Millisecond)
+		return nil
+	}, download)
+
+	// IO task that depends on build.
+	taskgroup.Go(ctx, "install", taskgroup.IO, func(ctx context.Context, s *taskgroup.Status) error {
+		logger := logging.GetLogger(ctx)
+		s.Update("installing to $HOME/.local/bin")
+		time.Sleep(60 * time.Millisecond)
+		logger.Info("cp", "src", "./bin/app", "dst", "~/.local/bin/app")
+		done := s.Unit()
+		time.Sleep(180 * time.Millisecond)
+		done()
+		logger.Info("binary installed")
+		return nil
+	}, build)
+
+	// Indeterminate task (no Total) running in parallel.
+	taskgroup.Go(ctx, "lint", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+		logger := logging.GetLogger(ctx)
+		s.Update("linting workspace")
+		for i := 0; i < 3; i++ {
+			time.Sleep(160 * time.Millisecond)
+			logger.Info("checked package", "num", i+1)
+		}
+		s.Update("formatting check")
+		time.Sleep(120 * time.Millisecond)
+		return nil
+	})
+
+	// A task that fails so the error UI is visible.
+	taskgroup.Go(ctx, "publish", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+		logger := logging.GetLogger(ctx)
+		s.Update("connecting to registry")
+		time.Sleep(140 * time.Millisecond)
+		logger.Info("POST", "path", "/artifacts")
+		time.Sleep(200 * time.Millisecond)
+		return ErrSimulated503
+	}, build)
+
+	return nil
+}

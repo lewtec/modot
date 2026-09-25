@@ -8,7 +8,7 @@ import (
 )
 
 func EnsureLockFile(ctx context.Context, root string) (string, error) {
-	sumPath := filepath.Join(root, "workspaced.lock.json")
+	sumPath := filepath.Join(root, "modot.lock.json")
 	if _, err := os.Stat(sumPath); errors.Is(err, os.ErrNotExist) {
 		if _, err := updateSumFile(ctx, sumPath, func(sum *SumFile) (bool, error) {
 			return len(sum.Dependencies) == 0, nil

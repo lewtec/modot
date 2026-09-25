@@ -1,0 +1,129 @@
+package resvg
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"image"
+	"image/png"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+
+	"github.com/lewtec/modot/internal/tool"
+	"github.com/lewtec/modot/internal/driver"
+	"github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/driver/svgraster"
+	"github.com/lewtec/modot/internal/logging"
+)
+
+type Driver struct{}
+
+var (
+	resvgOnce sync.Once
+	resvgPath string
+	resvgErr  error
+)
+
+// resolveResvg ensures the resvg binary is resolved/installed exactly once
+// (even across many Driver instances created by driver.Get). Version comes
+// from the workspace lockfile via lazy_tools.resvg.
+func resolveResvg(ctx context.Context) (string, error) {
+	resvgOnce.Do(func() {
+		bin, err := tool.ResolveLazyTool(ctx, "resvg", "resvg")
+		if err != nil {
+			resvgErr = fmt.Errorf("resolve resvg via lazy_tools: %w", err)
+			return
+		}
+		// Verify on first resolution (cheap --version) so Ensure and first
+		// use behave the same as before.
+		// exec.Run pre-sets Stderr (for Output/Run); do not use CombinedOutput.
+		c, err := exec.Run(ctx, bin, "--version")
+		if err != nil {
+			resvgErr = fmt.Errorf("prepare resvg command: %w", err)
+			return
+		}
+		if err := c.Run(); err != nil {
+			resvgErr = fmt.Errorf("resvg --version check failed: %w", err)
+			return
+		}
+		resvgPath = bin
+	})
+	if resvgErr != nil {
+		return "", resvgErr
+	}
+	return resvgPath, nil
+}
+
+func (d *Driver) Ensure(ctx context.Context) error {
+	_, err := resolveResvg(ctx)
+	return err
+}
+
+func (d *Driver) RasterizeSVG(ctx context.Context, svg string, width int, height int) (image.Image, error) {
+	bin, err := resolveResvg(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	tmpDir, err := os.MkdirTemp("", "modot-svgraster-*")
+	if err != nil {
+		return nil, err
+	}
+	defer logging.RunCleanup(ctx, "remove_all", func() error { return os.RemoveAll(tmpDir) })
+
+	inSVG := filepath.Join(tmpDir, "input.svg")
+	outPNG := filepath.Join(tmpDir, "output.png")
+	if err := os.WriteFile(inSVG, []byte(svg), 0600); err != nil {
+		return nil, err
+	}
+
+	c, err := exec.Run(
+		ctx,
+		bin,
+		"--width", fmt.Sprintf("%d", width),
+		"--height", fmt.Sprintf("%d", height),
+		inSVG,
+		outPNG,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("prepare resvg command: %w", err)
+	}
+	// Capture diagnostics without CombinedOutput (Stderr already attached).
+	var stderr bytes.Buffer
+	c.Stderr = &stderr
+	if err := c.Run(); err != nil {
+		return nil, fmt.Errorf("resvg failed: %w: %s", err, strings.TrimSpace(stderr.String()))
+	}
+
+	f, err := os.Open(outPNG)
+	if err != nil {
+		return nil, err
+	}
+	defer logging.Close(ctx, f)
+
+	img, err := png.Decode(f)
+	if err != nil {
+		return nil, err
+	}
+	return img, nil
+}
+
+type Factory struct{}
+
+func (f Factory) ID() string { return "resvg" }
+func (f Factory) Name() string {
+	return "resvg"
+}
+func (f Factory) CheckCompatibility(ctx context.Context) error {
+	// resvg is installed on demand via lazy_tools.resvg (lockfile pin).
+	return nil
+}
+func (f Factory) New(ctx context.Context) (svgraster.Driver, error) {
+	return &Driver{}, nil
+}
+
+func init() {
+	driver.Register[svgraster.Driver](Factory{})
+}

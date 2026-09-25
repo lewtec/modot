@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/atomicfile"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
-	"github.com/lucasew/workspaced/pkg/filespine"
+	"github.com/lewtec/modot/internal/atomicfile"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	"github.com/lewtec/modot/internal/filespine"
 	"os"
 	"sort"
 
