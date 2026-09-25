@@ -102,19 +102,10 @@ func mkdirAbs(dir lewpath.Path) error {
 	if !dir.IsAbs() {
 		return fmt.Errorf("state directory is not absolute")
 	}
-	slash, err := lewpath.Open("/")
-	if err != nil {
-		return err
-	}
-	defer slash.Close()
-	rel, err := dir.Rel(lewpath.New("/"))
-	if err != nil {
-		return err
-	}
-	if rel == lewpath.New(".") {
+	if dir == lewpath.New("/") {
 		return nil
 	}
-	return rel.MkdirAll(slash, 0o755)
+	return os.MkdirAll(dir.String(), 0o755)
 }
 
 func (s *FileStateStore) Load() (*State, error) {
