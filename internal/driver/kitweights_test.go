@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	kitdriver "github.com/lewtec/lewkit/x/driver"
+	lewdriver "github.com/lewtec/lewkit/x/driver"
 	"github.com/lewtec/lewkit/x/driver/launcher"
 	"github.com/lewtec/lewkit/x/driver/notification"
 	"github.com/lewtec/lewkit/x/driver/terminal"
@@ -56,7 +56,7 @@ func TestApplyKitWeightsTranslatesLegacyKeys(t *testing.T) {
 
 func assertWeight[T any](t *testing.T, ctx context.Context, id string, want int) {
 	t.Helper()
-	handles, err := kitdriver.List[T](ctx)
+	handles, err := lewdriver.List[T](ctx)
 	if err != nil {
 		t.Logf("no compatible %s driver: %v", id, err)
 		return

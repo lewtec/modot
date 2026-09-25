@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	kitdriver "github.com/lewtec/lewkit/x/driver"
+	lewdriver "github.com/lewtec/lewkit/x/driver"
 	kitnotify "github.com/lewtec/lewkit/x/driver/notification"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 )
 
 func init() {
-	kitdriver.Register[kitnotify.Driver](factory{})
+	lewdriver.Register[kitnotify.Driver](factory{})
 }
 
 type factory struct{}

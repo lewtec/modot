@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	kitdriver "github.com/lewtec/lewkit/x/driver"
+	lewdriver "github.com/lewtec/lewkit/x/driver"
 	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/driver/dialog"
 	"github.com/lewtec/modot/internal/driver/wm"
@@ -50,7 +50,7 @@ func (c *Workspace) Run(ctx context.Context) error {
 		})
 	}
 
-	d, err := kitdriver.Get[dialog.Driver](ctx)
+	d, err := lewdriver.Get[dialog.Driver](ctx)
 	if err != nil {
 		return err
 	}

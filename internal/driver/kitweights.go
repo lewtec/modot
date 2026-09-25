@@ -3,7 +3,7 @@ package driver
 import (
 	"strings"
 
-	kitdriver "github.com/lewtec/lewkit/x/driver"
+	lewdriver "github.com/lewtec/lewkit/x/driver"
 )
 
 // kitIface maps modot capability names onto the lewkit packages that now own them.
@@ -65,7 +65,7 @@ func ApplyKitWeights(cue map[string]map[string]int) error {
 	}
 
 	full := map[string]map[string]int{}
-	for typ, factories := range kitdriver.Drivers {
+	for typ, factories := range lewdriver.Drivers {
 		if typ.PkgPath() == "" || typ.Name() == "" {
 			continue
 		}
@@ -87,5 +87,5 @@ func ApplyKitWeights(cue map[string]map[string]int) error {
 	if len(full) == 0 {
 		return nil
 	}
-	return kitdriver.SetWeights(full)
+	return lewdriver.SetWeights(full)
 }

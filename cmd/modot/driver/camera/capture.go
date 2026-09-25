@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	kitdriver "github.com/lewtec/lewkit/x/driver"
+	lewdriver "github.com/lewtec/lewkit/x/driver"
 	"github.com/lewtec/modot/internal/atomicfile"
 	cameraapi "github.com/lewtec/modot/internal/driver/camera"
 )
@@ -37,7 +37,7 @@ func (c *Capture) Run(ctx context.Context) error {
 }
 
 func capture(ctx context.Context, out io.Writer, id, outPath string) error {
-	drv, err := kitdriver.Get[cameraapi.Driver](ctx)
+	drv, err := lewdriver.Get[cameraapi.Driver](ctx)
 	if err != nil {
 		return err
 	}

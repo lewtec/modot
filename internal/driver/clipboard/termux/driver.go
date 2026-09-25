@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	kitdriver "github.com/lewtec/lewkit/x/driver"
+	lewdriver "github.com/lewtec/lewkit/x/driver"
 	kitclip "github.com/lewtec/lewkit/x/driver/clipboard"
 	dapi "github.com/lewtec/modot/internal/api"
 	"github.com/lewtec/modot/internal/driver"
@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	kitdriver.Register[kitclip.Driver](factory{})
+	lewdriver.Register[kitclip.Driver](factory{})
 }
 
 type factory struct{}

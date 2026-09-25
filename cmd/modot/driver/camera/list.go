@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	kitdriver "github.com/lewtec/lewkit/x/driver"
+	lewdriver "github.com/lewtec/lewkit/x/driver"
 	cameraapi "github.com/lewtec/modot/internal/driver/camera"
 )
 
@@ -14,7 +14,7 @@ type List struct{}
 func (List) Description() string { return "List cameras" }
 
 func (*List) Run(ctx context.Context) error {
-	drv, err := kitdriver.Get[cameraapi.Driver](ctx)
+	drv, err := lewdriver.Get[cameraapi.Driver](ctx)
 	if err != nil {
 		return err
 	}

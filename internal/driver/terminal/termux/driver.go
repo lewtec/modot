@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"strings"
 
-	kitdriver "github.com/lewtec/lewkit/x/driver"
+	lewdriver "github.com/lewtec/lewkit/x/driver"
 	kitterminal "github.com/lewtec/lewkit/x/driver/terminal"
 	"github.com/lewtec/modot/internal/driver"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 )
 
 func init() {
-	kitdriver.Register[kitterminal.Driver](factory{})
+	lewdriver.Register[kitterminal.Driver](factory{})
 }
 
 type factory struct{}
