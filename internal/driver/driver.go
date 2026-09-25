@@ -19,7 +19,7 @@
 // normal fallback to other candidates occurs.
 //
 // The central list of all driver implementations is pulled in via the
-// pkg/driver/prelude package (imported with blank import from cmd/modot/root.go).
+// internal/driver/prelude package (imported with blank import from cmd/modot/root.go).
 package driver
 
 import (
