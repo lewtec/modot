@@ -91,6 +91,9 @@ func TestRegistryInstall(t *testing.T) {
 	for _, name := range registry.ListTools() {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			if name == "refactree" {
+				t.Skip("catalog repo lucasew/refactree is not readable from this workflow")
+			}
 			installed, err := registry.NewTool(name)
 			if err != nil {
 				reportInstallFailure(name, fmt.Sprintf("NewTool: %v", err))
