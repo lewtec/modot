@@ -1,9 +1,14 @@
 package filespine
 
 import (
+	"errors"
 	"strings"
 
 	lewpath "github.com/lewtec/lewkit/x/path"
+)
+
+var (
+	errDirectoryNotAbsolute = errors.New("directory is not absolute")
 )
 
 // HostPath appends a relative name to an OS directory.
@@ -27,24 +32,10 @@ func HostPath(root string, rel lewpath.Path) string {
 }
 
 // OpenDir opens an absolute directory.
-// The path is slash algebra from an OS path; the opened root's name is the host path.
+// The opened root's name is the host path passed to path.Open.
 func OpenDir(dir lewpath.Path) (*lewpath.Root, error) {
-	slash, err := lewpath.Open("/")
-	if err != nil {
-		return nil, err
+	if !dir.IsAbs() {
+		return nil, errDirectoryNotAbsolute
 	}
-	rel, err := dir.Rel(lewpath.New("/"))
-	if err != nil {
-		slash.Close()
-		return nil, err
-	}
-	if rel == lewpath.New(".") {
-		return slash, nil
-	}
-	opened, err := rel.OpenRoot(slash)
-	slash.Close()
-	if err != nil {
-		return nil, err
-	}
-	return opened, nil
+	return lewpath.Open(dir.String())
 }

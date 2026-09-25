@@ -7,8 +7,20 @@ import (
 	"path/filepath"
 	"testing"
 
+	lewpath "github.com/lewtec/lewkit/x/path"
 	"github.com/stretchr/testify/require"
 )
+
+func TestMkdirAbs(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "a", "b")
+	require.NoError(t, mkdirAbs(lewpath.New(dir)))
+	info, err := os.Stat(dir)
+	require.NoError(t, err)
+	require.True(t, info.IsDir())
+
+	require.NoError(t, mkdirAbs(lewpath.New("/")))
+	require.EqualError(t, mkdirAbs(lewpath.New("relative")), "state directory is not absolute")
+}
 
 func TestFileStateStoreRelativeToRoot(t *testing.T) {
 	dir := t.TempDir()
