@@ -46,7 +46,7 @@ type cli struct {
 }
 
 func (cli) Description() string {
-	return "modot - declarative user environment manager"
+	return "modular dotfiles"
 }
 
 // Setup runs after cmd.App replaces slog.Default with x/logging.NewHandler
