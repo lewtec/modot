@@ -7,13 +7,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/logging"
 )
 
 // importLegacyHistory copies command history from the pre-rename sqlite file
 // into the default modot database when that database has no history rows yet.
 // Ctrl+R reads only modot.db; the old file is otherwise invisible to search.
-// The copy is one INSERT SELECT, so the rows are not buffered in the process.
+// Rows are inserted through RecordHistory as they are read.
 func importLegacyHistory(ctx context.Context, d *DB) error {
 	if d == nil || d.conn == nil {
 		return nil
@@ -36,26 +37,32 @@ func importLegacyHistory(ctx context.Context, d *DB) error {
 		}
 		return err
 	}
-	return streamLegacyHistory(ctx, dest, legacy)
+	if taskgroup.FromContext(ctx) == nil {
+		return d.streamLegacyHistory(ctx, nil, legacy)
+	}
+	errc := make(chan error, 1)
+	taskgroup.Go(ctx, "history:import", taskgroup.IO, func(ctx context.Context, s *taskgroup.Status) error {
+		err := d.streamLegacyHistory(ctx, s, legacy)
+		errc <- err
+		return err
+	})
+	select {
+	case err := <-errc:
+		return err
+	case <-ctx.Done():
+		return context.Cause(ctx)
+	}
 }
 
-func streamLegacyHistory(ctx context.Context, dest, legacy string) error {
-	conn, err := sql.Open("sqlite", dest)
+func (d *DB) streamLegacyHistory(ctx context.Context, s *taskgroup.Status, legacy string) error {
+	src, err := sql.Open("sqlite", legacy)
 	if err != nil {
 		return err
 	}
-	defer logging.Close(ctx, conn, "path", dest)
-
-	if _, err := conn.ExecContext(ctx, `ATTACH DATABASE ? AS legacy`, legacy); err != nil {
-		return err
-	}
-	defer logging.RunCleanup(ctx, "detach legacy history", func() error {
-		_, err := conn.ExecContext(ctx, `DETACH DATABASE legacy`)
-		return err
-	})
+	defer logging.Close(ctx, src, "path", legacy)
 
 	var table string
-	err = conn.QueryRowContext(ctx, `SELECT name FROM legacy.sqlite_master WHERE type = 'table' AND name = 'history'`).Scan(&table)
+	err = src.QueryRowContext(ctx, `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'history'`).Scan(&table)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
 	}
@@ -63,34 +70,39 @@ func streamLegacyHistory(ctx context.Context, dest, legacy string) error {
 		return err
 	}
 
-	if _, err := conn.ExecContext(ctx, `BEGIN IMMEDIATE`); err != nil {
+	var total int64
+	if err := src.QueryRowContext(ctx, `SELECT COUNT(*) FROM history`).Scan(&total); err != nil {
 		return err
 	}
-	committed := false
-	defer func() {
-		if committed {
-			return
-		}
-		if _, err := conn.ExecContext(ctx, `ROLLBACK`); err != nil {
-			logging.ReportError(ctx, err, "op", "rollback legacy history")
-		}
-	}()
-
-	var n int
-	if err := conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM main.history`).Scan(&n); err != nil {
-		return err
-	}
-	if n > 0 {
+	if total == 0 {
 		return nil
 	}
-	if _, err := conn.ExecContext(ctx, `
-		INSERT INTO main.history (command, cwd, timestamp, exit_code, duration_ms)
-		SELECT command, cwd, timestamp, exit_code, duration_ms FROM legacy.history`); err != nil {
+	s.Update("importing history")
+	s.Progress(0, total)
+
+	rows, err := src.QueryContext(ctx, `SELECT command, cwd, timestamp, exit_code, duration_ms FROM history`)
+	if err != nil {
 		return err
 	}
-	if _, err := conn.ExecContext(ctx, `COMMIT`); err != nil {
-		return err
-	}
-	committed = true
-	return nil
+	defer logging.Close(ctx, rows)
+
+	return d.conn.Tx(ctx, func(q Queries) error {
+		again, err := q.GetHistory(ctx, 1)
+		if err != nil || len(again) > 0 {
+			return err
+		}
+		var n int64
+		for rows.Next() {
+			var ev RecordHistoryParams
+			if err := rows.Scan(&ev.Command, &ev.Cwd, &ev.Timestamp, &ev.ExitCode, &ev.DurationMs); err != nil {
+				return err
+			}
+			if err := q.RecordHistory(ctx, ev); err != nil {
+				return err
+			}
+			n++
+			s.Progress(n, total)
+		}
+		return rows.Err()
+	})
 }

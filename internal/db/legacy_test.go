@@ -1,10 +1,12 @@
 package db
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/lewtec/lewkit/x/taskgroup"
 	lewtest "github.com/lewtec/lewkit/x/test"
 	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/types"
@@ -52,6 +54,33 @@ func TestOpenURLImportsLegacyHistoryOnce(t *testing.T) {
 	got, err = again.SearchHistory(ctx, "", 10)
 	require.NoError(t, err)
 	require.Len(t, got, 1)
+}
+
+func TestOpenURLImportsLegacyHistoryAsIOTask(t *testing.T) {
+	ctx := logging.NewWriterContext(t.Output())
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	legacyPath := filepath.Join(home, ".local", "share", "workspaced", "workspaced.db")
+	require.NoError(t, os.MkdirAll(filepath.Dir(legacyPath), 0o755))
+	legacy, err := OpenURL(ctx, legacyPath)
+	require.NoError(t, err)
+	require.NoError(t, legacy.RecordHistory(ctx, types.HistoryEvent{
+		Command: "echo streamed", Cwd: "/tmp", Timestamp: 3,
+	}))
+	require.NoError(t, legacy.Close())
+
+	sess, ctx := taskgroup.New(ctx, taskgroup.Limits{IO: 1})
+	t.Cleanup(func() { sess.Cancel(context.Canceled) })
+
+	opened, err := OpenURL(ctx, (Arg{}).ArgDefault())
+	require.NoError(t, err)
+	lewtest.CloseOnCleanup(t, opened)
+	got, err := opened.SearchHistory(ctx, "", 10)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, "echo streamed", got[0].Command)
+	require.NoError(t, sess.Wait())
 }
 
 func TestOpenURLSkipsLegacyWhenHistoryExists(t *testing.T) {
