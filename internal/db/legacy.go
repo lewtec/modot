@@ -13,6 +13,7 @@ import (
 // importLegacyHistory copies command history from the pre-rename sqlite file
 // into the default modot database when that database has no history rows yet.
 // Ctrl+R reads only modot.db; the old file is otherwise invisible to search.
+// The copy is one INSERT SELECT, so the rows are not buffered in the process.
 func importLegacyHistory(ctx context.Context, d *DB) error {
 	if d == nil || d.conn == nil {
 		return nil
@@ -35,51 +36,61 @@ func importLegacyHistory(ctx context.Context, d *DB) error {
 		}
 		return err
 	}
+	return streamLegacyHistory(ctx, dest, legacy)
+}
 
-	src, err := sql.Open("sqlite", legacy)
+func streamLegacyHistory(ctx context.Context, dest, legacy string) error {
+	conn, err := sql.Open("sqlite", dest)
 	if err != nil {
 		return err
 	}
-	defer logging.Close(ctx, src, "path", legacy)
+	defer logging.Close(ctx, conn, "path", dest)
+
+	if _, err := conn.ExecContext(ctx, `ATTACH DATABASE ? AS legacy`, legacy); err != nil {
+		return err
+	}
+	defer logging.RunCleanup(ctx, "detach legacy history", func() error {
+		_, err := conn.ExecContext(ctx, `DETACH DATABASE legacy`)
+		return err
+	})
 
 	var table string
-	err = src.QueryRowContext(ctx, `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'history'`).Scan(&table)
+	err = conn.QueryRowContext(ctx, `SELECT name FROM legacy.sqlite_master WHERE type = 'table' AND name = 'history'`).Scan(&table)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	rows, err := src.QueryContext(ctx, `SELECT command, cwd, timestamp, exit_code, duration_ms FROM history`)
-	if err != nil {
-		return err
-	}
-	defer logging.Close(ctx, rows)
 
-	var events []RecordHistoryParams
-	for rows.Next() {
-		var ev RecordHistoryParams
-		if err := rows.Scan(&ev.Command, &ev.Cwd, &ev.Timestamp, &ev.ExitCode, &ev.DurationMs); err != nil {
-			return err
-		}
-		events = append(events, ev)
-	}
-	if err := rows.Err(); err != nil {
+	if _, err := conn.ExecContext(ctx, `BEGIN IMMEDIATE`); err != nil {
 		return err
 	}
-	if len(events) == 0 {
+	committed := false
+	defer func() {
+		if committed {
+			return
+		}
+		if _, err := conn.ExecContext(ctx, `ROLLBACK`); err != nil {
+			logging.ReportError(ctx, err, "op", "rollback legacy history")
+		}
+	}()
+
+	var n int
+	if err := conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM main.history`).Scan(&n); err != nil {
+		return err
+	}
+	if n > 0 {
 		return nil
 	}
-	return d.conn.Tx(ctx, func(q Queries) error {
-		again, err := q.GetHistory(ctx, 1)
-		if err != nil || len(again) > 0 {
-			return err
-		}
-		for _, ev := range events {
-			if err := q.RecordHistory(ctx, ev); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	if _, err := conn.ExecContext(ctx, `
+		INSERT INTO main.history (command, cwd, timestamp, exit_code, duration_ms)
+		SELECT command, cwd, timestamp, exit_code, duration_ms FROM legacy.history`); err != nil {
+		return err
+	}
+	if _, err := conn.ExecContext(ctx, `COMMIT`); err != nil {
+		return err
+	}
+	committed = true
+	return nil
 }
