@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -91,22 +92,35 @@ func (d *DB) streamLegacyHistory(ctx context.Context, s *taskgroup.Status, legac
 
 	q := New(dest)(tx)
 	total, err := q.CountHistorySrc(ctx)
-	if err != nil || total == 0 {
+	if err != nil {
 		return err
+	}
+	logger := logging.GetLogger(ctx)
+	if total == 0 {
+		s.Update("no commands to import")
+		logger.Info("no workspaced history to ingest", "amount", total)
+		return nil
 	}
 	existing, err := q.GetHistory(ctx, 1)
-	if err != nil || len(existing) > 0 {
+	if err != nil {
 		return err
 	}
-	s.Update("importing history")
+	if len(existing) > 0 {
+		s.Update(fmt.Sprintf("left unchanged, %d commands in source", total))
+		logger.Info("workspaced history left unchanged", "source", total)
+		return nil
+	}
+	s.Update(fmt.Sprintf("importing %d commands", total))
 	s.Progress(0, total)
 	if err := q.CopyAttachedHistory(ctx); err != nil {
 		return err
 	}
-	s.Progress(total, total)
 	if err := tx.Commit(); err != nil {
 		return err
 	}
 	committed = true
+	s.Progress(total, total)
+	s.Update(fmt.Sprintf("imported %d commands", total))
+	logger.Info("imported workspaced history", "amount", total)
 	return nil
 }

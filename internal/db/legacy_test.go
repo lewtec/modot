@@ -1,7 +1,9 @@
 package db
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,7 +17,8 @@ import (
 )
 
 func TestOpenURLImportsLegacyHistoryOnce(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	var logs bytes.Buffer
+	ctx := logging.NewWriterContext(io.MultiWriter(t.Output(), &logs))
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
@@ -40,6 +43,8 @@ func TestOpenURLImportsLegacyHistoryOnce(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, empty)
 	require.NoError(t, opened.ImportWorkspacedHistory(ctx))
+	assert.Contains(t, logs.String(), "imported workspaced history")
+	assert.Contains(t, logs.String(), "amount=1")
 	got, err := opened.SearchHistory(ctx, "", 10)
 	require.NoError(t, err)
 	require.Len(t, got, 1)
