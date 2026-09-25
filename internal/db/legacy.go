@@ -13,7 +13,7 @@ import (
 )
 
 // ImportWorkspacedHistory copies command history from the pre-rename sqlite
-// file into this database. modot utils history ingest workspaced is the caller.
+// file into this database. `modot utils history ingest workspaced` is the caller.
 // The copy is one transaction and one sqlc insert. A database that already
 // has history rows is left unchanged.
 func (d *DB) ImportWorkspacedHistory(ctx context.Context) error {
