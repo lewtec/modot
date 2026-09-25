@@ -9,6 +9,27 @@ import (
 	"context"
 )
 
+const copyAttachedHistory = `-- name: CopyAttachedHistory :exec
+INSERT INTO history (command, cwd, timestamp, exit_code, duration_ms)
+SELECT command, cwd, timestamp, exit_code, duration_ms FROM history_src
+`
+
+func (q *Queries) CopyAttachedHistory(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, copyAttachedHistory)
+	return err
+}
+
+const countHistorySrc = `-- name: CountHistorySrc :one
+SELECT COUNT(*) FROM history_src
+`
+
+func (q *Queries) CountHistorySrc(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countHistorySrc)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getHistory = `-- name: GetHistory :many
 SELECT id, command, cwd, timestamp, exit_code, duration_ms FROM history
 ORDER BY timestamp DESC

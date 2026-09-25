@@ -30,6 +30,8 @@ type SearchHistoryParams struct {
 	Limit   int64
 }
 type Queries interface {
+	CopyAttachedHistory(ctx context.Context) error
+	CountHistorySrc(ctx context.Context) (int64, error)
 	GetHistory(ctx context.Context, limit int64) ([]History, error)
 	RecordHistory(ctx context.Context, arg RecordHistoryParams) error
 	SearchHistory(ctx context.Context, arg SearchHistoryParams) ([]History, error)
@@ -38,6 +40,12 @@ type sqliteWrap struct {
 	q *sqlite.Queries
 }
 
+func (w sqliteWrap) CopyAttachedHistory(ctx context.Context) error {
+	return w.q.CopyAttachedHistory(ctx)
+}
+func (w sqliteWrap) CountHistorySrc(ctx context.Context) (int64, error) {
+	return w.q.CountHistorySrc(ctx)
+}
 func (w sqliteWrap) GetHistory(ctx context.Context, limit int64) ([]History, error) {
 	v, err := w.q.GetHistory(ctx, limit)
 	out := make([]History, len(v))

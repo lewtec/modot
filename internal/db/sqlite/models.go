@@ -12,3 +12,12 @@ type History struct {
 	ExitCode   int64
 	DurationMs int64
 }
+
+type HistorySrc struct {
+	ID         int64
+	Command    string
+	Cwd        string
+	Timestamp  int64
+	ExitCode   int64
+	DurationMs int64
+}

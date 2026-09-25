@@ -3,44 +3,60 @@ package history
 import (
 	"context"
 
-	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lewtec/modot/internal/cmdarg"
 	"github.com/lewtec/modot/internal/db"
 	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/types"
 )
 
 type Ingest struct {
-	source cmd.EnumArg[cmdarg.HistorySource]
+	Bash       *Bash
+	Atuin      *Atuin
+	Workspaced *Workspaced
 }
 
-func (Ingest) Description() string { return "Ingest history from other sources (bash, atuin)" }
+func (Ingest) Description() string { return "Ingest history from other sources" }
 
-func (i *Ingest) Run(ctx context.Context) error {
+type Bash struct{}
+
+func (Bash) Description() string { return "Ingest bash history" }
+
+func (Bash) Run(ctx context.Context) error {
+	return ingestEvents(ctx, ingestBash)
+}
+
+type Atuin struct{}
+
+func (Atuin) Description() string { return "Ingest atuin history" }
+
+func (Atuin) Run(ctx context.Context) error {
+	return ingestEvents(ctx, ingestAtuin)
+}
+
+type Workspaced struct{}
+
+func (Workspaced) Description() string { return "Ingest history from the pre-rename database" }
+
+func (Workspaced) Run(ctx context.Context) error {
+	database, err := db.OpenFromCtx(ctx)
+	if err == nil {
+		err = database.ImportWorkspacedHistory(ctx)
+	}
+	return err
+}
+
+func ingestEvents(ctx context.Context, load func(context.Context) ([]types.HistoryEvent, error)) error {
 	database, err := db.OpenFromCtx(ctx)
 	if err != nil {
 		return err
 	}
-
-	var events []types.HistoryEvent
-	switch i.source.Value() {
-	case cmdarg.HistoryAtuin:
-		events, err = ingestAtuin(ctx)
-	default:
-		events, err = ingestBash(ctx)
-	}
-
+	events, err := load(ctx)
 	if err != nil {
 		return err
 	}
-
 	if len(events) == 0 {
-		logger := logging.GetLogger(ctx)
-		logger.Info("No events to ingest")
+		logging.GetLogger(ctx).Info("No events to ingest")
 		return nil
 	}
-
-	logger := logging.GetLogger(ctx)
-	logger.Info("Ingesting events...", "amount", len(events))
+	logging.GetLogger(ctx).Info("Ingesting events...", "amount", len(events))
 	return database.BatchRecordHistory(ctx, events)
 }
