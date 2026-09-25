@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lucasew/workspaced/pkg/driver/notification"
-	"github.com/lucasew/workspaced/pkg/driver/rsync"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/driver/notification"
+	"github.com/lewtec/modot/internal/driver/rsync"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 func init() {

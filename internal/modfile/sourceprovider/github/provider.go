@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/lucasew/workspaced/internal/modfile"
-	"github.com/lucasew/workspaced/internal/modfile/sourceprovider/sourcecache"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/modfile"
+	"github.com/lewtec/modot/internal/modfile/sourceprovider/sourcecache"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 var (

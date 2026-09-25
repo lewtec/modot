@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/lucasew/workspaced/internal/checks"
+	"github.com/lewtec/modot/internal/checks"
 	"github.com/stretchr/testify/require"
 )
 

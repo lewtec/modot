@@ -6,8 +6,8 @@ import (
 	"errors"
 	"io"
 
-	"github.com/lucasew/workspaced/internal/template"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/template"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 // TemplateFile represents a lazily-rendered template file.

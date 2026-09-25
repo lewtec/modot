@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lucasew/workspaced/internal/cmdctx"
-	"github.com/lucasew/workspaced/internal/configcue"
-	"github.com/lucasew/workspaced/pkg/driver/notification"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/cmdctx"
+	"github.com/lewtec/modot/internal/configcue"
+	"github.com/lewtec/modot/internal/driver/notification"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 var (

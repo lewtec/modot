@@ -88,6 +88,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WORKSPACED_TEST_TOOL_INSTALL: "1"
+          MODOT_TEST_TOOL_INSTALL: "1"
           TARGET: ${{ matrix.target }}
         run: mise run test:registry-install

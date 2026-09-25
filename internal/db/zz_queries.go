@@ -7,7 +7,7 @@ import (
 	"fmt"
 	db "github.com/lewtec/lewkit/x/db"
 	_ "github.com/lewtec/lewkit/x/db/sqlite"
-	sqlite "github.com/lucasew/workspaced/internal/db/sqlite"
+	sqlite "github.com/lewtec/modot/internal/db/sqlite"
 )
 
 type History struct {

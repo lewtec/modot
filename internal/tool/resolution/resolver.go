@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	lewtool "github.com/lewtec/lewkit/x/tool"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/logging"
 	"os"
 	"path/filepath"
 	"sort"
@@ -108,8 +108,8 @@ func (r *Resolver) resolveVersion(ctx context.Context, toolName string) (string,
 		return v, nil
 	}
 
-	// 2. Env var: WORKSPACED_TOOL_VERSION
-	envKey := "WORKSPACED_" + strings.ToUpper(strings.ReplaceAll(toolName, "-", "_")) + "_VERSION"
+	// 2. Env var: MODOT_TOOL_VERSION
+	envKey := "MODOT_" + strings.ToUpper(strings.ReplaceAll(toolName, "-", "_")) + "_VERSION"
 	if v := os.Getenv(envKey); v != "" {
 		return v, nil
 	}
@@ -145,7 +145,7 @@ func (r *Resolver) findInToolVersions(ctx context.Context, toolName string) (str
 
 	home, err := os.UserHomeDir()
 	if err == nil {
-		p := filepath.Join(home, ".config", "workspaced", ".tool-versions")
+		p := filepath.Join(home, ".config", "modot", ".tool-versions")
 		if _, err := os.Stat(p); err == nil {
 			v, err := readToolVersion(ctx, p, toolName)
 			if err != nil {

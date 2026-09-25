@@ -1,6 +1,6 @@
-package workspaced
+package modot
 
-// Common prelude injected into every workspaced.cue evaluation.
+// Common prelude injected into every modot.cue evaluation.
 inputs: self: {
 	from: *"self" | string
 }
@@ -22,43 +22,43 @@ lazy_tools: {
 	}
 }
 drivers: {
-	"github.com/lucasew/workspaced/pkg/driver/clipboard.Driver": {
+	"github.com/lewtec/modot/internal/driver/clipboard.Driver": {
 		"clipboard_termux": *60 | int
 	}
-	"github.com/lucasew/workspaced/pkg/driver/dialog.Chooser": {
+	"github.com/lewtec/modot/internal/driver/dialog.Chooser": {
 		"terminal": *0 | int
 	}
-	"github.com/lucasew/workspaced/pkg/driver/dialog.Confirmer": {
+	"github.com/lewtec/modot/internal/driver/dialog.Confirmer": {
 		"terminal": *0 | int
 	}
-	"github.com/lucasew/workspaced/pkg/driver/dialog.Prompter": {
+	"github.com/lewtec/modot/internal/driver/dialog.Prompter": {
 		"terminal": *0 | int
 	}
-	"github.com/lucasew/workspaced/pkg/driver/env.Driver": {
+	"github.com/lewtec/modot/internal/driver/env.Driver": {
 		"env_termux": *60 | int
 	}
-	"github.com/lucasew/workspaced/pkg/driver/exec.Driver": {
+	"github.com/lewtec/modot/internal/driver/exec.Driver": {
 		"exec_termux": *60 | int
 	}
-	"github.com/lucasew/workspaced/pkg/driver/httpclient.Driver": {
+	"github.com/lewtec/modot/internal/driver/httpclient.Driver": {
 		"httpclient_termux": *60 | int
 	}
-	"github.com/lucasew/workspaced/pkg/driver/notification.Driver": {
+	"github.com/lewtec/modot/internal/driver/notification.Driver": {
 		"notification_termux": *60 | int
 	}
-	"github.com/lucasew/workspaced/pkg/driver/opener.Driver": {
+	"github.com/lewtec/modot/internal/driver/opener.Driver": {
 		"opener_termux": *60 | int
 	}
-	"github.com/lucasew/workspaced/pkg/driver/power.Driver": {
+	"github.com/lewtec/modot/internal/driver/power.Driver": {
 		"power_termux": *60 | int
 	}
-	"github.com/lucasew/workspaced/pkg/driver/rsync.Driver": {
+	"github.com/lewtec/modot/internal/driver/rsync.Driver": {
 		"rsync_native": *60 | int
 	}
-	"github.com/lucasew/workspaced/pkg/driver/svgraster.Driver": {
+	"github.com/lewtec/modot/internal/driver/svgraster.Driver": {
 		"resvg": *100 | int
 	}
-	"github.com/lucasew/workspaced/pkg/driver/terminal.Driver": {
+	"github.com/lewtec/modot/internal/driver/terminal.Driver": {
 		"terminal_termux": *60 | int
 	}
 }

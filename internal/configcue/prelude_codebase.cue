@@ -1,4 +1,4 @@
-package workspaced
+package modot
 
 // Codebase-only prelude layer.
 lazy_tools: {

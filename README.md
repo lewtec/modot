@@ -1,4 +1,4 @@
-# WorkspaceD
+# Modot
 
 - Modular templates for dotfiles, plus drivers that abstract common system tools.
 - Most of what people want from Nix/NixOS, without the slow path.

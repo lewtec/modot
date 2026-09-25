@@ -20,7 +20,7 @@ func TestResolveRuntimeInputs_valid(t *testing.T) {
 	}`)
 	require.NoError(t, v.Err(), "compile cue")
 
-	repoCue := filepath.Join(t.TempDir(), "workspaced.cue")
+	repoCue := filepath.Join(t.TempDir(), "modot.cue")
 	out, err := resolveRuntimeInputs(v, []string{repoCue}, []Layer{{Name: "repo", Path: repoCue}})
 	require.NoError(t, err, "resolveRuntimeInputs")
 	require.NotEmpty(t, out["self"]["path"], "self path missing: %#v", out["self"])
@@ -28,9 +28,9 @@ func TestResolveRuntimeInputs_valid(t *testing.T) {
 	require.True(t, ok, "localmod path = %#v", out["localmod"])
 	require.True(t, strings.HasSuffix(filepath.Clean(got), filepath.Join("modules", "foo")), "localmod path = %#v", out["localmod"])
 	got, ok = out["gh"]["path"].(string)
-	require.True(t, ok, "gh path = %#v, want absolute cache path under .cache/workspaced/sources/github", out["gh"])
-	require.True(t, filepath.IsAbs(got), "gh path = %#v, want absolute cache path under .cache/workspaced/sources/github", out["gh"])
-	require.Contains(t, got, filepath.Join(".cache", "workspaced", "sources", "github"))
+	require.True(t, ok, "gh path = %#v, want absolute cache path under .cache/modot/sources/github", out["gh"])
+	require.True(t, filepath.IsAbs(got), "gh path = %#v, want absolute cache path under .cache/modot/sources/github", out["gh"])
+	require.Contains(t, got, filepath.Join(".cache", "modot", "sources", "github"))
 }
 
 func TestResolveRuntimeInputs_decodeError(t *testing.T) {

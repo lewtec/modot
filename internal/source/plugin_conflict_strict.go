@@ -3,7 +3,7 @@ package source
 import (
 	"context"
 	"fmt"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/logging"
 	"path/filepath"
 )
 

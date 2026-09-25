@@ -32,7 +32,7 @@ type Definition struct {
 }
 
 func FilePath(modPath string) string {
-	return filepath.Join(modPath, "module.cue")
+	return filepath.Join(modPath, "modot.cue")
 }
 
 func Exists(modPath string) bool {

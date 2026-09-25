@@ -15,7 +15,7 @@ import (
 	"github.com/lewtec/lewkit/x/tool/github"
 	"github.com/lewtec/lewkit/x/tool/registry"
 	apps "github.com/lewtec/lewkit/x/tool/registry/applications"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -78,8 +78,8 @@ func TestRegistryInstallChecksDeclared(t *testing.T) {
 }
 
 func TestRegistryInstall(t *testing.T) {
-	if os.Getenv("WORKSPACED_TEST_TOOL_INSTALL") != "1" {
-		t.Skip("set WORKSPACED_TEST_TOOL_INSTALL=1 (or mise run test:registry-install) to run registry install checks")
+	if os.Getenv("MODOT_TEST_TOOL_INSTALL") != "1" {
+		t.Skip("set MODOT_TEST_TOOL_INSTALL=1 (or mise run test:registry-install) to run registry install checks")
 	}
 
 	target := os.Getenv("TARGET")

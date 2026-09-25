@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 #
-# Bootstrap workspaced from GitHub Releases without assuming a fixed asset
+# Bootstrap modot from GitHub Releases without assuming a fixed asset
 # naming scheme. Mirrors the Go github backend: fetch release metadata, score
 # assets by OS/arch (+ optional APPNAME hint), download + extract, then run
 # `self-install` so the binary lives in the normal tool location (shim in
-# ~/.local/bin, binary in ~/.local/share/workspaced/bin). Any remaining args
+# ~/.local/bin, binary in ~/.local/share/modot/bin). Any remaining args
 # are forwarded to that installed binary.
 #
 # Env overrides:
-#   REPO          owner/repo (default: lucasew/workspaced)
-#   APPNAME       binary/hint name (default: workspaced)
+#   REPO          owner/repo (default: lewtec/modot)
+#   APPNAME       binary/hint name (default: modot)
 #   VERSION       release tag, or "latest" (default: latest)
 #   OS / ARCH     override detected platform (go-style: linux/darwin/windows, amd64/arm64/386)
 #   DOWNLOAD_DIR  reuse/cache directory (default: mktemp -d)
@@ -17,8 +17,8 @@
 #
 set -euo pipefail
 
-REPO="${REPO:-lucasew/workspaced}"
-APPNAME="${APPNAME:-workspaced}"
+REPO="${REPO:-lewtec/modot}"
+APPNAME="${APPNAME:-modot}"
 
 if [[ ! -v DOWNLOAD_DIR ]]; then
 	DOWNLOAD_DIR=$(mktemp -d)
@@ -330,8 +330,8 @@ ensure_bootstrap_binary() {
 installed_binary() {
 	local candidates=(
 		"${HOME}/.local/bin/${APPNAME}"
-		"${HOME}/.local/share/workspaced/bin/${APPNAME}"
-		"${HOME}/.local/share/workspaced/bin/${APPNAME}.exe"
+		"${HOME}/.local/share/modot/bin/${APPNAME}"
+		"${HOME}/.local/share/modot/bin/${APPNAME}.exe"
 	)
 	local c
 	for c in "${candidates[@]}"; do

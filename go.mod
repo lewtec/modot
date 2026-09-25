@@ -1,4 +1,4 @@
-module github.com/lucasew/workspaced
+module github.com/lewtec/modot
 
 go 1.27.0
 

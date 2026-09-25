@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/git"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/git"
+	"github.com/lewtec/modot/internal/logging"
 	"iter"
 	"log/slog"
 	"os"
@@ -151,7 +151,7 @@ func HandleRegistryCodegen(ctx context.Context, r DetectedRoot) error {
 type autoRegistry struct{}
 
 func (autoRegistry) Description() string {
-	return "Generate cmd/workspaced prelude children structs"
+	return "Generate cmd/modot prelude children structs"
 }
 
 func (autoRegistry) Run(ctx context.Context) error {
@@ -164,9 +164,9 @@ func (autoRegistry) Run(ctx context.Context) error {
 		return err
 	}
 	return HandleRegistryCodegen(ctx, DetectedRoot{
-		Dir:        path.Join(root, "cmd", "workspaced"),
+		Dir:        path.Join(root, "cmd", "modot"),
 		Package:    "main",
-		ImportPath: "github.com/lucasew/workspaced/cmd/workspaced",
+		ImportPath: "github.com/lewtec/modot/cmd/modot",
 	})
 }
 

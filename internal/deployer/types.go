@@ -3,7 +3,7 @@ package deployer
 import (
 	"sort"
 
-	"github.com/lucasew/workspaced/internal/source"
+	"github.com/lewtec/modot/internal/source"
 )
 
 // ActionType represents the kind of action in a deployment plan.

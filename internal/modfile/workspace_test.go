@@ -13,6 +13,6 @@ func TestWorkspacePaths(t *testing.T) {
 	root := filepath.Clean(t.TempDir())
 	ws := NewWorkspace(root)
 	require.Equal(t, root, ws.Root)
-	require.Equal(t, filepath.Join(root, "workspaced.lock.json"), ws.SumPath())
+	require.Equal(t, filepath.Join(root, "modot.lock.json"), ws.SumPath())
 	require.Equal(t, filepath.Join(root, "modules"), ws.ModulesBaseDir())
 }

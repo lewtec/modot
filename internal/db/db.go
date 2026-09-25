@@ -1,4 +1,4 @@
-// Package db is the workspaced sqlite store.
+// Package db is the modot sqlite store.
 //
 // Queries and migrations live under sqlite/. go generate runs
 // lewkit generate db (sqlc output, FS, Queries, New, DBArg).
@@ -15,8 +15,8 @@ import (
 
 	"github.com/lewtec/lewkit/x/cmd"
 	xdb "github.com/lewtec/lewkit/x/db"
-	"github.com/lucasew/workspaced/internal/types"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"github.com/lewtec/modot/internal/types"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
 )
 
 type dbKey struct{}
@@ -46,7 +46,7 @@ func Open(ctx context.Context) (*DB, error) {
 	return OpenArg(ctx, a)
 }
 
-// Arg is --database. ArgDefault is ~/.local/share/workspaced/workspaced.db
+// Arg is --database. ArgDefault is ~/.local/share/modot/modot.db
 // (Termux home rewrite via ResolveHomeDir).
 type Arg struct {
 	DBArg
@@ -57,7 +57,7 @@ func (Arg) ArgDefault() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".local", "share", "workspaced", "workspaced.db")
+	return filepath.Join(home, ".local", "share", "modot", "modot.db")
 }
 
 // OpenURL opens a sqlite URL (bare path, file:, sqlite:, or :memory:)

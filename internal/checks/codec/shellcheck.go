@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/lucasew/workspaced/internal/checks"
+	"github.com/lewtec/modot/internal/checks"
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
 

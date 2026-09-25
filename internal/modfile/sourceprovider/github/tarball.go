@@ -12,11 +12,11 @@ import (
 	tarfs "github.com/lewtec/lewkit/x/fs/tar"
 	lewpath "github.com/lewtec/lewkit/x/path"
 
-	"github.com/lucasew/workspaced/internal/archive"
-	"github.com/lucasew/workspaced/internal/githubutil"
-	"github.com/lucasew/workspaced/pkg/driver"
-	httpclientdriver "github.com/lucasew/workspaced/pkg/driver/httpclient"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/archive"
+	"github.com/lewtec/modot/internal/githubutil"
+	"github.com/lewtec/modot/internal/driver"
+	httpclientdriver "github.com/lewtec/modot/internal/driver/httpclient"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 func downloadAndExtractTarball(ctx context.Context, source Source, destDir string, expectedHash string) (sourceMeta, error) {

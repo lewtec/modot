@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/lucasew/workspaced/internal/atomicfile"
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"github.com/lucasew/workspaced/pkg/driver/notification"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/atomicfile"
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/driver/notification"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 var (

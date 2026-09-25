@@ -13,7 +13,7 @@ var (
 	ErrNotMultiFile = errors.New("template is not a multi-file template")
 )
 
-// Engine is the workspaced template rendering engine.
+// Engine is the modot template rendering engine.
 type Engine struct {
 	funcMap template.FuncMap
 }

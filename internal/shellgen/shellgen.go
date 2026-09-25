@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 // Generator is a function that generates shell code
@@ -25,7 +25,7 @@ var generators = map[string]Generator{
 // Generate executes all generators in parallel and returns ordered output.
 // Requires a taskgroup Session/Group on ctx (CLI root installs one).
 func Generate(ctx context.Context) (string, error) {
-	profile := os.Getenv("WORKSPACED_PROFILE") == "1"
+	profile := os.Getenv("MODOT_PROFILE") == "1"
 
 	keys := make([]string, 0, len(generators))
 	for k := range generators {

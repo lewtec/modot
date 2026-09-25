@@ -7,7 +7,7 @@ import (
 
 	"cuelang.org/go/cue"
 	"github.com/lewtec/lewkit/x/fs/compose"
-	"github.com/lucasew/workspaced/pkg/filespine"
+	"github.com/lewtec/modot/internal/filespine"
 )
 
 var errNilCueContext = errors.New("nil cue context")
@@ -20,7 +20,7 @@ func fileProfileSource() (string, error) {
 		return "", err
 	}
 	var builder strings.Builder
-	builder.WriteString("package workspaced\n")
+	builder.WriteString("package modot\n")
 	builder.WriteString(source)
 	if !strings.HasSuffix(source, "\n") {
 		builder.WriteByte('\n')

@@ -19,12 +19,12 @@ import (
 	"github.com/pbnjay/memory"
 
 	"cuelang.org/go/cue/ast"
-	"github.com/lucasew/workspaced/internal/git"
-	"github.com/lucasew/workspaced/internal/modulecue"
-	"github.com/lucasew/workspaced/pkg/driver"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
-	"github.com/lucasew/workspaced/pkg/filespine"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/driver"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	"github.com/lewtec/modot/internal/filespine"
+	"github.com/lewtec/modot/internal/git"
+	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/modulecue"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/build"
@@ -90,7 +90,10 @@ func DiscoverLayers(ctx context.Context, opts DiscoverOptions) (DiscoverResult, 
 	if opts.HomeLayers {
 		dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 		if err == nil && dotfilesRoot != "" {
-			p := filepath.Join(dotfilesRoot, "workspaced.cue")
+			if err := rejectLegacyDir(dotfilesRoot); err != nil {
+				return DiscoverResult{}, err
+			}
+			p := filepath.Join(dotfilesRoot, "modot.cue")
 			if fileExists(p) {
 				layers = append(layers, Layer{Name: "dotfiles", Path: p})
 			}
@@ -100,7 +103,10 @@ func DiscoverLayers(ctx context.Context, opts DiscoverOptions) (DiscoverResult, 
 	if opts.HomeLayers {
 		homeDir, err := envdriver.ResolveHomeDir()
 		if err == nil && homeDir != "" {
-			p := filepath.Join(homeDir, "workspaced.cue")
+			if err := rejectLegacyDir(homeDir); err != nil {
+				return DiscoverResult{}, err
+			}
+			p := filepath.Join(homeDir, "modot.cue")
 			if fileExists(p) {
 				layers = append(layers, Layer{Name: "user", Path: p})
 			}
@@ -110,7 +116,10 @@ func DiscoverLayers(ctx context.Context, opts DiscoverOptions) (DiscoverResult, 
 	if opts.HomeLayers {
 		configDir, err := envdriver.GetConfigDir(ctx)
 		if err == nil && configDir != "" {
-			p := filepath.Join(configDir, "workspaced.cue")
+			if err := rejectLegacyDir(configDir); err != nil {
+				return DiscoverResult{}, err
+			}
+			p := filepath.Join(configDir, "modot.cue")
 			if fileExists(p) {
 				layers = append(layers, Layer{Name: "home", Path: p})
 			}
@@ -132,11 +141,11 @@ func ExportCUE(ctx context.Context, opts DiscoverOptions) ([]byte, error) {
 	// Use a fresh root with logger for the (rare) diagnostic warnings in this
 	// top-level export path. The real work ctx is not threaded into these
 	// high-level CUE export helpers.
-	return exportFormatted(ctx, opts, formatWorkspacedValue)
+	return exportFormatted(ctx, opts, formatModotValue)
 }
 
 func ExportDef(ctx context.Context, opts DiscoverOptions) ([]byte, error) {
-	return exportFormatted(ctx, opts, formatWorkspacedDef)
+	return exportFormatted(ctx, opts, formatModotDef)
 }
 
 func exportFormatted(ctx context.Context, opts DiscoverOptions, format func(context.Context, cue.Value, []string, []Layer) ([]byte, error)) ([]byte, error) {
@@ -144,7 +153,7 @@ func exportFormatted(ctx context.Context, opts DiscoverOptions, format func(cont
 	if err != nil {
 		return nil, err
 	}
-	configValue, err := buildWorkspacedValue(ctx, paths, layers, opts)
+	configValue, err := buildModotValue(ctx, paths, layers, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -156,11 +165,11 @@ func Evaluate(ctx context.Context, opts DiscoverOptions) (EvaluationResult, erro
 	if err != nil {
 		return EvaluationResult{}, err
 	}
-	configValue, err := buildWorkspacedValue(ctx, paths, layers, opts)
+	configValue, err := buildModotValue(ctx, paths, layers, opts)
 	if err != nil {
 		return EvaluationResult{}, err
 	}
-	b, err := marshalWorkspacedValue(ctx, configValue, paths, layers)
+	b, err := marshalModotValue(ctx, configValue, paths, layers)
 	if err != nil {
 		return EvaluationResult{}, err
 	}
@@ -193,14 +202,14 @@ func exportJSONFromPaths(ctx context.Context, paths []string, discovered []Layer
 	if homeLayers {
 		opts.Mode = filespine.ModeHome
 	}
-	configValue, err := buildWorkspacedValue(ctx, paths, discovered, opts)
+	configValue, err := buildModotValue(ctx, paths, discovered, opts)
 	if err != nil {
 		return nil, err
 	}
-	return marshalWorkspacedValue(ctx, configValue, paths, discovered)
+	return marshalModotValue(ctx, configValue, paths, discovered)
 }
 
-func buildWorkspacedValue(ctx context.Context, paths []string, discovered []Layer, opts DiscoverOptions) (cue.Value, error) {
+func buildModotValue(ctx context.Context, paths []string, discovered []Layer, opts DiscoverOptions) (cue.Value, error) {
 	mode := opts.RuntimeMode()
 	homeLayers := opts.HomeLayers
 	baseRuntimePrelude, err := buildRuntimePrelude(ctx, nil, mode)
@@ -208,7 +217,7 @@ func buildWorkspacedValue(ctx context.Context, paths []string, discovered []Laye
 		return cue.Value{}, err
 	}
 	cueCtx := cuecontext.New()
-	initialValue, err := compileWorkspacedValueWithContext(cueCtx, paths, baseRuntimePrelude, homeLayers, nil, nil)
+	initialValue, err := compileModotValueWithContext(cueCtx, paths, baseRuntimePrelude, homeLayers, nil, nil)
 	if err != nil {
 		return cue.Value{}, err
 	}
@@ -220,30 +229,21 @@ func buildWorkspacedValue(ctx context.Context, paths []string, discovered []Laye
 	if err != nil {
 		return cue.Value{}, err
 	}
-	baseConfigValue, err := compileWorkspacedValueWithContext(cueCtx, paths, runtimePrelude, homeLayers, nil, nil)
+	baseConfigValue, err := compileModotValueWithContext(cueCtx, paths, runtimePrelude, homeLayers, nil, nil)
 	if err != nil {
 		return cue.Value{}, err
 	}
-	preLayers, postLayers, err := buildResolvedModuleLayers(baseConfigValue, paths, discovered)
+	moduleLayers, err := loadModuleCueLayers(baseConfigValue, paths, discovered)
 	if err != nil {
 		return cue.Value{}, err
 	}
-	configValue, err := compileWorkspacedValueWithContext(cueCtx, paths, runtimePrelude, homeLayers, preLayers, postLayers)
-	if err != nil {
-		return cue.Value{}, err
+	if len(moduleLayers) == 0 {
+		return baseConfigValue, nil
 	}
-	fileLayers, err := buildModuleFileLayers(configValue, paths, discovered)
-	if err != nil {
-		return cue.Value{}, err
-	}
-	if len(fileLayers) == 0 {
-		return configValue, nil
-	}
-	postWithFiles := append(append([]compiledLayer{}, postLayers...), fileLayers...)
-	return compileWorkspacedValueWithContext(cueCtx, paths, runtimePrelude, homeLayers, preLayers, postWithFiles)
+	return compileModotValueWithContext(cueCtx, paths, runtimePrelude, homeLayers, nil, moduleLayers)
 }
 
-func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtimePrelude string, homeLayers bool, preLayers []compiledLayer, postLayers []compiledLayer) (cue.Value, error) {
+func compileModotValueWithContext(ctx *cue.Context, paths []string, runtimePrelude string, homeLayers bool, preLayers []compiledLayer, postLayers []compiledLayer) (cue.Value, error) {
 	schemaBytes, err := schemaFS.ReadFile("schema.cue")
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("read embedded cue schema: %w", err)
@@ -308,9 +308,9 @@ type namedSource struct {
 // buildPackage loads every layer as one CUE package so references such as
 // runtime.home resolve across schema, preludes, and user files.
 func buildPackage(ctx *cue.Context, files []namedSource) (cue.Value, error) {
-	inst := &build.Instance{PkgName: "workspaced", User: true}
+	inst := &build.Instance{PkgName: "modot", User: true}
 	for _, file := range files {
-		syntax, err := parser.ParseFile(file.Name, file.Source, parser.ParseComments)
+		syntax, err := parser.ParseFile(file.Name, forcePackage(file.Source), parser.ParseComments)
 		if err != nil {
 			return cue.Value{}, fmt.Errorf("parse cue layer %s: %w\n%s", file.Name, err, cueerrors.Details(err, nil))
 		}
@@ -323,6 +323,97 @@ func buildPackage(ctx *cue.Context, files []namedSource) (cue.Value, error) {
 		return cue.Value{}, fmt.Errorf("build cue config:\n%s", cueerrors.Details(err, nil))
 	}
 	return v, nil
+}
+
+// forcePackage drops the file's package clause. The clause is not part of the configuration.
+func forcePackage(src string) string {
+	lines := strings.Split(src, "\n")
+	for i, line := range lines {
+		trim := strings.TrimSpace(line)
+		if trim == "" || strings.HasPrefix(trim, "//") {
+			continue
+		}
+		if strings.HasPrefix(trim, "package ") {
+			lines[i] = "package modot"
+			return strings.Join(lines, "\n")
+		}
+		break
+	}
+	return "package modot\n" + src
+}
+
+func rejectLegacyDir(dir string) error {
+	for _, name := range []string{"workspaced.cue", "workspaced.lock.json"} {
+		candidate := filepath.Join(dir, name)
+		if !fileExists(candidate) {
+			continue
+		}
+		next := strings.ReplaceAll(name, "workspaced", "modot")
+		return fmt.Errorf("leftover %s: the file name is %s", candidate, next)
+	}
+	return nil
+}
+
+// RejectLegacyEnv fails when a process still carries the previous env prefix.
+func RejectLegacyEnv() error {
+	for _, env := range os.Environ() {
+		key, _, _ := strings.Cut(env, "=")
+		if strings.HasPrefix(key, "WORKSPACED_") {
+			return fmt.Errorf("leftover environment variable %s: the prefix is MODOT_", key)
+		}
+	}
+	return nil
+}
+
+func loadModuleCueLayers(configValue cue.Value, paths []string, discovered []Layer) ([]compiledLayer, error) {
+	raw, err := decodeReadyMap(configValue)
+	if err != nil {
+		return nil, fmt.Errorf("decode cue config before module join: %w", err)
+	}
+	configJSON, err := json.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("encode cue config before module join: %w", err)
+	}
+	cfg, err := decodeConfig(configJSON)
+	if err != nil {
+		return nil, err
+	}
+	modules, err := cfg.Modules()
+	if err != nil {
+		return nil, fmt.Errorf("decode modules from config: %w", err)
+	}
+	modulesBaseDir := resolveModulesBaseDir(paths, discovered)
+	if modulesBaseDir == "" {
+		return nil, nil
+	}
+	names := make([]string, 0, len(modules))
+	for name := range modules {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	layers := make([]compiledLayer, 0)
+	for _, name := range names {
+		entry := modules[name]
+		if !entry.Enable {
+			continue
+		}
+		modulePath, ok, err := resolveLocalModulePath(cfg, name, entry, modulesBaseDir)
+		if err != nil {
+			return nil, fmt.Errorf("resolve module %q: %w", name, err)
+		}
+		if !ok || !modulecue.Exists(modulePath) {
+			continue
+		}
+		body, err := os.ReadFile(modulecue.FilePath(modulePath))
+		if err != nil {
+			return nil, fmt.Errorf("module %q: read %s: %w", name, modulecue.FilePath(modulePath), err)
+		}
+		layers = append(layers, compiledLayer{
+			Name:   modulecue.FilePath(modulePath),
+			Source: string(body),
+		})
+	}
+	return layers, nil
 }
 
 type compiledLayer struct {
@@ -444,7 +535,7 @@ func buildModuleFileLayers(configValue cue.Value, paths []string, discovered []L
 		}
 		layers = append(layers, compiledLayer{
 			Name:   "module_file_" + name + ".cue",
-			Source: "package workspaced\nfile: " + string(fileJSON) + "\n",
+			Source: "package modot\nfile: " + string(fileJSON) + "\n",
 		})
 	}
 	return layers, nil
@@ -473,7 +564,7 @@ func hasDerivedDesktopModules(raw map[string]any) bool {
 }
 
 func buildDerivedModulePrelude() string {
-	return `package workspaced
+	return `package modot
 
 desktop: {
 	dark_mode: *modules.base16.config.dark_mode | bool
@@ -495,9 +586,9 @@ func buildModuleSchemaLayer(schemaByModule map[string]string) (string, error) {
 
 	moduleFields := make([]ast.Decl, 0, len(moduleNames))
 	for _, name := range moduleNames {
-		// Module schemas are package module and say workspaced.<field>.
+		// Module schemas are package module and say modot.<field>.
 		// Pasted into this package, that root is the top-level field.
-		schemaText := strings.ReplaceAll(strings.TrimSpace(schemaByModule[name]), "workspaced.", "")
+		schemaText := strings.ReplaceAll(strings.TrimSpace(schemaByModule[name]), "modot.", "")
 		expr, err := parser.ParseExpr(name+".module_config.cue", schemaText)
 		if err != nil {
 			return "", fmt.Errorf("parse module config schema for %q: %w", name, err)
@@ -517,7 +608,7 @@ func buildModuleSchemaLayer(schemaByModule map[string]string) (string, error) {
 
 	file := &ast.File{
 		Decls: []ast.Decl{
-			&ast.Package{Name: ast.NewIdent("workspaced")},
+			&ast.Package{Name: ast.NewIdent("modot")},
 			&ast.Field{
 				Label: ast.NewIdent("modules"),
 				Value: &ast.StructLit{
@@ -579,7 +670,7 @@ func buildDriverWeightLayer(current cue.Value) (string, error) {
 
 	file := &ast.File{
 		Decls: []ast.Decl{
-			&ast.Package{Name: ast.NewIdent("workspaced")},
+			&ast.Package{Name: ast.NewIdent("modot")},
 			&ast.Field{
 				Label: ast.NewIdent("drivers"),
 				Value: &ast.StructLit{Elts: driverFields},
@@ -654,7 +745,7 @@ func resolveLocalSourceSpec(workspaceRoot, modulePath, spec string) (string, boo
 	return filepath.Join(workspaceRoot, filepath.FromSlash(ref)), true, nil
 }
 
-func marshalWorkspacedValue(ctx context.Context, configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
+func marshalModotValue(ctx context.Context, configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
 	if !configValue.Exists() {
 		if len(discovered) > 0 {
 			logger := logging.GetLogger(ctx)
@@ -679,8 +770,8 @@ func marshalWorkspacedValue(ctx context.Context, configValue cue.Value, paths []
 	return b, nil
 }
 
-func formatWorkspacedValue(ctx context.Context, configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
-	return formatWorkspacedSyntax(ctx, configValue, paths, discovered, "export", "config",
+func formatModotValue(ctx context.Context, configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
+	return formatModotSyntax(ctx, configValue, paths, discovered, "export", "config",
 		cue.Concrete(false),
 		cue.Final(),
 		cue.Definitions(false),
@@ -691,8 +782,8 @@ func formatWorkspacedValue(ctx context.Context, configValue cue.Value, paths []s
 	)
 }
 
-func formatWorkspacedDef(ctx context.Context, configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
-	return formatWorkspacedSyntax(ctx, configValue, paths, discovered, "def", "def",
+func formatModotDef(ctx context.Context, configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
+	return formatModotSyntax(ctx, configValue, paths, discovered, "def", "def",
 		cue.Concrete(false),
 		cue.Definitions(true),
 		cue.Hidden(false),
@@ -702,10 +793,10 @@ func formatWorkspacedDef(ctx context.Context, configValue cue.Value, paths []str
 	)
 }
 
-// formatWorkspacedSyntax formats the config CUE value, or warns and
+// formatModotSyntax formats the config CUE value, or warns and
 // returns "{}" when the value is missing. kind labels the empty-result warn
 // ("export" / "def"); errLabel is used in format errors ("config" / "def").
-func formatWorkspacedSyntax(ctx context.Context, configValue cue.Value, paths []string, discovered []Layer, kind, errLabel string, opts ...cue.Option) ([]byte, error) {
+func formatModotSyntax(ctx context.Context, configValue cue.Value, paths []string, discovered []Layer, kind, errLabel string, opts ...cue.Option) ([]byte, error) {
 	if !configValue.Exists() {
 		if len(discovered) > 0 {
 			logger := logging.GetLogger(ctx)
@@ -740,8 +831,8 @@ func findUp(ctx context.Context, start string, name string) (string, error) {
 	}
 
 	// Determine the git root of the starting point (if any). We will not
-	// walk above it when looking for workspaced.cue. This ensures nested
-	// git repos don't see outer workspaced.cue files.
+	// walk above it when looking for modot.cue. This ensures nested
+	// git repos don't see outer modot.cue files.
 	gitRoot, gitErr := git.GetRoot(ctx, dir)
 	hasGitBoundary := gitErr == nil && gitRoot != ""
 	var absGit string
@@ -755,6 +846,9 @@ func findUp(ctx context.Context, start string, name string) (string, error) {
 	}
 
 	for {
+		if err := rejectLegacyDir(dir); err != nil {
+			return "", err
+		}
 		candidate := filepath.Join(dir, name)
 		if fileExists(candidate) {
 			return candidate, nil
@@ -784,11 +878,11 @@ func ResolveWorkspaceCuePath(ctx context.Context, start string) (string, error) 
 		}
 	}
 
-	// Walk up from the starting directory to find the *closest* workspaced.cue,
+	// Walk up from the starting directory to find the *closest* modot.cue,
 	// but stop at the git root of the starting dir. This supports sub-workspaces
 	// (cues deeper in the tree) inside a git repo, while ensuring that a git repo
-	// nested inside another git repo does not inherit the parent's workspaced.cue.
-	return findUp(ctx, start, "workspaced.cue")
+	// nested inside another git repo does not inherit the parent's modot.cue.
+	return findUp(ctx, start, "modot.cue")
 }
 
 func fileExists(path string) bool {
@@ -846,7 +940,7 @@ func buildRuntimePrelude(ctx context.Context, resolvedInputs map[string]map[stri
 	if err != nil {
 		return "", fmt.Errorf("marshal runtime cue prelude: %w", err)
 	}
-	return "package workspaced\n\nruntime: " + string(b) + "\n", nil
+	return "package modot\n\nruntime: " + string(b) + "\n", nil
 }
 
 // decodeReadyMap is a partial JSON view of v. Incomplete fields (for example
@@ -953,7 +1047,7 @@ func resolveRuntimeInputs(configValue cue.Value, paths []string, discovered []La
 		case "github":
 			cacheKey := githubCacheKey(target, input.Version)
 			out[name] = map[string]any{
-				"path": filepath.Join(home, ".cache", "workspaced", "sources", "github", hashPath(cacheKey)),
+				"path": filepath.Join(home, ".cache", "modot", "sources", "github", hashPath(cacheKey)),
 			}
 		case "local":
 			base := target

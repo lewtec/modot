@@ -1,0 +1,478 @@
+package selfupdate
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"strings"
+	"sync"
+
+	"github.com/lewtec/lewkit/x/taskgroup"
+	lewtool "github.com/lewtec/lewkit/x/tool"
+	githubprov "github.com/lewtec/lewkit/x/tool/github"
+	"github.com/lewtec/modot/internal/miseutil"
+	"github.com/lewtec/modot/internal/selfbin"
+	"github.com/lewtec/modot/internal/version"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/logging"
+
+	"github.com/lewtec/lewkit/x/cmd"
+)
+
+var (
+	ErrGoVersionUnknown     = errors.New("could not determine Go version from build info")
+	ErrNoVersionsFound      = errors.New("no versions found")
+	ErrArtifactToolRequired = errors.New("github tool does not support ArtifactTool (needed for selfupdate)")
+	ErrNoArtifactFound      = errors.New("no artifact found for current platform")
+	ErrNoBinaryFound        = errors.New("no binary found")
+)
+
+type Command struct {
+	Force cmd.Flag `long:"force" help:"Force update even if version matches (GitHub only)"`
+}
+
+func (Command) Description() string {
+	return "Update modot binary"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	msg := "downloading from GitHub"
+	srcPath, err := findSourcePath(ctx)
+	if err != nil {
+		return err
+	}
+	if srcPath != "" {
+		msg = "compiling from source"
+	}
+
+	// Control: github/httpclient and the source build nest limited-pool work.
+	// Do not Unit here — GitHub installs already own a fetch bar.
+	taskgroup.Go(ctx, "self-update", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+		s.Update(msg)
+		return runSelfUpdate(ctx, c.Force.Value(), s)
+	})
+
+	return nil
+}
+
+// ============================================================================
+// Main update flow
+// ============================================================================
+
+func runSelfUpdate(ctx context.Context, force bool, s *taskgroup.Status) error {
+	// Try source build first (dev mode - always rebuilds)
+	srcPath, err := findSourcePath(ctx)
+	if err != nil {
+		return err
+	}
+	if srcPath != "" {
+		logger := logging.GetLogger(ctx)
+		logger.Info("building from source (always rebuilds)", "path", srcPath)
+		return buildAndInstallFromSource(ctx, srcPath, s)
+	}
+
+	// Fallback to GitHub provider (checks version unless --force)
+	return updateFromGitHub(ctx, force, s)
+}
+
+// ============================================================================
+// Source build strategy
+// ============================================================================
+
+func buildAndInstallFromSource(ctx context.Context, srcPath string, s *taskgroup.Status) error {
+	// Install to fixed location (not versioned); real home, not Termux /home chroot view.
+	installDir, installPath, err := selfbin.InstallPaths(ctx)
+	if err != nil {
+		return err
+	}
+
+	goVersion := getGoVersion()
+	if goVersion == "" {
+		return ErrGoVersionUnknown
+	}
+
+	misePath, err := miseutil.Ensure(ctx)
+	if err != nil {
+		return fmt.Errorf("ensure mise: %w", err)
+	}
+
+	if err := os.MkdirAll(installDir, 0755); err != nil {
+		return err
+	}
+	tmpOut, err := os.CreateTemp(installDir, "modot.tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmpOut.Name()
+	if err := tmpOut.Close(); err != nil {
+		return err
+	}
+	defer logging.RunCleanup(ctx, "remove", func() error {
+		if err := os.Remove(tmpPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		return nil
+	}, "path", tmpPath)
+
+	goSpec := fmt.Sprintf("go@%s", goVersion)
+	logger := logging.GetLogger(ctx)
+	logger.Info("building from source", "path", srcPath, "go", goSpec)
+
+	prog := newBuildProgress(s)
+	if s != nil {
+		s.Progress(0, 1)
+		s.Update("compiling")
+	}
+	if n, err := countBuildPackages(ctx, misePath, goSpec, srcPath); err == nil && n > 0 {
+		prog.total = n
+		if s != nil {
+			s.Progress(0, n)
+		}
+	}
+
+	buildCmd, err := execdriver.Run(ctx, misePath, "exec", goSpec, "--",
+		"go", "build", "-v", "-o", tmpPath, "./cmd/modot")
+	if err != nil {
+		return err
+	}
+	buildCmd.Dir = srcPath
+	buildCmd.Stdout = prog
+	buildCmd.Stderr = prog
+
+	if err := buildCmd.Run(); err != nil {
+		return fmt.Errorf("build failed: %w\n%s", err, prog.tail())
+	}
+	prog.finish("installing")
+	if err := os.Chmod(tmpPath, 0755); err != nil {
+		return fmt.Errorf("set permissions on built binary: %w", err)
+	}
+	if err := os.Rename(tmpPath, installPath); err != nil {
+		return fmt.Errorf("install built binary: %w", err)
+	}
+
+	logger.Info("build completed", "path", installPath)
+	return selfbin.EnsureModotShim(ctx, installPath)
+}
+
+// ============================================================================
+// GitHub provider strategy
+// ============================================================================
+
+func updateFromGitHub(ctx context.Context, force bool, s *taskgroup.Status) error {
+	// Use the exposed constructor directly. This works even without the old
+	// detailed methods on the thin Provider interface, and demonstrates how
+	// a future registry backend (or other code) can obtain a github Tool.
+	t, err := githubprov.NewTool("lewtec/modot")
+	if err != nil {
+		return err
+	}
+
+	// Get latest version via the Tool
+	versions, err := t.ListVersions(ctx)
+	if err != nil {
+		return err
+	}
+
+	if len(versions) == 0 {
+		return ErrNoVersionsFound
+	}
+
+	latestVersion := versions[0]
+	normalizedLatest := strings.TrimPrefix(latestVersion, "v")
+
+	// Check if update is needed (unless --force)
+	if !force {
+		currentVersion := version.Version()
+
+		if currentVersion == normalizedLatest {
+			logger := logging.GetLogger(ctx)
+			logger.Info("already at latest version", "version", currentVersion)
+			return nil
+		}
+
+		logger := logging.GetLogger(ctx)
+		logger.Info("updating", "current", currentVersion, "latest", normalizedLatest)
+	} else {
+		logger := logging.GetLogger(ctx)
+		logger.Info("forcing update", "version", latestVersion)
+	}
+
+	// Use ArtifactTool + the shared SelectArtifact for platform selection.
+	at, ok := t.(lewtool.ArtifactTool)
+	if !ok {
+		return ErrArtifactToolRequired
+	}
+
+	artifacts, err := at.ListArtifacts(ctx, latestVersion)
+	if err != nil {
+		return err
+	}
+
+	// Standard platform selection (same logic used by tool installs etc.).
+	// The "modot" hint helps disambiguate when a release has multiple
+	// assets for the same OS/arch.
+	artifact := lewtool.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, "modot")
+	if artifact == nil {
+		available := []string{}
+		for _, a := range artifacts {
+			available = append(available, fmt.Sprintf("%s/%s", a.OS, a.Arch))
+		}
+		return fmt.Errorf("%w: %s/%s (available: %v)", ErrNoArtifactFound, runtime.GOOS, runtime.GOARCH, available)
+	}
+
+	// Install to fixed location (not versioned); real home, not Termux /home chroot view.
+	installDir, _, err := selfbin.InstallPaths(ctx)
+	if err != nil {
+		return err
+	}
+	tmpDir := filepath.Join(installDir, ".tmp-"+normalizedLatest)
+
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return err
+	}
+	defer logging.RunCleanup(ctx, "remove_all", func() error { return os.RemoveAll(tmpDir) }, "path", tmpDir)
+
+	logger := logging.GetLogger(ctx)
+	logger.Info("downloading from GitHub", "version", latestVersion, "os", artifact.OS, "arch", artifact.Arch)
+	if s != nil {
+		s.Update("downloading")
+	}
+	if err := at.InstallArtifact(ctx, *artifact, tmpDir); err != nil {
+		return fmt.Errorf("installation failed: %w", err)
+	}
+
+	modotBin, err := findBinary(tmpDir)
+	if err != nil {
+		return fmt.Errorf("modot binary not found in downloaded archive: %w", err)
+	}
+
+	targetName := "modot"
+	if runtime.GOOS == "windows" {
+		targetName = "modot.exe"
+	}
+	installPath := filepath.Join(installDir, targetName)
+	if err := os.MkdirAll(installDir, 0755); err != nil {
+		return err
+	}
+
+	if err := os.Rename(modotBin, installPath); err != nil {
+		return fmt.Errorf("install binary: %w", err)
+	}
+
+	if err := os.Chmod(installPath, 0755); err != nil {
+		return fmt.Errorf("set permissions: %w", err)
+	}
+
+	logger.Info("download completed", "path", installPath)
+	return selfbin.EnsureModotShim(ctx, installPath)
+}
+
+func findBinary(dir string) (string, error) {
+	// 1. Check standard names (strict first)
+	targets := []string{"modot", "modot.exe"}
+	for _, t := range targets {
+		path := filepath.Join(dir, t)
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+		// Check bin/ subdirectory
+		path = filepath.Join(dir, "bin", t)
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+
+	// 2. Scan for any executable-looking file
+	// This fallback handles cases where:
+	// - Binary has a suffix (e.g. modot-linux-amd64) and extraction didn't rename it
+	// - Binary name is different from expected
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", err
+	}
+
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		// Ignore common non-binary files
+		if strings.HasPrefix(name, ".") ||
+			strings.HasSuffix(name, ".sha256") ||
+			strings.HasSuffix(name, ".md") ||
+			strings.HasSuffix(name, ".txt") ||
+			name == "LICENSE" {
+			continue
+		}
+
+		// On Unix, check executable bit
+		if runtime.GOOS != "windows" {
+			info, err := e.Info()
+			if err == nil && info.Mode()&0111 != 0 {
+				return filepath.Join(dir, name), nil
+			}
+		} else {
+			// On Windows, check extension
+			if strings.HasSuffix(strings.ToLower(name), ".exe") {
+				return filepath.Join(dir, name), nil
+			}
+		}
+	}
+
+	// 3. Last resort: if there is only one file and it's not excluded above, pick it
+	// This covers Linux binaries that might not have +x set yet (though they should)
+	var candidates []string
+	for _, e := range entries {
+		if !e.IsDir() {
+			name := e.Name()
+			if !strings.HasPrefix(name, ".") &&
+				!strings.HasSuffix(name, ".sha256") &&
+				!strings.HasSuffix(name, ".md") &&
+				!strings.HasSuffix(name, ".txt") &&
+				name != "LICENSE" {
+				candidates = append(candidates, filepath.Join(dir, name))
+			}
+		}
+	}
+
+	if len(candidates) == 1 {
+		return candidates[0], nil
+	}
+
+	return "", fmt.Errorf("%w: %s", ErrNoBinaryFound, dir)
+}
+
+// buildProgress counts `go build -v` package lines onto a Status bar.
+type buildProgress struct {
+	s     *taskgroup.Status
+	mu    sync.Mutex
+	buf   []byte
+	n     int64
+	total int64
+	last  []string
+}
+
+func newBuildProgress(s *taskgroup.Status) *buildProgress {
+	return &buildProgress{s: s}
+}
+
+func (w *buildProgress) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.buf = append(w.buf, p...)
+	for {
+		i := bytes.IndexByte(w.buf, '\n')
+		if i < 0 {
+			break
+		}
+		line := strings.TrimSpace(string(bytes.TrimSuffix(w.buf[:i], []byte{'\r'})))
+		w.buf = w.buf[i+1:]
+		if line == "" {
+			continue
+		}
+		w.last = append(w.last, line)
+		if len(w.last) > 8 {
+			w.last = w.last[len(w.last)-8:]
+		}
+		w.n++
+		total := w.total
+		if total < w.n {
+			total = w.n
+			w.total = total
+		}
+		if w.s != nil && total > 0 {
+			w.s.Progress(w.n, total)
+			w.s.Update(line)
+		}
+	}
+	return len(p), nil
+}
+
+func (w *buildProgress) tail() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return strings.Join(w.last, "\n")
+}
+
+func (w *buildProgress) finish(msg string) {
+	w.mu.Lock()
+	total := w.total
+	s := w.s
+	w.mu.Unlock()
+	if s == nil {
+		return
+	}
+	if total < 1 {
+		total = 1
+	}
+	s.Progress(total, total)
+	s.Update(msg)
+}
+
+func countBuildPackages(ctx context.Context, misePath, goSpec, srcPath string) (int64, error) {
+	cmd, err := execdriver.Run(ctx, misePath, "exec", goSpec, "--",
+		"go", "list", "-e", "-deps", "-f", "{{if not .Standard}}{{.ImportPath}}{{end}}", "./cmd/modot")
+	if err != nil {
+		return 0, err
+	}
+	var stdout, stderr bytes.Buffer
+	cmd.Dir = srcPath
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return 0, fmt.Errorf("go list: %w: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	var n int64
+	for _, line := range strings.Split(stdout.String(), "\n") {
+		if strings.TrimSpace(line) != "" {
+			n++
+		}
+	}
+	return n, nil
+}
+
+func findSourcePath(ctx context.Context) (string, error) {
+	var candidates []string
+
+	// 1. ~/.config/modot/src/
+	configDir, err := envdriver.GetConfigDir(ctx)
+	if err != nil {
+		return "", fmt.Errorf("config dir: %w", err)
+	}
+	candidates = append(candidates, filepath.Join(configDir, "src"))
+
+	// 2. $DOTFILES/modot/
+	dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
+	if err != nil {
+		return "", fmt.Errorf("dotfiles root: %w", err)
+	}
+	candidates = append(candidates, filepath.Join(dotfilesRoot, "modot"))
+
+	for _, path := range candidates {
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+
+	// No candidate exists on disk; caller falls back to GitHub update.
+	return "", nil
+}
+
+func getGoVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return ""
+	}
+
+	version := info.GoVersion
+	if len(version) > 2 && version[0] == 'g' && version[1] == 'o' {
+		return version[2:]
+	}
+	return version
+}

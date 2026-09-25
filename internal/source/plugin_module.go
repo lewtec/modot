@@ -7,12 +7,12 @@ import (
 	"sort"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lucasew/workspaced/internal/configcue"
-	"github.com/lucasew/workspaced/internal/modfile"
-	_ "github.com/lucasew/workspaced/internal/modfile/sourceprovider/prelude"
-	"github.com/lucasew/workspaced/internal/module"
-	_ "github.com/lucasew/workspaced/internal/module/prelude"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/configcue"
+	"github.com/lewtec/modot/internal/modfile"
+	_ "github.com/lewtec/modot/internal/modfile/sourceprovider/prelude"
+	"github.com/lewtec/modot/internal/module"
+	_ "github.com/lewtec/modot/internal/module/prelude"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 type ModuleScannerPlugin struct {
@@ -40,7 +40,7 @@ type enabledModule struct {
 
 func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File, error) {
 	logger := logging.GetLogger(ctx)
-	sumFilePath := filepath.Join(filepath.Dir(p.baseDir), "workspaced.lock.json")
+	sumFilePath := filepath.Join(filepath.Dir(p.baseDir), "modot.lock.json")
 	modFile, err := modfile.ModFileFromConfig(p.cfg)
 	if err != nil {
 		return nil, err

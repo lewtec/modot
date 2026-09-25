@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,8 +28,8 @@ func TestWriteTempDconfIni_UniqueAndContents(t *testing.T) {
 	})
 
 	require.NotEqual(t, p2, p1, "expected unique temp paths")
-	require.NotEqual(t, "workspaced-dconf.ini", filepath.Base(p1), "still using fixed temp name: %q", p1)
-	require.Contains(t, filepath.Base(p1), "workspaced-dconf-")
+	require.NotEqual(t, "modot-dconf.ini", filepath.Base(p1), "still using fixed temp name: %q", p1)
+	require.Contains(t, filepath.Base(p1), "modot-dconf-")
 
 	got, err := os.ReadFile(p1)
 	require.NoError(t, err)

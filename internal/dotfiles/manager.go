@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/deployer"
-	"github.com/lucasew/workspaced/internal/source"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/deployer"
+	"github.com/lewtec/modot/internal/source"
+	"github.com/lewtec/modot/internal/logging"
 	"time"
 )
 

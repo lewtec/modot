@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lucasew/workspaced/internal/git"
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/git"
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/logging"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
@@ -107,8 +107,8 @@ func resolveDiffRange(ctx context.Context, root string) (base, head string, err 
 			return "", "", err
 		}
 	}
-	// Prefer explicit base from env (workflow can set WORKSPACED_REVIEW_BASE).
-	if b := strings.TrimSpace(os.Getenv("WORKSPACED_REVIEW_BASE")); b != "" {
+	// Prefer explicit base from env (workflow can set MODOT_REVIEW_BASE).
+	if b := strings.TrimSpace(os.Getenv("MODOT_REVIEW_BASE")); b != "" {
 		return b, head, nil
 	}
 	// pull_request: GITHUB_BASE_REF is branch name; need origin/base or merge-base.

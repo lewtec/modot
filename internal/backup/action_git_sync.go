@@ -13,9 +13,9 @@ import (
 	"strings"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"github.com/lucasew/workspaced/pkg/driver/notification"
-	"github.com/lucasew/workspaced/pkg/logging"
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/driver/notification"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 var (
@@ -28,7 +28,7 @@ func init() {
 }
 
 // GitRepoSyncAction backs up a local git working tree by committing changes and pushing to Dst.
-// Src is the local path; Dst is the remote URL (also used as the workspaced remote).
+// Src is the local path; Dst is the remote URL (also used as the modot remote).
 type GitRepoSyncAction struct {
 	backupActionBase
 	Src string `json:"src"`

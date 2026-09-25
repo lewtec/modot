@@ -1,4 +1,4 @@
-// Package lsp implements the workspaced language-server router proxy.
+// Package lsp implements the modot language-server router proxy.
 package lsp
 
 import (
@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lewtec/modot/internal/configcue"
 )
 
 const defaultRequestTimeout = 10 * time.Second
 
-// Config is the decoded workspaced.lsp block.
+// Config is the decoded modot.lsp block.
 type Config struct {
 	Extensions     map[string]string                `json:"extensions"`
 	LanguageIDs    map[string]string                `json:"language_ids"`
@@ -44,7 +44,7 @@ type LanguageBinding struct {
 
 var orderPrefix = regexp.MustCompile(`^(\d+_)?(.*)$`)
 
-// LoadConfig decodes workspaced.lsp from a loaded config. Missing block yields empty Config.
+// LoadConfig decodes modot.lsp from a loaded config. Missing block yields empty Config.
 func LoadConfig(cfg *configcue.Config) (Config, error) {
 	if cfg == nil {
 		return Config{}, nil

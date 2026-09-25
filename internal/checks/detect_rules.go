@@ -109,7 +109,7 @@ func CollectGlob(root, pattern string) ([]string, error) {
 		if d.IsDir() {
 			name := d.Name()
 			switch name {
-			case ".git", "node_modules", "vendor", ".workspaced", "dist", "build":
+			case ".git", "node_modules", "vendor", ".modot", "dist", "build":
 				if path != root {
 					return filepath.SkipDir
 				}

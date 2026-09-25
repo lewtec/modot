@@ -3,7 +3,7 @@ package source
 import (
 	"context"
 
-	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lewtec/modot/internal/configcue"
 )
 
 // FileSpinePlugin lowers pipeline files into file profiles and

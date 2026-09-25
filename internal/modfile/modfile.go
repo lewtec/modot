@@ -3,8 +3,8 @@ package modfile
 import (
 	"errors"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/configcue"
-	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
+	"github.com/lewtec/modot/internal/configcue"
+	parsespec "github.com/lewtec/modot/internal/parse/spec"
 	"path/filepath"
 	"strings"
 )
@@ -104,7 +104,7 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 		return resolved, validateNonVersionedProvider(resolved)
 	}
 
-	// Alias source from workspaced inputs.
+	// Alias source from modot inputs.
 	src, ok := m.Sources[left]
 	if !ok {
 		return ResolvedModuleSource{}, fmt.Errorf("unknown source alias %q for module %q", left, moduleName)
@@ -203,7 +203,7 @@ func validateSourceLock(alias string, src SourceConfig, sumFile *SumFile) error 
 		strings.TrimSpace(lock.Path) != strings.TrimSpace(src.Path) ||
 		strings.TrimSpace(lock.Repo) != strings.TrimSpace(src.Repo) ||
 		strings.TrimSpace(lock.URL) != strings.TrimSpace(src.URL) {
-		return fmt.Errorf("source %q lock mismatch: run `workspaced mod lock`", alias)
+		return fmt.Errorf("source %q lock mismatch: run `modot mod lock`", alias)
 	}
 	return nil
 }

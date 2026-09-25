@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/lucasew/workspaced/internal/module"
+	"github.com/lewtec/modot/internal/module"
 )
 
 func TestBase16IconsLinuxRegistered(t *testing.T) {

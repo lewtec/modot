@@ -1,4 +1,4 @@
-// Package cmdarg is the workspaced x/cmd field cookbook.
+// Package cmdarg is the modot x/cmd field cookbook.
 //
 // Pick the narrowest Parser that matches the value. StringArg is the leftover
 // case (names, refs, URLs, tool specs, remote rsync, free text).
@@ -14,7 +14,7 @@
 //	"--" then rest      cmd.Dash then []T
 //	database URL        *db.Command flatten-embed; ctx:"" then db.OpenFromCtx
 //	apply root          cmdarg.Prefix (cmd.DataDirArg; default ~, ., or / on the field)
-//	codebase apply root codebase.Prefix (embeds Prefix; ArgDefault is the workspace root; StatePath is .workspaced/state.json)
+//	codebase apply root codebase.Prefix (embeds Prefix; ArgDefault is the workspace root; StatePath is .modot/state.json)
 //	opaque token        cmd.StringArg
 //
 // Do not invent a second opener around DBArg. Off the CLI, db.Open / db.OpenArg.

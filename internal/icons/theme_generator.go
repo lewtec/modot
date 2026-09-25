@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lucasew/workspaced/internal/cmdctx"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/cmdctx"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 var ErrIconSourceDirNotFound = errors.New("icon source directory not found")
@@ -85,7 +85,7 @@ func RunThemeGenerate(ctx context.Context, opts ThemeGenerateOptions) error {
 		if err != nil {
 			return err
 		}
-		statePath := filepath.Join(outputDir, ".workspaced-icons-state")
+		statePath := filepath.Join(outputDir, ".modot-icons-state")
 		indexPath := filepath.Join(outputDir, "index.theme")
 		noCache := cmdctx.IsNoCache(ctx)
 		if !noCache {

@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/cmdarg"
-	"github.com/lucasew/workspaced/internal/module"
-	"github.com/lucasew/workspaced/internal/modulecue"
-	"github.com/lucasew/workspaced/pkg/filespine"
+	"github.com/lewtec/modot/internal/cmdarg"
+	"github.com/lewtec/modot/internal/filespine"
+	"github.com/lewtec/modot/internal/git"
+	"github.com/lewtec/modot/internal/module"
+	"github.com/lewtec/modot/internal/modulecue"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,7 +18,7 @@ var (
 	ErrModuleNotFound           = errors.New("workspace module not found")
 	ErrStrictStructureViolation = errors.New("strict structure violation: file found in module root")
 	ErrUnknownPreset            = errors.New("unknown preset")
-	ErrMissingModuleCue         = errors.New("module is missing module.cue")
+	ErrMissingModuleCue         = errors.New("module is missing modot.cue")
 )
 
 func init() {
@@ -67,8 +68,15 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) (modu
 		return module.ResolveResult{}, fmt.Errorf("%w: %q at %s", ErrModuleNotFound, req.Ref, modPath)
 	}
 
-	if err := validateConfig(req.Ref, modPath, req.ModuleConfig, req.Config.Raw()); err != nil {
+	if !modulecue.Exists(modPath) {
+		return module.ResolveResult{}, fmt.Errorf("%w: %q", ErrMissingModuleCue, req.Ref)
+	}
+	templates, err := moduleContributesTemplates(ctx, modPath)
+	if err != nil {
 		return module.ResolveResult{}, err
+	}
+	if !templates {
+		return module.ResolveResult{}, nil
 	}
 
 	entries, err := os.ReadDir(modPath)
@@ -132,9 +140,18 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) (modu
 	return module.ResolveResult{Files: out}, nil
 }
 
-func validateConfig(modName string, modPath string, modCfg map[string]any, root map[string]any) error {
-	if !modulecue.Exists(modPath) {
-		return fmt.Errorf("%w: %q", ErrMissingModuleCue, modName)
+func moduleContributesTemplates(ctx context.Context, modPath string) (bool, error) {
+	root, err := git.GetRoot(ctx, modPath)
+	if err != nil || strings.TrimSpace(root) == "" {
+		return false, nil
 	}
-	return modulecue.ValidateConfigWithRoot(modPath, modCfg, root)
+	absMod, err := filepath.Abs(modPath)
+	if err != nil {
+		return false, err
+	}
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return false, err
+	}
+	return filepath.Clean(absMod) != filepath.Clean(absRoot), nil
 }

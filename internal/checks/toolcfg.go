@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lewtec/modot/internal/configcue"
 )
 
 // ErrEmptyCmd is returned when a CUE-declared linter or formatter has no cmd argv.
@@ -44,7 +44,7 @@ type toolJSON struct {
 	ArgsFromGlobs bool                  `json:"args_from_globs"`
 }
 
-// LoadTools decodes workspaced.<section> (lint or formatter) into ordered tools.
+// LoadTools decodes modot.<section> (lint or formatter) into ordered tools.
 func LoadTools(cfg *configcue.Config, section string) ([]Tool, error) {
 	if cfg == nil {
 		return nil, nil

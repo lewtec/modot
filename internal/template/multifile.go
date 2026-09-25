@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	markerFileStart = "<<<WORKSPACED_FILE:"
-	markerFileEnd   = "<<<WORKSPACED_ENDFILE>>>"
+	markerFileStart = "<<<MODOT_FILE:"
+	markerFileEnd   = "<<<MODOT_ENDFILE>>>"
 )
 
 // MultiFile representa um arquivo em template multi-file

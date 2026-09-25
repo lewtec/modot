@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lucasew/workspaced/internal/atomicfile"
-	"github.com/lucasew/workspaced/internal/source"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/atomicfile"
+	"github.com/lewtec/modot/internal/source"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 // RelToRoot returns path relative to root when path is under root.

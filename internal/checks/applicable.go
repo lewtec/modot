@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 // SkipFunc is called when a check is skipped during Applicable selection.

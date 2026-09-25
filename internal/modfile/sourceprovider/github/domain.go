@@ -1,7 +1,7 @@
 package github
 
 import (
-	"github.com/lucasew/workspaced/internal/modfile"
+	"github.com/lewtec/modot/internal/modfile"
 	"strings"
 )
 

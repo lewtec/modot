@@ -7,15 +7,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	_ "github.com/lucasew/workspaced/pkg/driver/env/native"
-	"github.com/lucasew/workspaced/pkg/filespine"
-	"github.com/lucasew/workspaced/pkg/logging"
+	_ "github.com/lewtec/modot/internal/driver/env/native"
+	"github.com/lewtec/modot/internal/filespine"
+	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRuntimeModeAndFileProfiles(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "workspaced.cue"), `package workspaced
+	writeFile(t, filepath.Join(root, "modot.cue"), `package modot
 file: {
 	home: {
 		".codex/config.toml": {type: "toml", values: {model: "x"}}
@@ -27,7 +27,7 @@ file: {
 `)
 
 	ctx := logging.NewWriterContext(t.Output())
-	cuePath := filepath.Join(root, "workspaced.cue")
+	cuePath := filepath.Join(root, "modot.cue")
 	home, err := loadFilesMode(ctx, cuePath, filespine.ModeHome)
 	require.NoError(t, err, "load home")
 	require.Equal(t, filespine.ModeHome, home.RuntimeMode())
@@ -53,35 +53,35 @@ file: {
 
 func TestFlatFileKeyRejected(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "workspaced.cue"), `package workspaced
+	writeFile(t, filepath.Join(root, "modot.cue"), `package modot
 file: ".bashrc": {type: "lines", values: {"00": "umask 022"}}
 `)
 	ctx := logging.NewWriterContext(t.Output())
-	_, err := loadFilesMode(ctx, filepath.Join(root, "workspaced.cue"), filespine.ModeHome)
+	_, err := loadFilesMode(ctx, filepath.Join(root, "modot.cue"), filespine.ModeHome)
 	require.Error(t, err, "expected schema error")
 }
 
 func TestAbsoluteRefRejected(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "workspaced.cue"), `package workspaced
+	writeFile(t, filepath.Join(root, "modot.cue"), `package modot
 file: home: blob: {
 	type: "ref"
 	values: src: {kind: "ref", ref: "/tmp/x"}
 }
 `)
 	ctx := logging.NewWriterContext(t.Output())
-	cfg, err := loadFilesMode(ctx, filepath.Join(root, "workspaced.cue"), filespine.ModeHome)
+	cfg, err := loadFilesMode(ctx, filepath.Join(root, "modot.cue"), filespine.ModeHome)
 	require.NoError(t, err, "load")
 	_, err = cfg.FileProfiles()
 	require.Error(t, err, "expected ref error")
 }
 
 func loadFilesMode(ctx context.Context, path, mode string) (*Config, error) {
-	v, err := buildWorkspacedValue(ctx, []string{path}, nil, DiscoverOptions{Mode: mode})
+	v, err := buildModotValue(ctx, []string{path}, nil, DiscoverOptions{Mode: mode})
 	if err != nil {
 		return nil, err
 	}
-	data, err := marshalWorkspacedValue(ctx, v, []string{path}, nil)
+	data, err := marshalModotValue(ctx, v, []string{path}, nil)
 	if err != nil {
 		return nil, err
 	}

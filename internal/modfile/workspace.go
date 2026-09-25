@@ -3,8 +3,8 @@ package modfile
 import (
 	"context"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/git"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"github.com/lewtec/modot/internal/git"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
 	"os"
 	"path/filepath"
 )
@@ -52,7 +52,7 @@ func (w *Workspace) UpdateSumFile(ctx context.Context, mutate func(sum *SumFile)
 }
 
 func (w *Workspace) SumPath() string {
-	return filepath.Join(w.Root, "workspaced.lock.json")
+	return filepath.Join(w.Root, "modot.lock.json")
 }
 
 func (w *Workspace) ModulesBaseDir() string {

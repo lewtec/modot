@@ -3,8 +3,8 @@ package tool
 import (
 	"context"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/tool/resolution"
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lewtec/modot/internal/tool/resolution"
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"os"
 	"os/exec"
 )

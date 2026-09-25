@@ -6,21 +6,21 @@ import (
 
 	"github.com/lewtec/lewkit/x/cmd"
 	lewtest "github.com/lewtec/lewkit/x/test"
-	"github.com/lucasew/workspaced/internal/types"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/types"
+	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestOpenURLMigratesAndQueries(t *testing.T) {
 	ctx := logging.NewWriterContext(t.Output())
-	path := filepath.Join(t.TempDir(), "workspaced.db")
+	path := filepath.Join(t.TempDir(), "modot.db")
 	d, err := OpenURL(ctx, path)
 	require.NoError(t, err)
 	lewtest.CloseOnCleanup(t, d)
 
 	ev := types.HistoryEvent{
-		Command:   "workspaced home apply",
+		Command:   "modot home apply",
 		Cwd:       "/tmp",
 		Timestamp: 1,
 		ExitCode:  0,
@@ -50,7 +50,7 @@ func TestArgDefaultIsUserDataFile(t *testing.T) {
 	}](t)
 	require.NotNil(t, got.DB.Value())
 	assert.Equal(t, (Arg{}).ArgDefault(), got.DB.Value().URL())
-	assert.Contains(t, got.DB.Value().URL(), "workspaced.db")
+	assert.Contains(t, got.DB.Value().URL(), "modot.db")
 }
 
 func TestOpenURLRejectsUnknownScheme(t *testing.T) {

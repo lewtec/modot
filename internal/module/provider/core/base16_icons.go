@@ -16,13 +16,13 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/lucasew/workspaced/internal/atomicfile"
-	"github.com/lucasew/workspaced/internal/cmdctx"
-	"github.com/lucasew/workspaced/internal/icons"
-	"github.com/lucasew/workspaced/internal/module"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
-	"github.com/lucasew/workspaced/pkg/filespine"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/atomicfile"
+	"github.com/lewtec/modot/internal/cmdctx"
+	"github.com/lewtec/modot/internal/icons"
+	"github.com/lewtec/modot/internal/module"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	"github.com/lewtec/modot/internal/filespine"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 func init() {
@@ -75,7 +75,7 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 
 	// apply defaults (strings)
 	if cfg.ThemeName == "" {
-		cfg.ThemeName = "workspaced-base16"
+		cfg.ThemeName = "modot-base16"
 	}
 	if cfg.Jobs == "" {
 		cfg.Jobs = "auto"
@@ -116,7 +116,7 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 		return module.ResolveResult{}, err
 	}
 
-	cacheRoot := envdriver.ExpandPath("~/.cache/workspaced/modules/core-base16-icons-linux")
+	cacheRoot := envdriver.ExpandPath("~/.cache/modot/modules/core-base16-icons-linux")
 	cacheDir := filepath.Join(cacheRoot, fp)
 	indexPath := filepath.Join(cacheDir, "index.theme")
 	st, indexErr := os.Stat(indexPath)

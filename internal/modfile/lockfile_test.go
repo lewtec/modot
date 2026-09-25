@@ -12,7 +12,7 @@ func TestWriteSumFile(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, "workspaced.lock.json")
+	path := filepath.Join(dir, "modot.lock.json")
 
 	sum := &SumFile{}
 	sum.EnsureSource("papirus", LockedSource{
@@ -48,7 +48,7 @@ func TestWriteSumFileRemovesTempOnRenameFailure(t *testing.T) {
 
 	dir := t.TempDir()
 	// Destination is a directory so rename(tmp → path) fails with EISDIR.
-	path := filepath.Join(dir, "workspaced.lock.json")
+	path := filepath.Join(dir, "modot.lock.json")
 	require.NoError(t, os.Mkdir(path, 0o755))
 
 	sum := &SumFile{}

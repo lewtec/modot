@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/lucasew/workspaced/internal/must"
+	"github.com/lewtec/modot/internal/must"
 )
 
 func TestMustOK(t *testing.T) {

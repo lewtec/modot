@@ -1,0 +1,435 @@
+package daemon
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net"
+	"net/http"
+	"os"
+	"syscall"
+	"time"
+
+	"image"
+	_ "image/png"
+	"io"
+
+	"github.com/lewtec/modot/internal/configcue"
+	"github.com/lewtec/modot/internal/db"
+	"github.com/lewtec/modot/internal/executil"
+	"github.com/lewtec/modot/internal/icons"
+	"github.com/lewtec/modot/internal/types"
+	"github.com/lewtec/modot/internal/driver/media"
+	"github.com/lewtec/modot/internal/driver/tray"
+	"github.com/lewtec/modot/internal/logging"
+
+	"github.com/coreos/go-systemd/v22/activation"
+	"github.com/gorilla/websocket"
+	"github.com/lewtec/lewkit/x/cmd"
+)
+
+var (
+	shouldRestartDaemon    bool
+	initialMtime           time.Time
+	ErrNoRunImplementation = errors.New("command has no run implementation")
+	// ExecuteCLI runs a modot CLI invocation (set from main).
+	ExecuteCLI func(context.Context, []string) error
+)
+
+// initialMtime is populated early in the daemon command Run (before RunDaemon)
+// using the command's ctx (connected to the top root). This avoids creating
+// a separate logging ctx in package init().
+
+func HasBinaryChanged() bool {
+	if initialMtime.IsZero() {
+		return false
+	}
+	currentMtime, err := executil.GetBinaryMtime()
+	return err == nil && !currentMtime.Equal(initialMtime)
+}
+
+type StreamPacketWriter struct {
+	Out  chan<- types.StreamPacket
+	Type string
+}
+
+func (w *StreamPacketWriter) Write(p []byte) (n int, err error) {
+	payload, marshalErr := json.Marshal(string(p))
+	if marshalErr != nil {
+		payload = []byte(`""`)
+	}
+	w.Out <- types.StreamPacket{
+		Type:    w.Type,
+		Payload: payload,
+	}
+	return len(p), nil
+}
+
+type Command struct {
+	Try      cmd.Flag `long:"try" help:"Exit if daemon is already running"`
+	Database db.Arg   `long:"database" help:"sqlite URL" ctx:""`
+}
+
+func (Command) Description() string {
+	return "Run the modot daemon"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	if c.Try.Value() {
+		socketPath := types.DaemonSocketPath()
+		conn, err := net.DialTimeout("unix", socketPath, 200*time.Millisecond)
+		if err == nil {
+			logging.Close(ctx, conn)
+			logging.GetLogger(ctx).Info("daemon already running, exiting")
+			os.Exit(0)
+		}
+	}
+
+	var err error
+	initialMtime, err = executil.GetBinaryMtime()
+	if err != nil {
+		logging.GetLogger(ctx).Warn("failed to get initial binary mtime", "error", err)
+	}
+
+	if err := RunDaemon(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		logging.GetLogger(ctx).Error("daemon failure", "error", err)
+		os.Exit(1)
+	}
+	return nil
+}
+
+func RunDaemon(ctx context.Context) error {
+	var listener net.Listener
+
+	// Inherit from the command's ctx (which has the logger from the actual root).
+	// The daemon's internal ctx for shutdown etc.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	logger := logging.GetLogger(ctx)
+	logger.Info("daemon starting", "pid", os.Getpid())
+
+	if _, err := configcue.LoadHome(ctx); err != nil {
+		logger.Warn("failed to load config", "error", err)
+	} else {
+		logger.Info("config loaded successfully")
+	}
+
+	database, err := db.OpenFromCtx(ctx)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer logging.Close(ctx, database)
+
+	go media.Watch(ctx)
+
+	go func() {
+		logger := logging.GetLogger(ctx)
+		t, err := tray.GetDefault(ctx)
+		if err != nil {
+			logger.Debug("no tray driver found, skipping", "error", err)
+			return
+		}
+
+		iconPath, err := icons.GetIconPath(ctx, "https://github.com")
+		var icon image.Image
+		if err == nil {
+			f, err := os.Open(iconPath)
+			if err == nil {
+				defer logging.Close(ctx, f, "path", iconPath)
+				icon, _, err = image.Decode(f)
+				if err != nil {
+					logger.Debug("failed to decode tray icon", "path", iconPath, "error", err)
+				}
+			}
+		}
+
+		t.SetState(tray.State{
+			Title: "modot",
+			Icon:  icon,
+			Menu: []tray.MenuItem{
+				{
+					Label: "Apply",
+					Callback: func() {
+						logger := logging.GetLogger(ctx)
+						logger.Info("tray: triggering apply")
+						_, err := ExecuteCLIRequest(ctx, types.Request{Command: "apply", Args: []string{}}, os.Stdout, os.Stderr)
+						if err != nil {
+							logger.Error("tray apply failed", "error", err)
+						}
+						if HasBinaryChanged() {
+							logger.Info("binary changed after apply, restarting daemon")
+							shouldRestartDaemon = true
+							cancel()
+						}
+					},
+				},
+				{
+					Label: "Sync",
+					Callback: func() {
+						logger := logging.GetLogger(ctx)
+						logger.Info("tray: triggering sync")
+						_, err := ExecuteCLIRequest(ctx, types.Request{Command: "sync", Args: []string{}}, os.Stdout, os.Stderr)
+						if err != nil {
+							logger.Error("tray sync failed", "error", err)
+						}
+					},
+				},
+				{
+					Label: "Exit",
+					Callback: func() {
+						time.Sleep(100 * time.Millisecond) // Give time for DBus reply
+						cancel()
+					},
+				},
+			},
+		})
+
+		logger.Info("starting tray driver")
+		if err := t.Run(ctx); err != nil {
+			logger.Error("tray driver failed", "error", err)
+		}
+	}()
+
+	listeners, err := activation.Listeners()
+	if err == nil && len(listeners) > 0 {
+		listener = listeners[0]
+	} else {
+		socketPath := types.DaemonSocketPath()
+		logging.RunCleanup(ctx, "remove", func() error { return os.Remove(socketPath) }, "path", socketPath)
+		l, err := net.Listen("unix", socketPath)
+		if err != nil {
+			return fmt.Errorf("listen on socket: %w", err)
+		}
+		listener = l
+	}
+	defer logging.Close(ctx, listener)
+
+	l := logging.GetLogger(ctx)
+	l.Info("listening", "address", listener.Addr())
+
+	server := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			handleWS(w, r, database)
+		}),
+		// Bound stalled clients even on the unix socket (header read / idle keep-alive).
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       0, // long-lived WebSocket frames
+		WriteTimeout:      0, // long-lived WebSocket frames
+		IdleTimeout:       120 * time.Second,
+	}
+
+	go func() {
+		<-ctx.Done()
+		logger := logging.GetLogger(ctx)
+		logger.Info("context cancelled, shutting down server")
+		logging.Close(ctx, server)
+	}()
+
+	return server.Serve(listener)
+}
+
+var upgrader = websocket.Upgrader{
+	// Local unix-socket clients typically omit Origin or send "null".
+	// Reject other Origins so a browser tab on a hostile site cannot
+	// open a WS to a user-forwarded socket without an explicit Origin policy.
+	CheckOrigin: func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		return origin == "" || origin == "null"
+	},
+}
+
+func handleWS(w http.ResponseWriter, r *http.Request, database *db.DB) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		logger := logging.GetLogger(r.Context())
+		logger.Error("ws upgrade error", "error", err)
+		return
+	}
+	defer logging.Close(r.Context(), conn)
+
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+
+	// Output channel
+	outCh := make(chan types.StreamPacket, 1000)
+	done := make(chan struct{})
+
+	// Pump goroutine: channel -> websocket
+	go func() {
+		logger := logging.GetLogger(ctx)
+		defer close(done)
+		for packet := range outCh {
+			if err := conn.WriteJSON(packet); err != nil {
+				logger.Error("ws write error", "error", err)
+				cancel()
+				return
+			}
+		}
+	}()
+
+	go func() {
+		logger := logging.GetLogger(ctx)
+		for {
+			var packet types.StreamPacket
+			if err := conn.ReadJSON(&packet); err != nil {
+				if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+					logger.Debug("ws read error", "error", err)
+				}
+				cancel()
+				return
+			}
+
+			switch packet.Type {
+			case "request":
+				var req types.Request
+				if err := json.Unmarshal(packet.Payload, &req); err != nil {
+					logger.Warn("ws unmarshal request error", "error", err)
+					continue
+				}
+				handleRequest(ctx, req, outCh, database)
+			case "history_event":
+				var event types.HistoryEvent
+				if err := json.Unmarshal(packet.Payload, &event); err != nil {
+					logger.Warn("ws unmarshal history event error", "error", err)
+					continue
+				}
+				if err := database.RecordHistory(ctx, event); err != nil {
+					logger.Error("failed to record history", "error", err)
+				}
+			}
+		}
+	}()
+
+	<-ctx.Done()
+	<-done
+
+	// If binary changed, exec ourselves to restart
+	if shouldRestartDaemon {
+		logger := logging.GetLogger(ctx)
+		logger.Info("restarting daemon with new binary")
+		exePath, err := os.Executable()
+		if err != nil {
+			logger.Error("failed to get executable path", "error", err)
+			return
+		}
+
+		// Exec ourselves with daemon argument
+		err = syscall.Exec(exePath, []string{exePath, "daemon"}, os.Environ())
+		if err != nil {
+			logger := logging.GetLogger(ctx)
+			logger.Error("failed to exec daemon", "error", err)
+		}
+	}
+}
+
+func handleRequest(ctx context.Context, req types.Request, outCh chan types.StreamPacket, database *db.DB) {
+	// Check if binary changed (mtime) - if so, signal restart needed
+	if HasBinaryChanged() {
+		logger := logging.GetLogger(ctx)
+		logger.Warn("binary mtime mismatch, daemon will exec itself",
+			"initial_mtime", initialMtime)
+
+		shouldRestartDaemon = true
+
+		resp := types.Response{
+			Error: "DAEMON_RESTARTING",
+		}
+		payload, marshalErr := json.Marshal(resp)
+		if marshalErr != nil {
+			payload = []byte(`{}`)
+			logging.ReportError(ctx, marshalErr)
+		}
+		outCh <- types.StreamPacket{
+			Type:    "result",
+			Payload: payload,
+		}
+		return
+	}
+
+	// Check if binary changed - if so, signal restart needed
+	if req.BinaryHash != "" {
+		daemonHash, err := executil.GetBinaryHash(ctx)
+		if err == nil && daemonHash != req.BinaryHash {
+			logger := logging.GetLogger(ctx)
+			logger.Warn("binary hash mismatch, daemon will exec itself",
+				"daemon_hash", daemonHash[:16],
+				"client_hash", req.BinaryHash[:16])
+
+			// Signal daemon to restart after closing this connection
+			shouldRestartDaemon = true
+
+			resp := types.Response{
+				Error: "DAEMON_RESTARTING",
+			}
+			payload, marshalErr := json.Marshal(resp)
+			if marshalErr != nil {
+				payload = []byte(`{}`)
+				logging.ReportError(ctx, marshalErr)
+			}
+			outCh <- types.StreamPacket{
+				Type:    "result",
+				Payload: payload,
+			}
+			return
+		}
+	}
+
+	logger := logging.GetLogger(ctx)
+	logger.Info("executing command", "command", req.Command, "args", req.Args)
+
+	handler := &logging.ChannelLogHandler{
+		Out:    outCh,
+		Parent: logger.Handler(),
+		Ctx:    ctx,
+	}
+	reqLogger := slog.New(handler)
+
+	stdout := &StreamPacketWriter{Out: outCh, Type: "stdout"}
+	stderr := &StreamPacketWriter{Out: outCh, Type: "stderr"}
+
+	ctx = logging.ContextWithLogger(ctx, reqLogger)
+	ctx = executil.WithStdout(ctx, stdout)
+	ctx = executil.WithStderr(ctx, stderr)
+	env := append(req.Env, "MODOT_DAEMON=1")
+	ctx = executil.WithEnv(ctx, env)
+	// Inject DB into context so commands can use it
+	ctx = db.WithDB(ctx, database)
+
+	output, err := ExecuteCLIRequest(ctx, req, stdout, stderr)
+
+	resp := types.Response{Output: output}
+	if err != nil {
+		logger = logging.GetLogger(ctx)
+		logger.Error("command failed", "command", req.Command, "error", err)
+		resp.Error = err.Error()
+	}
+
+	payload, marshalErr := json.Marshal(resp)
+	if marshalErr != nil {
+		payload = []byte(`{}`)
+		logging.ReportError(ctx, marshalErr)
+	}
+	outCh <- types.StreamPacket{
+		Type:    "result",
+		Payload: payload,
+	}
+}
+
+func ExecuteCLIRequest(ctx context.Context, req types.Request, stdout, stderr io.Writer) (string, error) {
+	if ExecuteCLI == nil {
+		return "", ErrNoRunImplementation
+	}
+	args := append([]string{req.Command}, req.Args...)
+	switch req.Command {
+	case "apply":
+		args = []string{"home", "apply"}
+	case "sync":
+		args = []string{"home", "sync"}
+	}
+	_ = stdout
+	_ = stderr
+	return "", ExecuteCLI(ctx, args)
+}

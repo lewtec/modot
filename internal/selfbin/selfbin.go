@@ -7,12 +7,12 @@ import (
 	"path/filepath"
 	"runtime"
 
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
-	"github.com/lucasew/workspaced/pkg/driver/shim"
-	"github.com/lucasew/workspaced/pkg/logging"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	"github.com/lewtec/modot/internal/driver/shim"
+	"github.com/lewtec/modot/internal/logging"
 )
 
-// InstallPaths returns the fixed bin dir and workspaced binary path under the
+// InstallPaths returns the fixed bin dir and modot binary path under the
 // env driver's user data dir (ResolveHomeDir fallback during bootstrap).
 func InstallPaths(ctx context.Context) (installDir, installPath string, err error) {
 	dataDir, err := envdriver.GetUserDataDir(ctx)
@@ -21,26 +21,26 @@ func InstallPaths(ctx context.Context) (installDir, installPath string, err erro
 		if homeErr != nil {
 			return "", "", fmt.Errorf("get home directory: %w", err)
 		}
-		dataDir = filepath.Join(home, ".local", "share", "workspaced")
+		dataDir = filepath.Join(home, ".local", "share", "modot")
 		if mkErr := os.MkdirAll(dataDir, 0o755); mkErr != nil {
 			return "", "", fmt.Errorf("create user data dir: %w", mkErr)
 		}
 	}
 	installDir = filepath.Join(dataDir, "bin")
-	name := "workspaced"
+	name := "modot"
 	if runtime.GOOS == "windows" {
-		name = "workspaced.exe"
+		name = "modot.exe"
 	}
 	installPath = filepath.Join(installDir, name)
 	return installDir, installPath, nil
 }
 
-// EnsureWorkspacedShim writes ~/.local/bin/workspaced → workspacedPath.
-func EnsureWorkspacedShim(ctx context.Context, workspacedPath string) error {
-	shimPath, err := shim.GenerateInLocalBin(ctx, "workspaced", []string{workspacedPath})
+// EnsureModotShim writes ~/.local/bin/modot → modotPath.
+func EnsureModotShim(ctx context.Context, modotPath string) error {
+	shimPath, err := shim.GenerateInLocalBin(ctx, "modot", []string{modotPath})
 	if err != nil {
 		return err
 	}
-	logging.GetLogger(ctx).Info("workspaced shim ready", "path", shimPath, "target", workspacedPath)
+	logging.GetLogger(ctx).Info("modot shim ready", "path", shimPath, "target", modotPath)
 	return nil
 }

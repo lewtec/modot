@@ -11,11 +11,11 @@ import (
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	lewtool "github.com/lewtec/lewkit/x/tool"
-	"github.com/lucasew/workspaced/internal/configcue"
-	"github.com/lucasew/workspaced/internal/git"
-	"github.com/lucasew/workspaced/internal/modfile"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lewtec/modot/internal/configcue"
+	"github.com/lewtec/modot/internal/git"
+	"github.com/lewtec/modot/internal/modfile"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 var (

@@ -16,7 +16,7 @@ import (
 	lewtest "github.com/lewtec/lewkit/x/test"
 	"github.com/stretchr/testify/require"
 
-	"github.com/lucasew/workspaced/internal/archive"
+	"github.com/lewtec/modot/internal/archive"
 )
 
 func copyTar(t *testing.T, r io.Reader, dest string) error {

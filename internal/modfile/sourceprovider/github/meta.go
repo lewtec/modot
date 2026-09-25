@@ -11,7 +11,7 @@ type sourceMeta struct {
 	Hash string `json:"hash"`
 }
 
-const metaFilename = ".workspaced-source-meta.json"
+const metaFilename = ".modot-source-meta.json"
 
 func (s Source) WriteMeta(dir string, meta sourceMeta) error {
 	b, err := json.Marshal(meta)

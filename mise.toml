@@ -6,11 +6,11 @@ goreleaser = "2.17.0"
 svu = "3.3.0"
 
 [tasks.lint]
-run = "go run ./cmd/workspaced codebase lint --review"
+run = "go run ./cmd/modot codebase lint --review"
 
 [tasks.format]
 wait_for = ["codegen"]
-run = "go run ./cmd/workspaced codebase format"
+run = "go run ./cmd/modot codebase format"
 
 [tasks.codegen]
 description = "Run all code generators"
@@ -21,7 +21,7 @@ depends = ["lint"]
 
 [tasks."test:registry-install"]
 description = "Install each catalog tool into a temp dir and run install checks (network)"
-env = { WORKSPACED_TEST_TOOL_INSTALL = "1" }
+env = { MODOT_TEST_TOOL_INSTALL = "1" }
 run = "go test -v ./internal/tool/ -run '^TestRegistryInstall$' -count=1 -timeout=60m"
 
 [tasks.release]

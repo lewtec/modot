@@ -1,6 +1,6 @@
 package prelude
 
 import (
-	_ "github.com/lucasew/workspaced/internal/module/provider/core"
-	_ "github.com/lucasew/workspaced/internal/module/provider/local"
+	_ "github.com/lewtec/modot/internal/module/provider/core"
+	_ "github.com/lewtec/modot/internal/module/provider/local"
 )

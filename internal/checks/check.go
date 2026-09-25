@@ -8,7 +8,7 @@ package checks
 import (
 	"context"
 	"errors"
-	"github.com/lucasew/workspaced/internal/compat"
+	"github.com/lewtec/modot/internal/compat"
 	"reflect"
 )
 
