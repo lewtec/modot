@@ -3,39 +3,40 @@ package termux
 import (
 	"context"
 	"fmt"
+	"strings"
+
+	kitdriver "github.com/lewtec/lewkit/x/driver"
+	kitterminal "github.com/lewtec/lewkit/x/driver/terminal"
 	"github.com/lewtec/modot/internal/driver"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/driver/terminal"
-	"strings"
 )
 
 func init() {
-	driver.Register[terminal.Driver](&Factory{})
+	kitdriver.Register[kitterminal.Driver](factory{})
 }
 
-type Factory struct{}
+type factory struct{}
 
-func (f *Factory) ID() string   { return "terminal_termux" }
-func (f *Factory) Name() string { return "Termux" }
+func (factory) ID() string   { return "terminal_termux" }
+func (factory) Name() string { return "Termux" }
+func (factory) Weight() int  { return 60 }
 
-func (f *Factory) CheckCompatibility(ctx context.Context) error {
+func (factory) CheckCompatibility(context.Context) error {
 	return driver.RequireTermux()
 }
 
-func (f *Factory) New(ctx context.Context) (terminal.Driver, error) {
-	return &Driver{}, nil
+func (factory) New(context.Context) (kitterminal.Driver, error) {
+	return backend{}, nil
 }
 
-type Driver struct{}
+type backend struct{}
 
-func (d *Driver) Open(ctx context.Context, opts terminal.Options) error {
+func (backend) Open(ctx context.Context, opts kitterminal.Options) error {
 	if opts.Command == "" {
-		// Just bring Termux to front/open new session if configured in app
 		return execdriver.MustRun(ctx, "am", "start", "--user", "0", "-n", "com.termux/.app.TermuxActivity").Run()
 	}
 
 	fullCmd := opts.Command
-	// Resolve full path if it's just a binary name
 	if !strings.HasPrefix(fullCmd, "/") {
 		if path, err := execdriver.Which(ctx, fullCmd); err == nil {
 			fullCmd = path
@@ -43,7 +44,6 @@ func (d *Driver) Open(ctx context.Context, opts terminal.Options) error {
 	}
 
 	if len(opts.Args) > 0 {
-		// Proper escaping for the shell string
 		var escapedArgs []string
 		for _, arg := range opts.Args {
 			escapedArgs = append(escapedArgs, fmt.Sprintf("%q", arg))

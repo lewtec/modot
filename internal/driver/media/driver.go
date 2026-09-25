@@ -4,43 +4,28 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-	"github.com/lewtec/modot/internal/atomicfile"
-	"github.com/lewtec/modot/internal/driver"
-	"github.com/lewtec/modot/internal/driver/httpclient"
-	"github.com/lewtec/modot/internal/logging"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+
+	kitmedia "github.com/lewtec/lewkit/x/driver/media"
+	"github.com/lewtec/modot/internal/atomicfile"
+	"github.com/lewtec/modot/internal/driver"
+	"github.com/lewtec/modot/internal/driver/httpclient"
+	"github.com/lewtec/modot/internal/logging"
 )
 
-type PlaybackStatus string
+type PlaybackStatus = kitmedia.PlaybackStatus
 
 const (
-	StatusPlaying PlaybackStatus = "Playing"
-	StatusPaused  PlaybackStatus = "Paused"
-	StatusStopped PlaybackStatus = "Stopped"
+	StatusPlaying = kitmedia.StatusPlaying
+	StatusPaused  = kitmedia.StatusPaused
+	StatusStopped = kitmedia.StatusStopped
 )
 
-type Metadata struct {
-	Title    string
-	Artist   string
-	ArtUrl   string
-	Length   int64 // in microseconds
-	Position int64 // in microseconds
-	Status   PlaybackStatus
-	Player   string // player name/bus name
-}
-
-type Driver interface {
-	Next(ctx context.Context) error
-	Previous(ctx context.Context) error
-	PlayPause(ctx context.Context) error
-	Stop(ctx context.Context) error
-	GetMetadata(ctx context.Context) (*Metadata, error)
-	// Watch blocks and calls callback when metadata changes
-	Watch(ctx context.Context, callback func(*Metadata)) error
-}
+type Metadata = kitmedia.Metadata
+type Driver = kitmedia.Driver
 
 func GetArtCachePath(ctx context.Context, url string) (string, error) {
 	if after, ok := strings.CutPrefix(url, "file://"); ok {
@@ -66,7 +51,6 @@ func GetArtCachePath(ctx context.Context, url string) (string, error) {
 		return path, nil
 	}
 
-	// Use httpclient driver for proper DNS/certs handling
 	httpDriver, err := driver.Get[httpclient.Driver](ctx)
 	if err != nil {
 		return "", err
@@ -82,8 +66,6 @@ func GetArtCachePath(ctx context.Context, url string) (string, error) {
 		return "", fmt.Errorf("GET %s: %s", url, resp.Status)
 	}
 
-	// Temp + rename so a mid-download failure (or crash) cannot leave a
-	// truncated content-addressed cache entry that later Stat hits treat as good.
 	if err := atomicfile.Write(path, resp.Body, 0); err != nil {
 		return "", err
 	}

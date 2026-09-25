@@ -1,9 +1,5 @@
 package wallpaper
 
-import (
-	"context"
-)
+import kitwall "github.com/lewtec/lewkit/x/driver/wallpaper"
 
-type Driver interface {
-	SetStatic(ctx context.Context, path string) error
-}
+type Driver = kitwall.Driver

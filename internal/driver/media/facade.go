@@ -3,56 +3,42 @@ package media
 import (
 	"context"
 	"fmt"
-	"github.com/lewtec/modot/internal/driver"
+	"time"
+
+	kitmedia "github.com/lewtec/lewkit/x/driver/media"
 	"github.com/lewtec/modot/internal/driver/notification"
 	"github.com/lewtec/modot/internal/logging"
-	"time"
 )
 
 func RunAction(ctx context.Context, action string) error {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return err
-	}
-
+	var err error
 	switch action {
 	case "next":
-		err = d.Next(ctx)
+		err = kitmedia.Next(ctx)
 	case "previous":
-		err = d.Previous(ctx)
+		err = kitmedia.Previous(ctx)
 	case "play-pause":
-		err = d.PlayPause(ctx)
+		err = kitmedia.PlayPause(ctx)
 	case "stop":
-		err = d.Stop(ctx)
+		err = kitmedia.Stop(ctx)
 	case "show":
-		// just show
 	default:
 		return fmt.Errorf("unknown action: %s", action)
 	}
-
 	if err != nil {
 		return err
 	}
-
-	// Small delay to let the player update metadata
 	if action == "next" || action == "previous" || action == "play-pause" {
 		time.Sleep(200 * time.Millisecond)
 	}
-
 	return ShowStatus(ctx)
 }
 
 func ShowStatus(ctx context.Context) error {
-	d, err := driver.Get[Driver](ctx)
+	meta, err := kitmedia.GetMetadata(ctx)
 	if err != nil {
 		return err
 	}
-
-	meta, err := d.GetMetadata(ctx)
-	if err != nil {
-		return err
-	}
-
 	return Notify(ctx, meta)
 }
 
@@ -108,14 +94,7 @@ func Notify(ctx context.Context, meta *Metadata) error {
 }
 
 func Watch(ctx context.Context) {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		logger := logging.GetLogger(ctx)
-		logger.Error("failed to get media driver for watch", "error", err)
-		return
-	}
-
-	err = d.Watch(ctx, func(meta *Metadata) {
+	err := kitmedia.Watch(ctx, func(meta *Metadata) {
 		if err := Notify(ctx, meta); err != nil {
 			logging.ReportError(ctx, err)
 		}

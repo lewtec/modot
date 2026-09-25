@@ -3,9 +3,12 @@ package notification
 import (
 	"context"
 
-	"github.com/lewtec/modot/internal/driver"
+	kitnotify "github.com/lewtec/lewkit/x/driver/notification"
 )
 
 func Notify(ctx context.Context, n *Notification) error {
-	return driver.With(ctx, func(d Driver) error { return d.Notify(ctx, n) })
+	if n == nil {
+		return kitnotify.Notify(ctx, Notification{})
+	}
+	return kitnotify.Notify(ctx, *n)
 }

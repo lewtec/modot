@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lewtec/modot/internal/driver"
+	kitdriver "github.com/lewtec/lewkit/x/driver"
 	"github.com/lewtec/modot/internal/driver/battery"
 	"github.com/lewtec/modot/internal/logging"
 )
@@ -22,7 +22,7 @@ func (*Osmardetector) Run(ctx context.Context) error {
 
 	logger := logging.GetLogger(ctx)
 	logger.Info("osmardetector started")
-	drv, err := driver.Get[battery.Driver](ctx)
+	drv, err := kitdriver.Get[battery.Driver](ctx)
 	if err != nil {
 		return err
 	}

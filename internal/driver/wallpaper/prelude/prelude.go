@@ -2,7 +2,4 @@
 
 package prelude
 
-import (
-	_ "github.com/lewtec/modot/internal/driver/wallpaper/feh"
-	_ "github.com/lewtec/modot/internal/driver/wallpaper/swaybg"
-)
+import _ "github.com/lewtec/modot/internal/driver/wallpaper/fromkit"

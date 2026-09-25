@@ -2,4 +2,4 @@
 
 package prelude
 
-import _ "github.com/lewtec/modot/internal/driver/battery/linux"
+import _ "github.com/lewtec/modot/internal/driver/battery/fromkit"

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
+	kitscreenshot "github.com/lewtec/lewkit/x/driver/screenshot"
 	"github.com/lewtec/modot/internal/atomicfile"
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/driver"
 	"github.com/lewtec/modot/internal/driver/clipboard"
 	"github.com/lewtec/modot/internal/driver/notification"
 	"github.com/lewtec/modot/internal/driver/wm"
@@ -19,37 +19,16 @@ import (
 )
 
 func ResolveRect(ctx context.Context, targetType TargetType) (*wm.Rect, error) {
-	switch targetType {
-	case TargetAll:
-		return nil, nil
-	case TargetOutput:
-		_, rect, err := wm.GetFocusedOutput(ctx)
-		return rect, err
-	case TargetWindow:
-		return wm.GetFocusedWindowRect(ctx)
-	case TargetSelection:
-		d, err := driver.Get[Driver](ctx)
-		if err != nil {
-			return nil, err
-		}
-		return d.SelectArea(ctx)
-	default:
-		return nil, fmt.Errorf("%w: %v", ErrUnknownTargetType, targetType)
-	}
+	return kitscreenshot.ResolveRect(ctx, targetType)
 }
 
 func Capture(ctx context.Context, targetType TargetType) (string, error) {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return "", err
-	}
-
 	rect, err := ResolveRect(ctx, targetType)
 	if err != nil {
 		return "", err
 	}
 
-	img, err := d.Capture(ctx, rect)
+	img, err := kitscreenshot.Capture(ctx, rect)
 	if err != nil {
 		return "", err
 	}

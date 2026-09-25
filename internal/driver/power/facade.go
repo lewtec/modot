@@ -3,27 +3,27 @@ package power
 import (
 	"context"
 	"fmt"
+	kitpower "github.com/lewtec/lewkit/x/driver/power"
 	"github.com/lewtec/modot/internal/api"
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/driver"
 	"github.com/lewtec/modot/internal/logging"
 	"net"
 )
 
 func Lock(ctx context.Context) error {
-	return driver.With(ctx, func(d Driver) error { return d.Lock(ctx) })
+	return kitpower.Lock(ctx)
 }
 
 func Reboot(ctx context.Context) error {
-	return driver.With(ctx, func(d Driver) error { return d.Reboot(ctx) })
+	return kitpower.Reboot(ctx)
 }
 
 func Shutdown(ctx context.Context) error {
-	return driver.With(ctx, func(d Driver) error { return d.Shutdown(ctx) })
+	return kitpower.Shutdown(ctx)
 }
 
 func Suspend(ctx context.Context) error {
-	return driver.With(ctx, func(d Driver) error { return d.Suspend(ctx) })
+	return kitpower.Suspend(ctx)
 }
 
 func Wake(ctx context.Context, host string) error {

@@ -3,6 +3,7 @@ package brightness
 import (
 	"context"
 
+	kitbrightness "github.com/lewtec/lewkit/x/driver/brightness"
 	"github.com/lewtec/modot/internal/driver"
 )
 
@@ -17,16 +18,11 @@ func DecreaseBrightness(ctx context.Context) error {
 }
 
 func adjustBrightness(ctx context.Context, delta float64) error {
-	d, err := driver.Get[Driver](ctx)
+	status, err := kitbrightness.Status(ctx)
 	if err != nil {
 		return err
 	}
-	status, err := d.Status(ctx)
-	if err != nil {
-		return err
-	}
-	newLevel := driver.Clamp01(status.Brightness + delta)
-	if err := d.SetBrightness(ctx, newLevel); err != nil {
+	if err := kitbrightness.SetBrightness(ctx, driver.Clamp01(status.Brightness+delta)); err != nil {
 		return err
 	}
 	return ShowStatus(ctx)

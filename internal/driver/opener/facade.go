@@ -3,8 +3,8 @@ package opener
 import (
 	"context"
 	"fmt"
+	kitopener "github.com/lewtec/lewkit/x/driver/opener"
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/driver"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/executil"
@@ -22,7 +22,7 @@ type WebappConfig struct {
 
 // Open opens a generic target (file or URL) using the available opener driver.
 func Open(ctx context.Context, target string) error {
-	return driver.With(ctx, func(d Driver) error { return d.Open(ctx, target) })
+	return kitopener.Open(ctx, target)
 }
 
 // OpenWebapp launches a URL as a webapp using the configured browser engine.

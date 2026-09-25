@@ -3,7 +3,8 @@ package opener
 import (
 	"context"
 
-	"github.com/lewtec/modot/internal/driver"
+	kitdriver "github.com/lewtec/lewkit/x/driver"
+	kitopener "github.com/lewtec/lewkit/x/driver/opener"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 )
 
@@ -14,6 +15,7 @@ type binaryFactory struct {
 
 func (f *binaryFactory) ID() string   { return f.id }
 func (f *binaryFactory) Name() string { return f.name }
+func (f *binaryFactory) Weight() int  { return 60 }
 
 func (f *binaryFactory) CheckCompatibility(ctx context.Context) error {
 	if f.compat != nil {
@@ -24,7 +26,7 @@ func (f *binaryFactory) CheckCompatibility(ctx context.Context) error {
 	return execdriver.RequireBinary(ctx, f.binary)
 }
 
-func (f *binaryFactory) New(context.Context) (Driver, error) {
+func (f *binaryFactory) New(context.Context) (kitopener.Driver, error) {
 	return &binaryDriver{binary: f.binary}, nil
 }
 
@@ -37,5 +39,5 @@ func (d *binaryDriver) Open(ctx context.Context, target string) error {
 // RegisterBinary registers an opener that runs binary with the target path/URL.
 // compat runs before the binary-on-PATH check; nil means PATH check only.
 func RegisterBinary(id, name, binary string, compat func(context.Context) error) {
-	driver.Register[Driver](&binaryFactory{id: id, name: name, binary: binary, compat: compat})
+	kitdriver.Register[kitopener.Driver](&binaryFactory{id: id, name: name, binary: binary, compat: compat})
 }

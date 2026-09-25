@@ -3,53 +3,54 @@ package termux
 import (
 	"context"
 	"fmt"
+
+	kitdriver "github.com/lewtec/lewkit/x/driver"
+	kitpower "github.com/lewtec/lewkit/x/driver/power"
 	"github.com/lewtec/modot/internal/api"
 	"github.com/lewtec/modot/internal/driver"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/driver/power"
 )
 
 func init() {
-	driver.Register[power.Driver](&Factory{})
+	kitdriver.Register[kitpower.Driver](factory{})
 }
 
-type Factory struct{}
+type factory struct{}
 
-func (f *Factory) ID() string   { return "power_termux" }
-func (f *Factory) Name() string { return "Termux" }
+func (factory) ID() string   { return "power_termux" }
+func (factory) Name() string { return "Termux" }
+func (factory) Weight() int  { return 60 }
 
-func (f *Factory) CheckCompatibility(ctx context.Context) error {
+func (factory) CheckCompatibility(context.Context) error {
 	return driver.RequireTermux()
 }
 
-func (f *Factory) New(ctx context.Context) (power.Driver, error) {
-	return &Driver{}, nil
+func (factory) New(context.Context) (kitpower.Driver, error) {
+	return backend{}, nil
 }
 
-type Driver struct{}
+type backend struct{}
 
-func (d *Driver) Lock(ctx context.Context) error {
+func (backend) Lock(context.Context) error {
 	return fmt.Errorf("%w: screen lock not possible in Termux", api.ErrNotSupported)
 }
 
-func (d *Driver) Logout(ctx context.Context) error {
+func (backend) Logout(context.Context) error {
 	return fmt.Errorf("%w: logout not possible in Termux", api.ErrNotSupported)
 }
 
-func (d *Driver) Suspend(ctx context.Context) error {
+func (backend) Suspend(context.Context) error {
 	return fmt.Errorf("%w: suspend not possible in Termux", api.ErrNotSupported)
 }
 
-func (d *Driver) Hibernate(ctx context.Context) error {
+func (backend) Hibernate(context.Context) error {
 	return fmt.Errorf("%w: hibernate not possible in Termux", api.ErrNotSupported)
 }
 
-func (d *Driver) Reboot(ctx context.Context) error {
-	// If rooted, might work.
+func (backend) Reboot(ctx context.Context) error {
 	return execdriver.MustRun(ctx, "reboot").Run()
 }
 
-func (d *Driver) Shutdown(ctx context.Context) error {
-	// If rooted, might work.
+func (backend) Shutdown(ctx context.Context) error {
 	return execdriver.MustRun(ctx, "shutdown", "-h", "now").Run()
 }

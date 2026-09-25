@@ -2,18 +2,13 @@ package brightness
 
 import (
 	"context"
-	"github.com/lewtec/modot/internal/driver"
 
+	kitbrightness "github.com/lewtec/lewkit/x/driver/brightness"
 	"github.com/lewtec/modot/internal/driver/notification"
 )
 
 func ShowStatus(ctx context.Context) error {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return err
-	}
-
-	status, err := d.Status(ctx)
+	status, err := kitbrightness.Status(ctx)
 	if err != nil {
 		return err
 	}
@@ -23,9 +18,8 @@ func ShowStatus(ctx context.Context) error {
 		Title:       "Brightness",
 		Message:     status.Name,
 		Icon:        "display-brightness",
-		Progress:    float64(status.Brightness),
+		Progress:    status.Brightness,
 		HasProgress: true,
 	}
 	return notification.Notify(ctx, &n)
-
 }

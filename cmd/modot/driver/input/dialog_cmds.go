@@ -3,7 +3,6 @@ package input
 import (
 	"context"
 
-	"github.com/lewtec/modot/internal/driver"
 	"github.com/lewtec/modot/internal/driver/dialog"
 )
 
@@ -12,11 +11,7 @@ type Launch struct{}
 func (Launch) Description() string { return "Application launcher" }
 
 func (*Launch) Run(ctx context.Context) error {
-	d, err := driver.Get[dialog.Driver](ctx)
-	if err != nil {
-		return err
-	}
-	return d.RunApp(ctx)
+	return dialog.RunApp(ctx)
 }
 
 type Window struct{}
@@ -24,9 +19,5 @@ type Window struct{}
 func (Window) Description() string { return "Window switcher" }
 
 func (*Window) Run(ctx context.Context) error {
-	d, err := driver.Get[dialog.Driver](ctx)
-	if err != nil {
-		return err
-	}
-	return d.SwitchWindow(ctx)
+	return dialog.SwitchWindow(ctx)
 }

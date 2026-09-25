@@ -3,31 +3,33 @@ package termux
 import (
 	"context"
 	"fmt"
-	"github.com/lewtec/modot/internal/driver"
+
+	kitdriver "github.com/lewtec/lewkit/x/driver"
+	kitnotify "github.com/lewtec/lewkit/x/driver/notification"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/driver/notification"
 )
 
 func init() {
-	driver.Register[notification.Driver](&Factory{})
+	kitdriver.Register[kitnotify.Driver](factory{})
 }
 
-type Factory struct{}
+type factory struct{}
 
-func (f *Factory) ID() string   { return "notification_termux" }
-func (f *Factory) Name() string { return "Termux" }
+func (factory) ID() string   { return "notification_termux" }
+func (factory) Name() string { return "Termux" }
+func (factory) Weight() int  { return 60 }
 
-func (f *Factory) CheckCompatibility(ctx context.Context) error {
+func (factory) CheckCompatibility(ctx context.Context) error {
 	return execdriver.RequireBinary(ctx, "termux-notification")
 }
 
-func (f *Factory) New(ctx context.Context) (notification.Driver, error) {
-	return &Driver{}, nil
+func (factory) New(context.Context) (kitnotify.Driver, error) {
+	return backend{}, nil
 }
 
-type Driver struct{}
+type backend struct{}
 
-func (d *Driver) Notify(ctx context.Context, n *notification.Notification) error {
+func (backend) Notify(ctx context.Context, n kitnotify.Notification) error {
 	args := []string{
 		"--title", n.Title,
 		"--content", n.Message,

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	kitwall "github.com/lewtec/lewkit/x/driver/wallpaper"
 	"github.com/lewtec/modot/internal/api"
 	"github.com/lewtec/modot/internal/atomicfile"
 	"github.com/lewtec/modot/internal/configcue"
@@ -58,11 +59,7 @@ func SetStatic(ctx context.Context, path string) error {
 		}
 	}
 
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return err
-	}
-	return d.SetStatic(ctx, path)
+	return kitwall.SetStatic(ctx, path)
 }
 
 func SetAnimated(ctx context.Context, path string) error {

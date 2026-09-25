@@ -1,9 +1,5 @@
 package opener
 
-import (
-	"context"
-)
+import kitopener "github.com/lewtec/lewkit/x/driver/opener"
 
-type Driver interface {
-	Open(ctx context.Context, target string) error
-}
+type Driver = kitopener.Driver

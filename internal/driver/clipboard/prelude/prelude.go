@@ -3,7 +3,6 @@
 package prelude
 
 import (
+	_ "github.com/lewtec/modot/internal/driver/clipboard/fromkit"
 	_ "github.com/lewtec/modot/internal/driver/clipboard/termux"
-	_ "github.com/lewtec/modot/internal/driver/clipboard/wlcopy"
-	_ "github.com/lewtec/modot/internal/driver/clipboard/xclip"
 )

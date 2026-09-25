@@ -2,28 +2,23 @@ package audio
 
 import (
 	"context"
-	"github.com/lewtec/modot/internal/driver"
+
+	"github.com/lewtec/lewkit/x/driver/volume"
 	"github.com/lewtec/modot/internal/driver/notification"
 	"github.com/lewtec/modot/internal/logging"
 )
 
-// ShowStatus retrieves the current volume and mute status of the default sink
-// and displays a notification with a progress bar.
-// It parses the output of `pactl get-sink-volume` and `pactl get-sink-mute`.
+// ShowStatus displays the default sink volume and mute state.
 func ShowStatus(ctx context.Context) error {
-	d, err := driver.Get[Driver](ctx)
+	level, err := volume.GetVolume(ctx)
 	if err != nil {
 		return err
 	}
-	level, err := d.GetVolume(ctx)
+	isMuted, err := volume.GetMute(ctx)
 	if err != nil {
 		return err
 	}
-	isMuted, err := d.GetMute(ctx)
-	if err != nil {
-		return err
-	}
-	sinkName, err := d.SinkName(ctx)
+	sinkName, err := volume.SinkName(ctx)
 	if err != nil {
 		return err
 	}

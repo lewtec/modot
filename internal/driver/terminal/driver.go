@@ -1,15 +1,6 @@
 package terminal
 
-import (
-	"context"
-)
+import kitterminal "github.com/lewtec/lewkit/x/driver/terminal"
 
-type Options struct {
-	Title   string
-	Command string
-	Args    []string
-}
-
-type Driver interface {
-	Open(ctx context.Context, opts Options) error
-}
+type Options = kitterminal.Options
+type Driver = kitterminal.Driver

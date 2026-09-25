@@ -3,6 +3,7 @@ package audio
 import (
 	"context"
 
+	"github.com/lewtec/lewkit/x/driver/volume"
 	"github.com/lewtec/modot/internal/driver"
 )
 
@@ -17,27 +18,18 @@ func DecreaseVolume(ctx context.Context) error {
 }
 
 func adjustVolume(ctx context.Context, delta float64) error {
-	d, err := driver.Get[Driver](ctx)
+	vol, err := volume.GetVolume(ctx)
 	if err != nil {
 		return err
 	}
-	vol, err := d.GetVolume(ctx)
-	if err != nil {
-		return err
-	}
-	newVol := driver.Clamp01(vol + delta)
-	if err := d.SetVolume(ctx, newVol); err != nil {
+	if err := volume.SetVolume(ctx, driver.Clamp01(vol+delta)); err != nil {
 		return err
 	}
 	return ShowStatus(ctx)
 }
 
 func ToggleMute(ctx context.Context) error {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return err
-	}
-	if err := d.ToggleMute(ctx); err != nil {
+	if err := volume.ToggleMute(ctx); err != nil {
 		return err
 	}
 	return ShowStatus(ctx)
