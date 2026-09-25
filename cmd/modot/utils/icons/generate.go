@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	iconspkg "github.com/lewtec/modot/internal/icons"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
+	iconspkg "github.com/lewtec/modot/internal/icons"
 )
 
 type iconInput struct{ cmd.WorkDirArg }

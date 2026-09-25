@@ -9,11 +9,11 @@ import (
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/atomicfile"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/miseutil"
 	"github.com/lewtec/modot/internal/selfbin"
 	"github.com/lewtec/modot/internal/version"
-	envdriver "github.com/lewtec/modot/internal/driver/env"
-	"github.com/lewtec/modot/internal/logging"
 
 	"github.com/lewtec/lewkit/x/cmd"
 )

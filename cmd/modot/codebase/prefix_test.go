@@ -6,9 +6,9 @@ import (
 	"github.com/lewtec/lewkit/x/cmd"
 	lewpath "github.com/lewtec/lewkit/x/path"
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/modfile"
 	_ "github.com/lewtec/modot/internal/driver/exec/native"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/modfile"
 	"github.com/stretchr/testify/require"
 )
 

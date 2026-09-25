@@ -6,8 +6,8 @@ import (
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lewtec/modot/internal/cmdarg"
 	"github.com/lewtec/modot/internal/db"
-	"github.com/lewtec/modot/internal/types"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/types"
 )
 
 type Ingest struct {

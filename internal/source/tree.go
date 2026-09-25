@@ -5,8 +5,8 @@ import (
 	"io/fs"
 
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/template"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/template"
 )
 
 // Tree is dest files after profiles compose.

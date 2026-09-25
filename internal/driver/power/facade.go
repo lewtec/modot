@@ -3,8 +3,8 @@ package power
 import (
 	"context"
 	"fmt"
-	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/api"
+	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/driver"
 	"github.com/lewtec/modot/internal/logging"
 	"net"

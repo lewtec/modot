@@ -18,12 +18,12 @@ import (
 
 	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/db"
-	"github.com/lewtec/modot/internal/executil"
-	"github.com/lewtec/modot/internal/icons"
-	"github.com/lewtec/modot/internal/types"
 	"github.com/lewtec/modot/internal/driver/media"
 	"github.com/lewtec/modot/internal/driver/tray"
+	"github.com/lewtec/modot/internal/executil"
+	"github.com/lewtec/modot/internal/icons"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/types"
 
 	"github.com/coreos/go-systemd/v22/activation"
 	"github.com/gorilla/websocket"

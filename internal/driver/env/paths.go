@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/lewtec/modot/internal/constants"
 	"github.com/lewtec/modot/internal/api"
+	"github.com/lewtec/modot/internal/constants"
 )
 
 // FindDotfilesRoot walks constants.DotfilesCandidates using home for ~ expansion.

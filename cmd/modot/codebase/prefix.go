@@ -7,9 +7,9 @@ import (
 	lewpath "github.com/lewtec/lewkit/x/path"
 	"github.com/lewtec/modot/internal/cmdarg"
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/modfile"
 	"github.com/lewtec/modot/internal/filespine"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/modfile"
 )
 
 // Prefix is codebase --prefix. It embeds the data-directory flag.

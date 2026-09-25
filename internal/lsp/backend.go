@@ -12,9 +12,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/lewtec/modot/internal/tool"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/tool"
 )
 
 // ErrEmptyCmd is returned when an LSP server config has no cmd argv.

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/lewtec/modot/internal/executil"
-	"github.com/lewtec/modot/internal/types"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/types"
 
 	"github.com/gorilla/websocket"
 )

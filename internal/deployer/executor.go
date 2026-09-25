@@ -9,9 +9,9 @@ import (
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/atomicfile"
-	"github.com/lewtec/modot/internal/source"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/source"
 )
 
 // RelToRoot returns path relative to root when path is under root.

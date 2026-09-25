@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/lewtec/modot/internal/atomicfile"
-	"github.com/lewtec/modot/internal/types"
 	"github.com/lewtec/modot/internal/driver/notification"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/types"
 )
 
 // ErrEmptyQueueSlug is returned when queuePath is given an empty slug.

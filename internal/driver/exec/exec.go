@@ -6,8 +6,8 @@ import (
 	"os/exec"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/executil"
 	"github.com/lewtec/modot/internal/driver"
+	"github.com/lewtec/modot/internal/executil"
 	"github.com/lewtec/modot/internal/logging"
 )
 

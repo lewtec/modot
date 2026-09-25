@@ -7,10 +7,10 @@ import (
 	"log/slog"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/executil"
 	"github.com/lewtec/modot/internal/driver"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	rsyncdriver "github.com/lewtec/modot/internal/driver/rsync"
+	"github.com/lewtec/modot/internal/executil"
 	"github.com/lewtec/modot/internal/logging"
 )
 

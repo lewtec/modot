@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/lewtec/modot/internal/cmdarg"
-	"github.com/lewtec/modot/internal/module"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/module"
 )
 
 func TestPlaceResolveIgnoreMissing(t *testing.T) {

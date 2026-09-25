@@ -15,8 +15,8 @@ import (
 
 	"github.com/lewtec/lewkit/x/cmd"
 	xdb "github.com/lewtec/lewkit/x/db"
-	"github.com/lewtec/modot/internal/types"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
+	"github.com/lewtec/modot/internal/types"
 )
 
 type dbKey struct{}

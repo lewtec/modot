@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/modfile"
 	"github.com/lewtec/modot/internal/modfile/sourceprovider/sourcecache"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 var (

@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/lewtec/modot/internal/atomicfile"
-	"github.com/lewtec/modot/internal/executil"
 	"github.com/lewtec/modot/internal/api"
+	"github.com/lewtec/modot/internal/atomicfile"
 	"github.com/lewtec/modot/internal/driver"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/executil"
 	"github.com/lewtec/modot/internal/logging"
 )
 

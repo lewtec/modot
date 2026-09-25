@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/lewtec/modot/internal/configcue"
-	_ "github.com/lewtec/modot/internal/module/prelude"
 	_ "github.com/lewtec/modot/internal/driver/env/native"
 	"github.com/lewtec/modot/internal/logging"
+	_ "github.com/lewtec/modot/internal/module/prelude"
 )
 
 func TestCloneModuleConfigIsolatesNestedMaps(t *testing.T) {

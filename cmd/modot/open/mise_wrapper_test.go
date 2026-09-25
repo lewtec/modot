@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/lewtec/modot/internal/miseutil"
 	_ "github.com/lewtec/modot/internal/driver/prelude"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/miseutil"
 	"github.com/stretchr/testify/require"
 )
 

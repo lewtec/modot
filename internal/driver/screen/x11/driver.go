@@ -3,12 +3,12 @@ package x11
 import (
 	"context"
 	"fmt"
-	"github.com/lewtec/modot/internal/executil"
 	"github.com/lewtec/modot/internal/api"
 	"github.com/lewtec/modot/internal/driver"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/driver/screen"
+	"github.com/lewtec/modot/internal/executil"
 	"strings"
 )
 

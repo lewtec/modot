@@ -6,8 +6,8 @@ import (
 	"errors"
 	"io"
 
-	"github.com/lewtec/modot/internal/template"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/template"
 )
 
 // TemplateFile represents a lazily-rendered template file.

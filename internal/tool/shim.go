@@ -3,8 +3,8 @@ package tool
 import (
 	"context"
 	"fmt"
-	"github.com/lewtec/modot/internal/tool/resolution"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/tool/resolution"
 	"os"
 	"os/exec"
 )
