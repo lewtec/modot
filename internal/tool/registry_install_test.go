@@ -78,8 +78,8 @@ func TestRegistryInstallChecksDeclared(t *testing.T) {
 }
 
 func TestRegistryInstall(t *testing.T) {
-	if os.Getenv("MODOT_TEST_TOOL_INSTALL") != "1" {
-		t.Skip("set MODOT_TEST_TOOL_INSTALL=1 (or mise run test:registry-install) to run registry install checks")
+	if os.Getenv("MODOT_TEST_TOOL_INSTALL") != "1" && os.Getenv("WORKSPACED_TEST_TOOL_INSTALL") != "1" {
+		t.Skip("set MODOT_TEST_TOOL_INSTALL=1 (mise run test:registry-install) to run registry install checks")
 	}
 
 	target := os.Getenv("TARGET")
