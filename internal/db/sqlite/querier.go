@@ -9,6 +9,8 @@ import (
 )
 
 type Querier interface {
+	CopyAttachedHistory(ctx context.Context) error
+	CountHistorySrc(ctx context.Context) (int64, error)
 	GetHistory(ctx context.Context, limit int64) ([]History, error)
 	RecordHistory(ctx context.Context, arg RecordHistoryParams) error
 	SearchHistory(ctx context.Context, arg SearchHistoryParams) ([]History, error)
