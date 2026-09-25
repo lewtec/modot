@@ -8,33 +8,27 @@ import (
 	"path/filepath"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
 	"github.com/lewtec/modot/internal/logging"
 )
 
-// importLegacyHistory copies command history from the pre-rename sqlite file
-// into the default modot database when that database has no history rows yet.
-// Ctrl+R reads only modot.db; the old file is otherwise invisible to search.
-// The copy is one transaction and one sqlc insert.
-func importLegacyHistory(ctx context.Context, d *DB) error {
+// ImportWorkspacedHistory copies command history from the pre-rename sqlite
+// file into this database. modot utils history ingest workspaced is the caller.
+// The copy is one transaction and one sqlc insert. A database that already
+// has history rows is left unchanged.
+func (d *DB) ImportWorkspacedHistory(ctx context.Context) error {
 	if d == nil || d.conn == nil {
 		return nil
 	}
-	dest := (Arg{}).ArgDefault()
-	if dest == "" || d.conn.URL() != dest {
-		return nil
-	}
-	got, err := d.Queries.GetHistory(ctx, 1)
-	if err != nil || len(got) > 0 {
+	home, err := envdriver.ResolveHomeDir()
+	if err != nil {
 		return err
 	}
-	legacy := filepath.Join(filepath.Dir(filepath.Dir(dest)), "workspaced", "workspaced.db")
-	if legacy == dest {
+	legacy := filepath.Join(home, ".local", "share", "workspaced", "workspaced.db")
+	if legacy == d.conn.URL() {
 		return nil
 	}
 	if _, err := os.Stat(legacy); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
 		return err
 	}
 	if taskgroup.FromContext(ctx) == nil {

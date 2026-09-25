@@ -6,20 +6,26 @@ import (
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lewtec/modot/internal/cmdarg"
 	"github.com/lewtec/modot/internal/db"
-	"github.com/lewtec/modot/internal/types"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/types"
 )
 
 type Ingest struct {
 	source cmd.EnumArg[cmdarg.HistorySource]
 }
 
-func (Ingest) Description() string { return "Ingest history from other sources (bash, atuin)" }
+func (Ingest) Description() string {
+	return "Ingest history from other sources (bash, atuin, workspaced)"
+}
 
 func (i *Ingest) Run(ctx context.Context) error {
 	database, err := db.OpenFromCtx(ctx)
 	if err != nil {
 		return err
+	}
+
+	if i.source.Value() == cmdarg.HistoryWorkspaced {
+		return database.ImportWorkspacedHistory(ctx)
 	}
 
 	var events []types.HistoryEvent

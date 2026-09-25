@@ -41,6 +41,11 @@ func TestHistorySource(t *testing.T) {
 		S cmd.EnumArg[HistorySource]
 	}](t, "atuin")
 	assert.Equal(t, HistoryAtuin, got.S.Value())
+
+	got = cmd.ParseOK[struct {
+		S cmd.EnumArg[HistorySource]
+	}](t, "workspaced")
+	assert.Equal(t, HistoryWorkspaced, got.S.Value())
 }
 
 func TestLayersFormatUsage(t *testing.T) {

@@ -134,17 +134,20 @@ type HistorySource int
 const (
 	HistoryBash HistorySource = iota + 1
 	HistoryAtuin
+	HistoryWorkspaced
 )
 
 func (s HistorySource) String() string {
 	switch s {
 	case HistoryAtuin:
 		return "atuin"
+	case HistoryWorkspaced:
+		return "workspaced"
 	default:
 		return "bash"
 	}
 }
 
 func (HistorySource) Values() []HistorySource {
-	return []HistorySource{HistoryBash, HistoryAtuin}
+	return []HistorySource{HistoryBash, HistoryAtuin, HistoryWorkspaced}
 }
