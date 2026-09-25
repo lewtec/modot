@@ -15,12 +15,12 @@ import (
 	"github.com/lewtec/lewkit/x/taskgroup"
 	lewtool "github.com/lewtec/lewkit/x/tool"
 	githubprov "github.com/lewtec/lewkit/x/tool/github"
-	"github.com/lewtec/modot/internal/miseutil"
-	"github.com/lewtec/modot/internal/selfbin"
-	"github.com/lewtec/modot/internal/version"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/miseutil"
+	"github.com/lewtec/modot/internal/selfbin"
+	"github.com/lewtec/modot/internal/version"
 
 	"github.com/lewtec/lewkit/x/cmd"
 )

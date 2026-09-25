@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/lewtec/modot/internal/githubutil"
 	"github.com/lewtec/modot/internal/driver"
 	httpclientdriver "github.com/lewtec/modot/internal/driver/httpclient"
+	"github.com/lewtec/modot/internal/githubutil"
 	"github.com/lewtec/modot/internal/logging"
 	"net/http"
 )

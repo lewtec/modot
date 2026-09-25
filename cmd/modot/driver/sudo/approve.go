@@ -5,9 +5,9 @@ import (
 	"os"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lewtec/modot/internal/sudo"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/sudo"
 )
 
 type Approve struct {

@@ -11,11 +11,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/lewtec/modot/internal/tool"
 	"github.com/lewtec/modot/internal/driver"
 	"github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/driver/svgraster"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/tool"
 )
 
 type Driver struct{}

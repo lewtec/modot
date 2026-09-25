@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lewtec/modot/internal/types"
 	_ "github.com/lewtec/modot/internal/driver/prelude"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/types"
 	"github.com/stretchr/testify/require"
 )
 

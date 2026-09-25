@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/lewtec/modot/internal/executil"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/executil"
 )
 
 // parseFlakeRef splits "repo#item" or "repo#item/binary" into repo, item, binary.

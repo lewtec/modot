@@ -7,8 +7,8 @@ import (
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/afterwait"
-	"github.com/lewtec/modot/internal/tool"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/tool"
 )
 
 type Lazy struct {

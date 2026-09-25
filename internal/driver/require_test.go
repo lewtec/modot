@@ -3,8 +3,8 @@ package driver_test
 import (
 	"testing"
 
-	"github.com/lewtec/modot/internal/executil"
 	"github.com/lewtec/modot/internal/driver"
+	"github.com/lewtec/modot/internal/executil"
 	"github.com/stretchr/testify/require"
 )
 

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/lewtec/modot/internal/lsp"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/lsp"
 )
 
 type Lsp struct{}

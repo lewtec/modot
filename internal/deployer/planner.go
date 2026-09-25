@@ -10,8 +10,8 @@ import (
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/cmdctx"
-	"github.com/lewtec/modot/internal/source"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/source"
 )
 
 // Planner compares current state with desired state and generates actions.

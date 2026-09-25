@@ -7,12 +7,12 @@ import (
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/afterwait"
-	"github.com/lewtec/modot/internal/executil"
-	"github.com/lewtec/modot/internal/nix"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/driver/notification"
+	"github.com/lewtec/modot/internal/executil"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/nix"
 
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lewtec/modot/internal/cmdarg"

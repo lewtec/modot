@@ -15,11 +15,11 @@ import (
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/cmdctx"
-	"github.com/lewtec/modot/internal/shellgen"
-	"github.com/lewtec/modot/internal/version"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/shellgen"
+	"github.com/lewtec/modot/internal/version"
 )
 
 type Init struct {

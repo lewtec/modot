@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/executil"
 	"github.com/lewtec/modot/internal/driver"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/executil"
 	"os"
 	"path/filepath"
 )

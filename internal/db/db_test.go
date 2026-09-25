@@ -6,8 +6,8 @@ import (
 
 	"github.com/lewtec/lewkit/x/cmd"
 	lewtest "github.com/lewtec/lewkit/x/test"
-	"github.com/lewtec/modot/internal/types"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

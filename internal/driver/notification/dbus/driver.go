@@ -96,7 +96,7 @@ func (d *Driver) Notify(ctx context.Context, n *notification.Notification) error
 
 	var serverID uint32
 	err := obj.Call("org.freedesktop.Notifications.Notify", 0,
-		"modot",  // app_name
+		"modot",       // app_name
 		replacesID,    // replaces_id
 		n.Icon,        // app_icon
 		n.Title,       // summary

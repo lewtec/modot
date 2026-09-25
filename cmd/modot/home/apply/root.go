@@ -14,13 +14,13 @@ import (
 	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/deployer"
 	"github.com/lewtec/modot/internal/dotfiles"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/modfile"
 	_ "github.com/lewtec/modot/internal/modfile/sourceprovider/prelude"
 	"github.com/lewtec/modot/internal/source"
 	"github.com/lewtec/modot/internal/tool"
-	envdriver "github.com/lewtec/modot/internal/driver/env"
-	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 
 	"github.com/lewtec/lewkit/x/cmd"
 )

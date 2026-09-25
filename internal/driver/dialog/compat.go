@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lewtec/modot/internal/executil"
 	"github.com/lewtec/modot/internal/driver"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/executil"
 )
 
 // RequireDisplayBinary reports ErrIncompatible when neither DISPLAY nor

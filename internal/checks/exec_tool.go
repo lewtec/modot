@@ -7,8 +7,8 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/lewtec/modot/internal/tool"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/tool"
 )
 
 // ResolveCmd ensures lazy tools from needs and returns argv + optional env extras.

@@ -12,10 +12,10 @@ import (
 
 	"github.com/git-pkgs/gitignore"
 	"github.com/lewtec/modot/internal/cmdarg"
-	"github.com/lewtec/modot/internal/module"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	"github.com/lewtec/modot/internal/filespine"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/module"
 )
 
 func init() {

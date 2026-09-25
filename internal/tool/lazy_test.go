@@ -9,9 +9,9 @@ import (
 	"github.com/lewtec/lewkit/x/taskgroup"
 	lewtool "github.com/lewtec/lewkit/x/tool"
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/modfile"
 	_ "github.com/lewtec/modot/internal/driver/env/native"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/modfile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

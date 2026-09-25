@@ -10,11 +10,11 @@ import (
 
 	lewtool "github.com/lewtec/lewkit/x/tool"
 	"github.com/lewtec/modot/internal/atomicfile"
-	"github.com/lewtec/modot/internal/tool"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/driver/shim/bash"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/tool"
 )
 
 var (

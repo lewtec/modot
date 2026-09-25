@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/modfile"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/modfile"
 )
 
 type Lock struct{}

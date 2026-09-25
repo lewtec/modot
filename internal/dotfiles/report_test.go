@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/lewtec/modot/internal/deployer"
-	"github.com/lewtec/modot/internal/source"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/source"
 	"github.com/stretchr/testify/assert"
 )
 

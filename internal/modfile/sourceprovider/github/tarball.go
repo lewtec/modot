@@ -13,9 +13,9 @@ import (
 	lewpath "github.com/lewtec/lewkit/x/path"
 
 	"github.com/lewtec/modot/internal/archive"
-	"github.com/lewtec/modot/internal/githubutil"
 	"github.com/lewtec/modot/internal/driver"
 	httpclientdriver "github.com/lewtec/modot/internal/driver/httpclient"
+	"github.com/lewtec/modot/internal/githubutil"
 	"github.com/lewtec/modot/internal/logging"
 )
 

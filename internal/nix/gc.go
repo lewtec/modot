@@ -3,11 +3,11 @@ package nix
 import (
 	"context"
 	"fmt"
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/executil"
+	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/sudo"
 	"github.com/lewtec/modot/internal/types"
-	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 	"os"
 	"path/filepath"
 	"sort"

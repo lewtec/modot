@@ -8,11 +8,11 @@ import (
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/configcue"
+	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/modfile"
 	_ "github.com/lewtec/modot/internal/modfile/sourceprovider/prelude"
 	"github.com/lewtec/modot/internal/module"
 	_ "github.com/lewtec/modot/internal/module/prelude"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type ModuleScannerPlugin struct {

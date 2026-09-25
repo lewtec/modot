@@ -18,11 +18,11 @@ import (
 
 	"github.com/lewtec/modot/internal/atomicfile"
 	"github.com/lewtec/modot/internal/cmdctx"
-	"github.com/lewtec/modot/internal/icons"
-	"github.com/lewtec/modot/internal/module"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	"github.com/lewtec/modot/internal/filespine"
+	"github.com/lewtec/modot/internal/icons"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/module"
 )
 
 func init() {

@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/template"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/template"
 )
 
 // Plugin processes a list of files and returns a new list.
