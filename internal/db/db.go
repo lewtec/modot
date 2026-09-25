@@ -15,8 +15,9 @@ import (
 
 	"github.com/lewtec/lewkit/x/cmd"
 	xdb "github.com/lewtec/lewkit/x/db"
-	"github.com/lewtec/modot/internal/types"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
+	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/types"
 )
 
 type dbKey struct{}
@@ -91,7 +92,11 @@ func openConn(ctx context.Context, c *xdb.Conn[Queries]) (*DB, error) {
 	if err := c.Open(ctx, FS, New(c.URL())); err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
-	return &DB{conn: c, Queries: c.Queries()}, nil
+	database := &DB{conn: c, Queries: c.Queries()}
+	if err := importLegacyHistory(ctx, database); err != nil {
+		logging.GetLogger(ctx).Warn("legacy history import failed", "err", err)
+	}
+	return database, nil
 }
 
 // OpenArg opens a parsed Arg. Callers must Close the result.
