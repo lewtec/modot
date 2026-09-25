@@ -90,9 +90,7 @@ func DiscoverLayers(ctx context.Context, opts DiscoverOptions) (DiscoverResult, 
 	if opts.HomeLayers {
 		dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 		if err == nil && dotfilesRoot != "" {
-			if err := rejectLegacyDir(dotfilesRoot); err != nil {
-				return DiscoverResult{}, err
-			}
+			warnLegacyDir(ctx, dotfilesRoot)
 			p := filepath.Join(dotfilesRoot, "modot.cue")
 			if fileExists(p) {
 				layers = append(layers, Layer{Name: "dotfiles", Path: p})
@@ -103,9 +101,7 @@ func DiscoverLayers(ctx context.Context, opts DiscoverOptions) (DiscoverResult, 
 	if opts.HomeLayers {
 		homeDir, err := envdriver.ResolveHomeDir()
 		if err == nil && homeDir != "" {
-			if err := rejectLegacyDir(homeDir); err != nil {
-				return DiscoverResult{}, err
-			}
+			warnLegacyDir(ctx, homeDir)
 			p := filepath.Join(homeDir, "modot.cue")
 			if fileExists(p) {
 				layers = append(layers, Layer{Name: "user", Path: p})
@@ -116,9 +112,7 @@ func DiscoverLayers(ctx context.Context, opts DiscoverOptions) (DiscoverResult, 
 	if opts.HomeLayers {
 		configDir, err := envdriver.GetConfigDir(ctx)
 		if err == nil && configDir != "" {
-			if err := rejectLegacyDir(configDir); err != nil {
-				return DiscoverResult{}, err
-			}
+			warnLegacyDir(ctx, configDir)
 			p := filepath.Join(configDir, "modot.cue")
 			if fileExists(p) {
 				layers = append(layers, Layer{Name: "home", Path: p})
@@ -342,27 +336,27 @@ func forcePackage(src string) string {
 	return "package modot\n" + src
 }
 
-func rejectLegacyDir(dir string) error {
+func warnLegacyDir(ctx context.Context, dir string) {
+	logger := logging.GetLogger(ctx)
 	for _, name := range []string{"workspaced.cue", "workspaced.lock.json"} {
 		candidate := filepath.Join(dir, name)
 		if !fileExists(candidate) {
 			continue
 		}
 		next := strings.ReplaceAll(name, "workspaced", "modot")
-		return fmt.Errorf("leftover %s: the file name is %s", candidate, next)
+		logger.Warn("ignoring leftover file", "path", candidate, "use", next)
 	}
-	return nil
 }
 
-// RejectLegacyEnv fails when a process still carries the previous env prefix.
-func RejectLegacyEnv() error {
+// WarnLegacyEnv reports previous env names. The values are not read.
+func WarnLegacyEnv(ctx context.Context) {
+	logger := logging.GetLogger(ctx)
 	for _, env := range os.Environ() {
 		key, _, _ := strings.Cut(env, "=")
 		if strings.HasPrefix(key, "WORKSPACED_") {
-			return fmt.Errorf("leftover environment variable %s: the prefix is MODOT_", key)
+			logger.Warn("ignoring leftover environment variable", "name", key, "use", "MODOT_"+strings.TrimPrefix(key, "WORKSPACED_"))
 		}
 	}
-	return nil
 }
 
 func loadModuleCueLayers(configValue cue.Value, paths []string, discovered []Layer) ([]compiledLayer, error) {
@@ -847,9 +841,7 @@ func findUp(ctx context.Context, start string, name string) (string, error) {
 	}
 
 	for {
-		if err := rejectLegacyDir(dir); err != nil {
-			return "", err
-		}
+		warnLegacyDir(ctx, dir)
 		candidate := filepath.Join(dir, name)
 		if fileExists(candidate) {
 			return candidate, nil

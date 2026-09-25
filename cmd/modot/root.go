@@ -43,10 +43,7 @@ func main() {
 	slog.SetDefault(processLogger)
 	rootCtx := logging.NewRootContext(processLogger)
 
-	if err := configcue.RejectLegacyEnv(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+	configcue.WarnLegacyEnv(rootCtx)
 
 	if os.Getenv("REBUILD_TEST") != "" {
 		exe, err := os.Executable()

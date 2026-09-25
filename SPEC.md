@@ -19,7 +19,7 @@ Non-goals:
 2. A public Go API. Reusable code belongs in lewkit.
 3. A second config language.
 4. Discovery of modules that the entry file does not name.
-5. A compatibility window for the workspaced filenames.
+5. Loading `workspaced.cue`, `workspaced.lock.json`, and `WORKSPACED_*` as configuration.
 
 Inherited C (cite the file):
 
@@ -128,7 +128,7 @@ Configuration, Module, Lock, Profile, and Tool are files. They are not sqlite en
 
 | ID | Predicate | On | Forbidden bypass |
 |----|-----------|----|------------------|
-| INV-01 | The entry file is `modot.cue` | Configuration | Loading `workspaced.cue` |
+| INV-01 | The entry file is `modot.cue`. A `workspaced.cue` file, a `workspaced.lock.json` file, and a `WORKSPACED_*` variable each produce one warning and are not read | Configuration | Loading those leftovers |
 | INV-02 | Every loaded module is named by the entry file's `modules` ref | Module | A directory walk that selects modules |
 | INV-03 | A module file does not add modules | Module | Reading `modules` from a module file during TEC-01 |
 | INV-04 | A source path resolves against that module directory | Module | Joining relative source paths before TEC-02 |
@@ -146,7 +146,6 @@ One reaction for every row: the command blows up. Stderr names the entry file, t
 | Public operation | Bad input | One reaction |
 |------------------|-----------|--------------|
 | Any command in the command table | The bad input named in that row | The reaction above |
-| Load | `workspaced.cue`, `workspaced.lock.json`, a `WORKSPACED_*` variable | The reaction above. The message names the leftover and the modot spelling |
 | Load | A CUE conflict, a missing module directory, a lock hash mismatch | The reaction above |
 | TEC-02 | A source path that escapes the module directory | The reaction above |
 | TEC-05 | Two types on one destination path. A flat `file` key. A directory under a `.d.tmpl` tree | The reaction above |
@@ -181,7 +180,7 @@ Residual risk: the entry file is the operator's own configuration. A module name
 - [ ] A source path `theme.toml` inside module `modules/git` resolves under `modules/git`.
 - [ ] The repo-root `modot.cue` contributes no template files from its subdirectories.
 - [ ] `~/modot.cue` outside a git work tree contributes no template files.
-- [ ] A directory that contains `workspaced.cue` makes the command exit non-zero.
+- [ ] A directory that contains `modot.cue` and `workspaced.cue` loads `modot.cue` and writes a warning that names `workspaced.cue`.
 - [ ] `package` in a loaded file does not change the Configuration.
 - [ ] No package outside this repository can import `github.com/lewtec/modot/pkg/...`.
 
@@ -199,7 +198,7 @@ None.
 
 - ADR-0001: Modules are ordinary CUE unified into one Configuration. Rejected: a flake-style import map and export map. Rejected: a `modules.<name>.config` namespace.
 - ADR-0002: The `package` clause is ignored. Rejected: requiring `package modot`.
-- ADR-0003: An old leftover fails the run immediately. Rejected: a deprecation warning that still loads `workspaced.cue`, `workspaced.lock.json`, and `WORKSPACED_*`.
+- ADR-0003: An old leftover produces a warning and is not loaded. Rejected: failing the run. Rejected: loading `workspaced.cue`, `workspaced.lock.json`, and `WORKSPACED_*`.
 - ADR-0004: Linters and formatters are CUE `#CheckTool` values with one generic runner and a closed codec set. `codebase lint --review` emits GitHub Actions workflow commands for findings on the relevant diff. Rejected: one Go package per tool. Rejected: posting PR review comments from that command.
 - ADR-0005: This repository exposes no supported Go API. Rejected: keeping `pkg/` on the import path.
 - ADR-0006: ADR entries live in this file. `docs/specs/` is deleted after its live rules move here. Rejected: a `docs/adr/` tree. Rejected: keeping `docs/specs/` as a second law.
