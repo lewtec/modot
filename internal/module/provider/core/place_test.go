@@ -9,6 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/lewtec/modot/internal/cmdarg"
+	"github.com/lewtec/modot/internal/configcue"
+	_ "github.com/lewtec/modot/internal/driver/env/native"
+	"github.com/lewtec/modot/internal/filespine"
 	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/module"
 )
@@ -70,6 +73,33 @@ func TestPlaceResolveIgnoreMissing(t *testing.T) {
 		require.NoError(t, err, "Resolve")
 		require.Empty(t, out.Files)
 	})
+}
+
+func TestPlaceResolveInCodebaseMode(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	src := filepath.Join(dir, "a.txt")
+	require.NoError(t, os.WriteFile(src, []byte("a"), 0o644))
+	cueFile := filepath.Join(dir, "modot.cue")
+	require.NoError(t, os.WriteFile(cueFile, []byte("package modot\n"), 0o644))
+
+	ctx := logging.NewWriterContext(t.Output())
+	cfg, err := configcue.LoadFilesMode(ctx, []string{cueFile}, filespine.ModeCodebase)
+	require.NoError(t, err)
+	require.Equal(t, filespine.ModeCodebase, cfg.RuntimeMode())
+
+	out, err := placeModule{}.Resolve(ctx, module.ResolveRequest{
+		ModuleName: "test-place",
+		Config:     cfg,
+		ModuleConfig: map[string]any{
+			"items": map[string]any{
+				"third-party/tree-sitter/lib/src": src,
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, out.Files, 1)
+	require.Equal(t, "third-party/tree-sitter/lib/src/a.txt", out.Files[0].RelPath)
 }
 
 func TestPlacePrefixWins(t *testing.T) {

@@ -13,7 +13,6 @@ import (
 	"github.com/git-pkgs/gitignore"
 	"github.com/lewtec/modot/internal/cmdarg"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
-	"github.com/lewtec/modot/internal/filespine"
 	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/module"
 )
@@ -85,9 +84,8 @@ type placeStepRun struct {
 
 func (placeModule) Resolve(ctx context.Context, req module.ResolveRequest) (module.ResolveResult, error) {
 	logger := logging.GetLogger(ctx)
-	if !filespine.NamespaceVisible(req.Config.RuntimeMode(), filespine.ModeHome) {
-		return module.ResolveResult{}, nil
-	}
+	// Follow the command that loaded the config. codebase apply must place
+	// into the repo; a home-only gate makes that command emit nothing.
 
 	cfg, err := module.DecodeConfig[placeConfig](req.ModuleConfig)
 	if err != nil {
