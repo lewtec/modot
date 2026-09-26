@@ -76,6 +76,27 @@ file: home: blob: {
 	require.Error(t, err, "expected ref error")
 }
 
+func TestPlaceSourcesMergeOnTheSamePath(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "modot.cue"), `package modot
+file: home: ".agents/skills": {
+	type: "place"
+	source: lewtec: "skills_lewtec:skills"
+}
+file: home: ".agents/skills": {
+	type: "place"
+	source: local: "self:skills"
+}
+`)
+	ctx := logging.NewWriterContext(t.Output())
+	cfg, err := loadFilesMode(ctx, filepath.Join(root, "modot.cue"), filespine.ModeHome)
+	require.NoError(t, err, "load")
+	mounts, err := cfg.FileMounts()
+	require.NoError(t, err)
+	got := mounts["home"][".agents/skills"]
+	require.ElementsMatch(t, []string{"skills_lewtec:skills", "self:skills"}, got.Srcs)
+}
+
 func loadFilesMode(ctx context.Context, path, mode string) (*Config, error) {
 	v, err := buildModotValue(ctx, []string{path}, nil, DiscoverOptions{Mode: mode})
 	if err != nil {

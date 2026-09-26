@@ -1,5 +1,7 @@
 package modot
 
+import "strings"
+
 #Input: {
 	from:    string
 	version?: string
@@ -36,11 +38,14 @@ package modot
 
 #PlaceStep: #PlaceStepMove | #PlaceStepRequire
 
-// core:place module config. Extra keys allowed (e.g. hub template data).
+// Legacy core:place module config. The prelude copies this onto file.home.
+#PlaceItems: [string]: string
+#PlaceSteps: [string]: #PlaceStep
+
 #PlaceConfig: {
-	items?:          [string]: string
+	items: #PlaceItems | *{}
 	ignore_missing?: bool
-	steps?:          [string]: #PlaceStep
+	steps: #PlaceSteps | *{}
 	...
 }
 
@@ -52,10 +57,30 @@ package modot
 	// (many modules only set input/path and omit from).
 	from:     string | *""
 	version?: string
-	config?:  _
-	// Place modules: step shape is CUE-checked; Go only dispatches known ops.
+	config: _ | *{}
+	// Legacy from: "core:place" is checked here, then rewritten below.
 	if from == "core:place" {
-		config?: #PlaceConfig
+		config: #PlaceConfig
+	}
+}
+
+// from: "core:place" becomes file.home place entries. The module is turned off.
+file: home: {
+	for name, mod in modules if mod.from == "core:place" for dest, src in mod.config.items {
+		let path = strings.Trim(dest, "/")
+		if path != "" {
+			"\(path)": {
+				type: "place"
+				source: "\(name)": src
+				steps: mod.config.steps
+			}
+		}
+	}
+}
+
+modules: {
+	for name, mod in modules if mod.from == "core:place" {
+		"\(name)": enable: false
 	}
 }
 

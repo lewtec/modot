@@ -37,6 +37,34 @@ func TestPlaceModuleConfigSchema(t *testing.T) {
 		return err
 	}
 
+	t.Run("core:place is rewritten onto file.home and disabled", func(t *testing.T) {
+		t.Parallel()
+		u := cueCtx.CompileString(`
+package modot
+modules: best_practices: {
+	from: "core:place"
+	config: {
+		items: {"skills/bp/go": "/tmp/go"}
+		steps: {
+			"10_require": {op: "require", patterns: {skill: "SKILL.md"}}
+		}
+	}
+}
+`, cue.Filename("user.cue"))
+		require.NoError(t, u.Err())
+		v := schema.Unify(u)
+		require.NoError(t, v.Err())
+		enabled, err := v.LookupPath(cue.ParsePath("modules.best_practices.enable")).Bool()
+		require.NoError(t, err)
+		require.False(t, enabled)
+		src, err := v.LookupPath(cue.ParsePath(`file.home."skills/bp/go".source.best_practices`)).String()
+		require.NoError(t, err)
+		require.Equal(t, "/tmp/go", src)
+		op, err := v.LookupPath(cue.ParsePath(`file.home."skills/bp/go".steps."10_require".op`)).String()
+		require.NoError(t, err)
+		require.Equal(t, "require", op)
+	})
+
 	t.Run("accepts move and require steps", func(t *testing.T) {
 		t.Parallel()
 		err := unifyUser(t, `
@@ -70,7 +98,7 @@ modules: best_practices: {
 		require.Error(t, err, "expected schema error for unknown op")
 		msg := err.Error()
 		require.True(t,
-			strings.Contains(msg, "disjunction") || strings.Contains(msg, "reject") || strings.Contains(msg, "op"),
+			strings.Contains(msg, "disjunction") || strings.Contains(msg, "reject") || strings.Contains(msg, "op") || strings.Contains(msg, "field not allowed"),
 			"unexpected error: %v", err)
 	})
 
