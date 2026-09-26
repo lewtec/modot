@@ -166,8 +166,8 @@ github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
 github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3 h1:zcMi8R8vP0WrrXlFMNUBpDy/ydo3sTnCcUPowq1XmSc=
 github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3/go.mod h1:RSub3ourNF8Hf+swvw49Catm3s7HVf4hzdFxDUnEzdA=
-github.com/lewtec/lewkit v0.0.0-20260925213458-f39855177e4a h1:inaYtENj45XNXIDLIyikd73YBlT5OsrhA/vZvx0FUdY=
-github.com/lewtec/lewkit v0.0.0-20260925213458-f39855177e4a/go.mod h1:5JbYG3q20rGDjBvl3jc2AVwkC18lZMk87AMGWkPZJBk=
+github.com/lewtec/lewkit v0.0.0-20260926004721-11710eb97853 h1:Q9WSq9PoTeu9+j5qn3Fg7FBqz3hQmIR7v/AVfi3jTYU=
+github.com/lewtec/lewkit v0.0.0-20260926004721-11710eb97853/go.mod h1:5JbYG3q20rGDjBvl3jc2AVwkC18lZMk87AMGWkPZJBk=
 github.com/lib/pq v1.12.3 h1:tTWxr2YLKwIvK90ZXEw8GP7UFHtcbTtty8zsI+YjrfQ=
 github.com/lib/pq v1.12.3/go.mod h1:/p+8NSbOcwzAEI7wiMXFlgydTwcgTr3OSKMsD2BitpA=
 github.com/lucasb-eyer/go-colorful v1.2.0/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=
