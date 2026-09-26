@@ -91,6 +91,7 @@ func (opts StandardDotfilesOptions) Builder(cfg *configcue.Config) (Builder, err
 	return Builder{
 		Config:     cfg,
 		TargetBase: opts.ConfigTreeTarget,
+		ModulesDir: opts.ModulesDir,
 		Providers:  providers,
 	}, nil
 }
@@ -107,7 +108,9 @@ func NewStandardDotfilesPipeline(
 	}
 	p := NewPipeline(b.Providers...)
 	p.AddPlugin(NewTemplateExpanderPlugin(template.NewEngine(ctx), cfg))
-	p.AddPlugin(NewFileSpinePlugin(cfg, b.TargetBase))
+	spine := NewFileSpinePlugin(cfg, b.TargetBase)
+	spine.modulesDir = opts.ModulesDir
+	p.AddPlugin(spine)
 	return p, nil
 }
 
