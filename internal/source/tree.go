@@ -52,6 +52,7 @@ func (t *Tree) TargetBase() string {
 type Builder struct {
 	Config     *configcue.Config
 	TargetBase string
+	ModulesDir string
 	Providers  []Plugin
 }
 
@@ -72,7 +73,7 @@ func (b Builder) Tree(ctx context.Context) (*Tree, error) {
 	discovered := make([]File, 0, len(static)+len(rendered))
 	discovered = append(discovered, static...)
 	discovered = append(discovered, rendered...)
-	tree, err := composeApply(ctx, destRequest{config: b.Config, targetBase: b.TargetBase, files: discovered})
+	tree, err := composeApply(ctx, destRequest{config: b.Config, targetBase: b.TargetBase, modulesDir: b.ModulesDir, files: discovered})
 	if err != nil {
 		return nil, err
 	}

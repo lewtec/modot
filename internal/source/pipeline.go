@@ -91,6 +91,7 @@ func (opts StandardDotfilesOptions) Builder(cfg *configcue.Config) (Builder, err
 	return Builder{
 		Config:     cfg,
 		TargetBase: opts.ConfigTreeTarget,
+		ModulesDir: opts.ModulesDir,
 		Providers:  providers,
 	}, nil
 }
@@ -107,7 +108,9 @@ func NewStandardDotfilesPipeline(
 	}
 	p := NewPipeline(b.Providers...)
 	p.AddPlugin(NewTemplateExpanderPlugin(template.NewEngine(ctx), cfg))
-	p.AddPlugin(NewFileSpinePlugin(cfg, b.TargetBase))
+	spine := NewFileSpinePlugin(cfg, b.TargetBase)
+	spine.modulesDir = opts.ModulesDir
+	p.AddPlugin(spine)
 	return p, nil
 }
 
@@ -127,7 +130,7 @@ func standardProviders(opts StandardDotfilesOptions) ([]Plugin, error) {
 		providers = append(providers, scanner)
 	}
 
-	// Module scanner even if ModulesDir is not on disk: core:place and similar
+	// Module scanner runs even when ModulesDir is not on disk. Some modules
 	// do not need a local modules/ checkout.
 	if opts.ModulesDir != "" && opts.ModulesCfg != nil {
 		providers = append(providers, NewModuleScannerPlugin(opts.ModulesDir, opts.ModulesCfg, 100))

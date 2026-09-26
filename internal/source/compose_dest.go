@@ -31,6 +31,7 @@ var (
 type destRequest struct {
 	config     *configcue.Config
 	targetBase string
+	modulesDir string
 	files      []File
 }
 
@@ -65,16 +66,39 @@ func composeTracked(ctx context.Context, status *taskgroup.Status, request destR
 		}
 	}
 
+	files := request.files
+	if request.config != nil {
+		mounts, err := request.config.FileMounts()
+		if err != nil {
+			return nil, err
+		}
+		for _, name := range filespine.Visible(mode) {
+			for dest, spec := range mounts[name] {
+				expanded, err := expandMount(ctx, mountExpand{
+					cfg:        request.config,
+					modulesDir: request.modulesDir,
+					dest:       dest,
+					spec:       spec,
+					targetBase: filespine.ApplyDir(name, request.targetBase),
+				})
+				if err != nil {
+					return nil, fmt.Errorf("file.%s: %w", name, err)
+				}
+				files = append(files, expanded...)
+			}
+		}
+	}
+
 	cuePaths := map[string]pathSet{}
 	for _, name := range filespine.Visible(mode) {
 		cuePaths[name] = indexTree(profiles[name])
 	}
-	total := int64(len(request.files))
+	total := int64(len(files))
 	if status != nil {
 		status.Progress(0, total)
 	}
 	grouped := map[string]*profileFiles{}
-	for i, file := range request.files {
+	for i, file := range files {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}

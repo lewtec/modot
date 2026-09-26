@@ -57,7 +57,6 @@ func TestModuleScannerProcessMapReduceOrder(t *testing.T) {
 
 modules: {
 	zebra: {
-		enable: true
 		from: "core:place"
 		config: {
 			items: {
@@ -66,7 +65,6 @@ modules: {
 		}
 	}
 	alpha: {
-		enable: true
 		from: "core:place"
 		config: {
 			items: {
@@ -93,15 +91,15 @@ modules: {
 	cfg, err := configcue.LoadFiles(ctx, []string{filepath.Join(root, "modot.cue")})
 	require.NoError(t, err, "load config")
 
+	// core:place is rewritten onto file.home and the modules are disabled.
 	plugin := NewModuleScannerPlugin(modulesDir, cfg, 100)
 	out, err := plugin.Process(ctx, nil)
 	require.NoError(t, err, "Process")
-	require.Len(t, out, 2)
-	// Enabled modules are sorted by name: alpha then zebra.
-	require.Equal(t, "alpha", moduleName(out[0]))
-	require.Equal(t, "zebra", moduleName(out[1]))
-	require.Equal(t, "out-a/a.txt", out[0].RelPath())
-	require.Equal(t, "out-z/b.txt", out[1].RelPath())
+	require.Empty(t, out)
+	mounts, err := cfg.FileMounts()
+	require.NoError(t, err)
+	require.Equal(t, []string{srcA}, mounts["home"]["out-a"].Srcs)
+	require.Equal(t, []string{srcB}, mounts["home"]["out-z"].Srcs)
 }
 
 func writeFile(t *testing.T, path, content string) {
