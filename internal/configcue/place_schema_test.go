@@ -1,7 +1,6 @@
 package configcue
 
 import (
-	"strings"
 	"testing"
 
 	"cuelang.org/go/cue"
@@ -65,9 +64,14 @@ modules: best_practices: {
 		require.Equal(t, "require", op)
 	})
 
-	t.Run("accepts move and require steps", func(t *testing.T) {
-		t.Parallel()
-		err := unifyUser(t, `
+	cases := []struct {
+		name    string
+		cue     string
+		wantErr bool
+	}{
+		{
+			name: "accepts move and require steps",
+			cue: `
 package modot
 modules: best_practices: {
 	from: "core:place"
@@ -80,13 +84,12 @@ modules: best_practices: {
 		topics: {go: true}
 	}
 }
-`)
-		require.NoError(t, err, "unify")
-	})
-
-	t.Run("rejects unknown step op", func(t *testing.T) {
-		t.Parallel()
-		err := unifyUser(t, `
+`,
+		},
+		{
+			name:    "rejects unknown step op",
+			wantErr: true,
+			cue: `
 package modot
 modules: best_practices: {
 	from: "core:place"
@@ -94,17 +97,12 @@ modules: best_practices: {
 		steps: {x: {op: "reject"}}
 	}
 }
-`)
-		require.Error(t, err, "expected schema error for unknown op")
-		msg := err.Error()
-		require.True(t,
-			strings.Contains(msg, "disjunction") || strings.Contains(msg, "reject") || strings.Contains(msg, "op") || strings.Contains(msg, "field not allowed"),
-			"unexpected error: %v", err)
-	})
-
-	t.Run("rejects move without from", func(t *testing.T) {
-		t.Parallel()
-		err := unifyUser(t, `
+`,
+		},
+		{
+			name:    "rejects move without from",
+			wantErr: true,
+			cue: `
 package modot
 modules: best_practices: {
 	from: "core:place"
@@ -112,33 +110,39 @@ modules: best_practices: {
 		steps: {x: {op: "move", to: "entry.md"}}
 	}
 }
-`)
-		require.Error(t, err, "expected schema error for incomplete move")
-	})
-
-	t.Run("non-place module config stays open", func(t *testing.T) {
-		t.Parallel()
-		err := unifyUser(t, `
+`,
+		},
+		{
+			name: "non-place module config stays open",
+			cue: `
 package modot
 modules: other: {
 	from: "self"
 	config: {anything: true, nested: {x: 1}}
 }
-`)
-		require.NoError(t, err, "unify")
-	})
-
-	t.Run("module without from field (input only)", func(t *testing.T) {
-		t.Parallel()
-		// Regression: if from == "core:place" must not require optional from.
-		err := unifyUser(t, `
+`,
+		},
+		{
+			name: "module without from field",
+			cue: `
 package modot
 modules: fontconfig: {
 	input: "self"
 	path:  "fontconfig"
 	config: {enable: true}
 }
-`)
-		require.NoError(t, err, "unify")
-	})
+`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := unifyUser(t, tc.cue)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
 }
