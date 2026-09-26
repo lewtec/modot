@@ -12,6 +12,7 @@ import (
 	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/filespine"
 	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/placestep"
 )
 
 func TestFileSpineLowersDotD(t *testing.T) {
@@ -160,6 +161,152 @@ func TestComposeApplyStopsWhenCancelled(t *testing.T) {
 		},
 	})
 	require.ErrorIs(t, err, context.Canceled)
+}
+
+func TestFileMountMergesIntoCodebaseProfile(t *testing.T) {
+	t.Parallel()
+	ctx := logging.NewWriterContext(t.Output())
+	src := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(src, "include"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(src, "parser.c"), []byte("int x;"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(src, "include", "api.h"), []byte("void f();"), 0o644))
+
+	cuePath := filepath.Join(t.TempDir(), "modot.cue")
+	body := `package modot
+file: codebase: {
+	"third-party/tree-sitter/lib": {type: "mount", src: "` + src + `"}
+	"README": {type: "text", values: {content: "vendored"}}
+}
+`
+	require.NoError(t, os.WriteFile(cuePath, []byte(body), 0o644))
+	cfg, err := configcue.LoadFilesMode(ctx, []string{cuePath}, filespine.ModeCodebase)
+	require.NoError(t, err)
+
+	prefix := t.TempDir()
+	out, err := composeApply(ctx, destRequest{config: cfg, targetBase: prefix})
+	require.NoError(t, err)
+	got := map[string]string{}
+	for _, file := range out.Files() {
+		require.Equal(t, prefix, file.TargetBase())
+		reader, err := file.Reader()
+		require.NoError(t, err)
+		raw, err := io.ReadAll(reader)
+		require.NoError(t, err)
+		require.NoError(t, reader.Close())
+		got[file.RelPath()] = string(raw)
+	}
+	require.Equal(t, map[string]string{
+		"third-party/tree-sitter/lib/parser.c":      "int x;",
+		"third-party/tree-sitter/lib/include/api.h": "void f();",
+		"README": "vendored",
+	}, got)
+}
+
+func TestFileMountStepsRequireAndMove(t *testing.T) {
+	t.Parallel()
+	ctx := logging.NewWriterContext(t.Output())
+	src := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("# skill"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(src, "notes.md"), []byte("n"), 0o644))
+
+	cuePath := filepath.Join(t.TempDir(), "modot.cue")
+	body := `package modot
+file: codebase: {
+	"skills/go": {
+		type: "mount"
+		src: "` + src + `"
+		steps: {
+			"10_require": {op: "require", patterns: {skill: "SKILL.md", notes: "!missing.md"}}
+			"20_demote": {op: "move", from: "SKILL.md", to: "entry.md"}
+		}
+	}
+}
+`
+	require.NoError(t, os.WriteFile(cuePath, []byte(body), 0o644))
+	cfg, err := configcue.LoadFilesMode(ctx, []string{cuePath}, filespine.ModeCodebase)
+	require.NoError(t, err)
+
+	prefix := t.TempDir()
+	out, err := composeApply(ctx, destRequest{config: cfg, targetBase: prefix})
+	require.NoError(t, err)
+	got := map[string]string{}
+	for _, file := range out.Files() {
+		reader, err := file.Reader()
+		require.NoError(t, err)
+		raw, err := io.ReadAll(reader)
+		require.NoError(t, err)
+		require.NoError(t, reader.Close())
+		got[file.RelPath()] = string(raw)
+	}
+	require.Equal(t, map[string]string{
+		"skills/go/entry.md": "# skill",
+		"skills/go/notes.md": "n",
+	}, got)
+}
+
+func TestFileMountMergesSeveralSources(t *testing.T) {
+	t.Parallel()
+	ctx := logging.NewWriterContext(t.Output())
+	left := t.TempDir()
+	right := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(left, "a.md"), []byte("a"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(right, "b.md"), []byte("b"), 0o644))
+	cuePath := filepath.Join(t.TempDir(), "modot.cue")
+	body := `package modot
+file: home: {
+	".agents/skills": {
+		type: "mount"
+		src: {
+			left: "` + left + `"
+			right: "` + right + `"
+		}
+	}
+}
+`
+	require.NoError(t, os.WriteFile(cuePath, []byte(body), 0o644))
+	cfg, err := configcue.LoadFilesMode(ctx, []string{cuePath}, filespine.ModeHome)
+	require.NoError(t, err)
+	prefix := t.TempDir()
+	out, err := composeApply(ctx, destRequest{config: cfg, targetBase: prefix})
+	require.NoError(t, err)
+	got := map[string]string{}
+	for _, file := range out.Files() {
+		reader, err := file.Reader()
+		require.NoError(t, err)
+		raw, err := io.ReadAll(reader)
+		require.NoError(t, err)
+		require.NoError(t, reader.Close())
+		got[file.RelPath()] = string(raw)
+	}
+	require.Equal(t, map[string]string{
+		".agents/skills/a.md": "a",
+		".agents/skills/b.md": "b",
+	}, got)
+}
+
+func TestFileMountRequireRejectsTree(t *testing.T) {
+	t.Parallel()
+	ctx := logging.NewWriterContext(t.Output())
+	src := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(src, "README.md"), []byte("x"), 0o644))
+	cuePath := filepath.Join(t.TempDir(), "modot.cue")
+	body := `package modot
+file: codebase: {
+	"skills/go": {
+		type: "mount"
+		src: "` + src + `"
+		steps: {
+			"10_require": {op: "require", patterns: {skill: "SKILL.md"}}
+		}
+	}
+}
+`
+	require.NoError(t, os.WriteFile(cuePath, []byte(body), 0o644))
+	cfg, err := configcue.LoadFilesMode(ctx, []string{cuePath}, filespine.ModeCodebase)
+	require.NoError(t, err)
+	_, err = composeApply(ctx, destRequest{config: cfg, targetBase: t.TempDir()})
+	require.Error(t, err)
+	require.ErrorIs(t, err, placestep.ErrRequireNoMatch)
 }
 
 func TestFileSpineNestedTargetStaysInHome(t *testing.T) {

@@ -76,6 +76,39 @@ file: home: {
 		require.NoError(t, err, "unify")
 	})
 
+	t.Run("accepts a mount on a non-home profile", func(t *testing.T) {
+		t.Parallel()
+		err := unify(t, `
+package modot
+file: codebase: {
+	"third-party/lib": {
+		type: "mount"
+		src: "tree_sitter:lib"
+		steps: {
+			"10_require": {op: "require", patterns: {parser: "parser.c"}}
+			"20_move": {op: "move", from: "parser.c", to: "src/parser.c"}
+		}
+	}
+}
+`)
+		require.NoError(t, err, "unify")
+	})
+
+	t.Run("rejects an unknown mount step", func(t *testing.T) {
+		t.Parallel()
+		err := unify(t, `
+package modot
+file: codebase: {
+	"third-party/lib": {
+		type: "mount"
+		src: "tree_sitter:lib"
+		steps: x: {op: "reject"}
+	}
+}
+`)
+		require.Error(t, err, "expected schema error")
+	})
+
 	t.Run("rejects env slot", func(t *testing.T) {
 		t.Parallel()
 		err := unify(t, `
