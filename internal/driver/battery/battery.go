@@ -2,24 +2,23 @@ package battery
 
 import (
 	"context"
-	"errors"
+
+	lewbattery "github.com/lewtec/lewkit/x/driver/battery"
 )
 
-var (
-	ErrNoBattery = errors.New("no battery found")
-)
+var ErrNoBattery = lewbattery.ErrNoBattery
 
-type Driver interface {
-	BatteryStatus(ctx context.Context) (Status, error)
-}
+type Status = lewbattery.Status
 
-// Status represents the charging status of the battery.
-type Status string
-
-// Battery status constants.
 const (
-	Charging    Status = "Charging"
-	Discharging Status = "Discharging"
-	Full        Status = "Full"
-	Unknown     Status = "Unknown"
+	Charging    = lewbattery.Charging
+	Discharging = lewbattery.Discharging
+	Full        = lewbattery.Full
+	Unknown     = lewbattery.Unknown
 )
+
+type Driver = lewbattery.Driver
+
+func BatteryStatus(ctx context.Context) (Status, error) {
+	return lewbattery.BatteryStatus(ctx)
+}

@@ -2,7 +2,4 @@
 
 package prelude
 
-import (
-	_ "github.com/lewtec/modot/internal/driver/screenshot/grim"
-	_ "github.com/lewtec/modot/internal/driver/screenshot/maim"
-)
+import _ "github.com/lewtec/modot/internal/driver/screenshot/lew"

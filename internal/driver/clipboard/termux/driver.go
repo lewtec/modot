@@ -3,42 +3,45 @@ package termux
 import (
 	"context"
 	"fmt"
-	dapi "github.com/lewtec/modot/internal/api"
-	"github.com/lewtec/modot/internal/driver"
-	"github.com/lewtec/modot/internal/driver/clipboard"
-	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"image"
 	"os"
 	"strings"
+
+	lewdriver "github.com/lewtec/lewkit/x/driver"
+	lewclip "github.com/lewtec/lewkit/x/driver/clipboard"
+	dapi "github.com/lewtec/modot/internal/api"
+	"github.com/lewtec/modot/internal/driver"
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
 )
 
 func init() {
-	driver.Register[clipboard.Driver](&Factory{})
+	lewdriver.Register[lewclip.Driver](factory{})
 }
 
-type Factory struct{}
+type factory struct{}
 
-func (f *Factory) ID() string   { return "clipboard_termux" }
-func (f *Factory) Name() string { return "Termux" }
+func (factory) ID() string   { return "clipboard_termux" }
+func (factory) Name() string { return "Termux" }
+func (factory) Weight() int  { return 60 }
 
-func (f *Factory) CheckCompatibility(ctx context.Context) error {
+func (factory) CheckCompatibility(ctx context.Context) error {
 	if os.Getenv("TERMUX_VERSION") == "" && !execdriver.IsBinaryAvailable(ctx, "termux-clipboard-set") {
 		return fmt.Errorf("%w: termux not detected", driver.ErrIncompatible)
 	}
 	return nil
 }
 
-func (f *Factory) New(ctx context.Context) (clipboard.Driver, error) {
-	return &Driver{}, nil
+func (factory) New(context.Context) (lewclip.Driver, error) {
+	return backend{}, nil
 }
 
-type Driver struct{}
+type backend struct{}
 
-func (d *Driver) WriteImage(ctx context.Context, img image.Image) error {
+func (backend) WriteImage(context.Context, image.Image) error {
 	return fmt.Errorf("%w: writing images to clipboard is not supported on Termux", dapi.ErrNotSupported)
 }
 
-func (d *Driver) WriteText(ctx context.Context, text string) error {
+func (backend) WriteText(ctx context.Context, text string) error {
 	if !execdriver.IsBinaryAvailable(ctx, "termux-clipboard-set") {
 		return fmt.Errorf("%w: termux-clipboard-set (install termux-api)", dapi.ErrBinaryNotFound)
 	}

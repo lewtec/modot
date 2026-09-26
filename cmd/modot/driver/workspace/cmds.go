@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	lewwm "github.com/lewtec/lewkit/x/driver/wm"
 	"github.com/lewtec/modot/internal/driver/wm"
 )
 
@@ -12,7 +13,7 @@ type Rotate struct{}
 func (Rotate) Description() string { return "Rotate workspaces across outputs" }
 
 func (*Rotate) Run(ctx context.Context) error {
-	return wm.RotateWorkspaces(ctx)
+	return lewwm.RotateWorkspaces(ctx)
 }
 
 type Scratchpad struct{}

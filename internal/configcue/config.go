@@ -249,6 +249,9 @@ func decodeConfig(data []byte) (*Config, error) {
 				if err := driver.SetWeights(typed); err != nil {
 					return nil, err
 				}
+				if err := driver.ApplyLewWeights(typed); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}

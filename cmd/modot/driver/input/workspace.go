@@ -8,10 +8,10 @@ import (
 	"strconv"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	lewdriver "github.com/lewtec/lewkit/x/driver"
+	"github.com/lewtec/lewkit/x/driver/launcher"
+	lewwm "github.com/lewtec/lewkit/x/driver/wm"
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/driver"
-	"github.com/lewtec/modot/internal/driver/dialog"
-	"github.com/lewtec/modot/internal/driver/wm"
 	"github.com/lewtec/modot/internal/filespine"
 )
 
@@ -36,7 +36,7 @@ func (c *Workspace) Run(ctx context.Context) error {
 		return fmt.Errorf("decode evaluated config: %w", err)
 	}
 
-	var items []dialog.Item
+	var items []launcher.Item
 	var keys []string
 	for k := range raw.Workspaces {
 		keys = append(keys, k)
@@ -44,18 +44,18 @@ func (c *Workspace) Run(ctx context.Context) error {
 	sort.Strings(keys)
 
 	for _, k := range keys {
-		items = append(items, dialog.Item{
+		items = append(items, launcher.Item{
 			Label: k,
 			Value: strconv.Itoa(raw.Workspaces[k]),
 		})
 	}
 
-	d, err := driver.Get[dialog.Driver](ctx)
+	d, err := lewdriver.Get[launcher.Driver](ctx)
 	if err != nil {
 		return err
 	}
 
-	selected, err := d.Choose(ctx, dialog.Options{
+	selected, err := d.Choose(ctx, launcher.ChooseOptions{
 		Prompt: "Workspace",
 		Items:  items,
 	})
@@ -67,5 +67,5 @@ func (c *Workspace) Run(ctx context.Context) error {
 		return nil
 	}
 
-	return wm.SwitchToWorkspace(ctx, selected.Value, c.Move.Value())
+	return lewwm.SwitchToWorkspace(ctx, selected.Value, c.Move.Value())
 }

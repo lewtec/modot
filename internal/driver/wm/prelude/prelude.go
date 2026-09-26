@@ -2,7 +2,4 @@
 
 package prelude
 
-import (
-	_ "github.com/lewtec/modot/internal/driver/wm/hyprland"
-	_ "github.com/lewtec/modot/internal/driver/wm/i3ipc"
-)
+import _ "github.com/lewtec/modot/internal/driver/wm/lew"

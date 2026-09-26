@@ -2,7 +2,4 @@
 
 package prelude
 
-import (
-	_ "github.com/lewtec/modot/internal/driver/screen/sway"
-	_ "github.com/lewtec/modot/internal/driver/screen/x11"
-)
+import _ "github.com/lewtec/modot/internal/driver/screen/lew"

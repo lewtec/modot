@@ -2,4 +2,4 @@
 
 package prelude
 
-import _ "github.com/lewtec/modot/internal/driver/brightness/brightnessctl"
+import _ "github.com/lewtec/modot/internal/driver/brightness/lew"

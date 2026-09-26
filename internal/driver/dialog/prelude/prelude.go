@@ -2,9 +2,4 @@
 
 package prelude
 
-import (
-	_ "github.com/lewtec/modot/internal/driver/dialog/rofi"
-	_ "github.com/lewtec/modot/internal/driver/dialog/terminal"
-	_ "github.com/lewtec/modot/internal/driver/dialog/wofi"
-	_ "github.com/lewtec/modot/internal/driver/dialog/zenity"
-)
+import _ "github.com/lewtec/modot/internal/driver/dialog/lew"

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lewtec/modot/internal/driver/opener"
+	lewopener "github.com/lewtec/lewkit/x/driver/opener"
 )
 
 type Command struct {
@@ -16,5 +16,5 @@ func (Command) Description() string {
 }
 
 func (c *Command) Run(ctx context.Context) error {
-	return opener.Open(ctx, c.target.Value())
+	return lewopener.Open(ctx, c.target.Value())
 }

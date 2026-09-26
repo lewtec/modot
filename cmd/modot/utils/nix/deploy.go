@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/afterwait"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
@@ -75,7 +76,7 @@ func (d *Deploy) Run(ctx context.Context) error {
 			Message: fmt.Sprintf("Deploy completed for: %s", strings.Join(deployed, ", ")),
 			Icon:    "nix-snowflake",
 		}
-		if err := notification.Notify(ctx, &n); err != nil {
+		if err := lewnotify.Notify(ctx, n); err != nil {
 			logging.GetLogger(ctx).Error("failed to send notification", "error", err)
 		}
 		return nil

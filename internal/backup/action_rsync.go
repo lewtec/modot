@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	"github.com/lewtec/modot/internal/driver/notification"
 	"github.com/lewtec/modot/internal/driver/rsync"
 	"github.com/lewtec/modot/internal/logging"
@@ -61,7 +62,7 @@ func (a RsyncAction) Run(ctx context.Context, n *notification.Notification) erro
 			}
 			if time.Since(lastUpdate) > time.Second {
 				if (*notification.Notification)(n) != nil {
-					logging.ReportError(ctx, notification.Notify(ctx, n))
+					logging.ReportError(ctx, lewnotify.Notify(ctx, *n))
 				}
 				lastUpdate = time.Now()
 			}

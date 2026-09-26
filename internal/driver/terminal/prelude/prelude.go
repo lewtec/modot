@@ -3,8 +3,6 @@
 package prelude
 
 import (
-	_ "github.com/lewtec/modot/internal/driver/terminal/alacritty"
-	_ "github.com/lewtec/modot/internal/driver/terminal/foot"
-	_ "github.com/lewtec/modot/internal/driver/terminal/kitty"
+	_ "github.com/lewtec/modot/internal/driver/terminal/lew"
 	_ "github.com/lewtec/modot/internal/driver/terminal/termux"
 )

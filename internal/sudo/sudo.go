@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	"github.com/lewtec/modot/internal/atomicfile"
 	"github.com/lewtec/modot/internal/driver/notification"
 	"github.com/lewtec/modot/internal/logging"
@@ -122,7 +123,7 @@ func Enqueue(ctx context.Context, cmd *types.SudoCommand) error {
 		Message: fmt.Sprintf("Command '%s' (slug: %s) pending approval.", cmd.Command, cmd.Slug),
 		Icon:    "dialog-password",
 	}
-	logging.ReportError(ctx, notification.Notify(ctx, n))
+	logging.ReportError(ctx, lewnotify.Notify(ctx, *n))
 
 	return nil
 }

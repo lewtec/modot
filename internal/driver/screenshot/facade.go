@@ -9,47 +9,22 @@ import (
 	"strings"
 	"time"
 
+	lewclip "github.com/lewtec/lewkit/x/driver/clipboard"
+	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
+	lewscreenshot "github.com/lewtec/lewkit/x/driver/screenshot"
 	"github.com/lewtec/modot/internal/atomicfile"
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/driver"
-	"github.com/lewtec/modot/internal/driver/clipboard"
 	"github.com/lewtec/modot/internal/driver/notification"
-	"github.com/lewtec/modot/internal/driver/wm"
 	"github.com/lewtec/modot/internal/logging"
 )
 
-func ResolveRect(ctx context.Context, targetType TargetType) (*wm.Rect, error) {
-	switch targetType {
-	case TargetAll:
-		return nil, nil
-	case TargetOutput:
-		_, rect, err := wm.GetFocusedOutput(ctx)
-		return rect, err
-	case TargetWindow:
-		return wm.GetFocusedWindowRect(ctx)
-	case TargetSelection:
-		d, err := driver.Get[Driver](ctx)
-		if err != nil {
-			return nil, err
-		}
-		return d.SelectArea(ctx)
-	default:
-		return nil, fmt.Errorf("%w: %v", ErrUnknownTargetType, targetType)
-	}
-}
-
 func Capture(ctx context.Context, targetType TargetType) (string, error) {
-	d, err := driver.Get[Driver](ctx)
+	rect, err := lewscreenshot.ResolveRect(ctx, targetType)
 	if err != nil {
 		return "", err
 	}
 
-	rect, err := ResolveRect(ctx, targetType)
-	if err != nil {
-		return "", err
-	}
-
-	img, err := d.Capture(ctx, rect)
+	img, err := lewscreenshot.Capture(ctx, rect)
 	if err != nil {
 		return "", err
 	}
@@ -83,7 +58,7 @@ func Capture(ctx context.Context, targetType TargetType) (string, error) {
 
 	// Post-processing: Clipboard
 	go func() {
-		if err := clipboard.WriteImage(ctx, img); err != nil {
+		if err := lewclip.WriteImage(ctx, img); err != nil {
 			logging.ReportError(ctx, err)
 		}
 	}()
@@ -112,7 +87,7 @@ func notifySaved(ctx context.Context, path string, target TargetType) {
 		Message: path,
 		Icon:    "camera-photo",
 	}
-	if err := notification.Notify(ctx, &n); err != nil {
+	if err := lewnotify.Notify(ctx, n); err != nil {
 		logging.ReportError(ctx, err)
 	}
 }

@@ -3,71 +3,52 @@ package media
 import (
 	"context"
 	"fmt"
-	"github.com/lewtec/modot/internal/driver"
-	"github.com/lewtec/modot/internal/driver/notification"
-	"github.com/lewtec/modot/internal/logging"
 	"time"
+
+	lewmedia "github.com/lewtec/lewkit/x/driver/media"
+	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
+	"github.com/lewtec/modot/internal/logging"
 )
 
 func RunAction(ctx context.Context, action string) error {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return err
-	}
-
+	var err error
 	switch action {
 	case "next":
-		err = d.Next(ctx)
+		err = lewmedia.Next(ctx)
 	case "previous":
-		err = d.Previous(ctx)
+		err = lewmedia.Previous(ctx)
 	case "play-pause":
-		err = d.PlayPause(ctx)
+		err = lewmedia.PlayPause(ctx)
 	case "stop":
-		err = d.Stop(ctx)
+		err = lewmedia.Stop(ctx)
 	case "show":
-		// just show
 	default:
 		return fmt.Errorf("unknown action: %s", action)
 	}
-
 	if err != nil {
 		return err
 	}
-
-	// Small delay to let the player update metadata
 	if action == "next" || action == "previous" || action == "play-pause" {
 		time.Sleep(200 * time.Millisecond)
 	}
-
 	return ShowStatus(ctx)
 }
 
 func ShowStatus(ctx context.Context) error {
-	d, err := driver.Get[Driver](ctx)
+	meta, err := lewmedia.GetMetadata(ctx)
 	if err != nil {
 		return err
 	}
-
-	meta, err := d.GetMetadata(ctx)
-	if err != nil {
-		return err
-	}
-
 	return Notify(ctx, meta)
 }
 
 func Notify(ctx context.Context, meta *Metadata) error {
-	if meta == nil || meta.Title == "" {
+	note, ok := lewmedia.StatusNotification(meta)
+	if !ok {
 		logger := logging.GetLogger(ctx)
 		logger.Warn("no active player with title found")
 		return nil
 	}
-
-	progress := 0.0
-	if meta.Length > 0 {
-		progress = float64(meta.Position) / float64(meta.Length)
-	}
-
 	iconPath := ""
 	if meta.ArtUrl != "" {
 		var err error
@@ -76,46 +57,22 @@ func Notify(ctx context.Context, meta *Metadata) error {
 			logging.ReportError(ctx, err)
 		}
 	}
-
-	title := meta.Title
-	if title == "" {
-		title = "Unknown Track"
-	}
-	message := meta.Artist
-	if message == "" {
-		message = "Unknown Artist"
-	}
-
-	n := notification.Notification{
-		ID:          notification.StatusNotificationID,
-		Title:       title,
-		Message:     message,
-		Icon:        iconPath,
-		Progress:    progress,
-		HasProgress: true,
-	}
+	note.Icon = iconPath
 
 	logger := logging.GetLogger(ctx)
 	logger.Info("sending media notification",
 		"player", meta.Player,
-		"title", title,
-		"artist", message,
-		"progress", progress,
+		"title", note.Title,
+		"artist", note.Message,
+		"progress", note.Progress,
 		"icon", iconPath,
 	)
 
-	return notification.Notify(ctx, &n)
+	return lewnotify.Notify(ctx, note)
 }
 
 func Watch(ctx context.Context) {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		logger := logging.GetLogger(ctx)
-		logger.Error("failed to get media driver for watch", "error", err)
-		return
-	}
-
-	err = d.Watch(ctx, func(meta *Metadata) {
+	err := lewmedia.Watch(ctx, func(meta *Metadata) {
 		if err := Notify(ctx, meta); err != nil {
 			logging.ReportError(ctx, err)
 		}

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lewtec/modot/internal/driver/screen"
+	lewscreen "github.com/lewtec/lewkit/x/driver/screen"
 	"github.com/lewtec/modot/internal/logging"
 )
 
@@ -48,13 +48,13 @@ func monitorCapsLock(ctx context.Context) {
 			}
 
 			logger := logging.GetLogger(ctx)
-			screenActive, err := screen.IsDPMSOn(ctx)
+			screenActive, err := lewscreen.IsDPMSOn(ctx)
 			if err != nil {
 				logger.Error("on checking if screen is active", "error", err)
 			}
 			if !capsActive != screenActive {
 				logger.Info("toggling screen", "active", !capsActive)
-				if err := screen.SetDPMS(ctx, !capsActive); err != nil {
+				if err := lewscreen.SetDPMS(ctx, !capsActive); err != nil {
 					logger.Error("failed to set screen DPMS", "active", !capsActive, "error", err)
 				}
 			}

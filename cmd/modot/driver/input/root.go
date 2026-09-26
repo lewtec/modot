@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lewtec/modot/internal/driver/dialog"
+	"github.com/lewtec/lewkit/x/driver/launcher"
 )
 
 var ErrCancelled = errors.New("cancelled")
@@ -35,7 +35,7 @@ func (c *Text) Run(ctx context.Context) error {
 	if c.prompt != nil {
 		prompt = c.prompt.Value()
 	}
-	res, err := dialog.Prompt(ctx, prompt)
+	res, err := launcher.Prompt(ctx, prompt)
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func (c *Confirm) Run(ctx context.Context) error {
 	if c.message != nil {
 		msg = c.message.Value()
 	}
-	ok, err := dialog.Confirm(ctx, msg)
+	ok, err := launcher.Confirm(ctx, msg)
 	if err != nil {
 		return err
 	}
@@ -72,11 +72,11 @@ type Choose struct {
 func (Choose) Description() string { return "Select an item from a list" }
 
 func (c *Choose) Run(ctx context.Context) error {
-	items := make([]dialog.Item, 0, len(c.options))
+	items := make([]launcher.Item, 0, len(c.options))
 	for _, arg := range c.options {
-		items = append(items, dialog.Item{Label: arg.Value(), Value: arg.Value()})
+		items = append(items, launcher.Item{Label: arg.Value(), Value: arg.Value()})
 	}
-	res, err := dialog.Choose(ctx, dialog.ChooseOptions{
+	res, err := launcher.Choose(ctx, launcher.ChooseOptions{
 		Prompt: c.prompt.Value(),
 		Items:  items,
 	})

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	"github.com/lewtec/modot/internal/cmdarg"
 	"github.com/lewtec/modot/internal/driver/notification"
 )
@@ -28,5 +29,5 @@ func (c *Command) Run(ctx context.Context) error {
 		Urgency:  c.Urgency.Value().String(),
 		Progress: c.Progress.Value(),
 	}
-	return notification.Notify(ctx, n)
+	return lewnotify.Notify(ctx, *n)
 }

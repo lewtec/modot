@@ -4,9 +4,10 @@ import (
 	"context"
 
 	"github.com/lewtec/lewkit/x/cmd"
+	lewopener "github.com/lewtec/lewkit/x/driver/opener"
+	lewterminal "github.com/lewtec/lewkit/x/driver/terminal"
 	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/driver/opener"
-	"github.com/lewtec/modot/internal/driver/terminal"
 )
 
 type Command struct {
@@ -29,7 +30,7 @@ type File struct {
 func (File) Description() string { return "Open a file or URL" }
 
 func (f *File) Run(ctx context.Context) error {
-	return opener.Open(ctx, f.Target.Value())
+	return lewopener.Open(ctx, f.Target.Value())
 }
 
 type Webapp struct {
@@ -86,12 +87,12 @@ func (Terminal) Description() string { return "Launch the preferred terminal" }
 
 func (t *Terminal) Run(ctx context.Context) error {
 	args := cmd.Values(t.cmd)
-	opts := terminal.Options{
+	opts := lewterminal.Options{
 		Title: "Terminal",
 	}
 	if len(args) > 0 {
 		opts.Command = args[0]
 		opts.Args = args[1:]
 	}
-	return terminal.Open(ctx, opts)
+	return lewterminal.Open(ctx, opts)
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/driver/notification"
 	"github.com/lewtec/modot/internal/logging"
@@ -49,7 +50,7 @@ func QuickSync(ctx context.Context, repoDir string) error {
 		repoPath := filepath.Join(repoDir, repoName)
 		n.Message = fmt.Sprintf("Syncing %s...", repoName)
 		n.Progress = float64(i) / float64(total)
-		logging.ReportError(ctx, notification.Notify(ctx, n))
+		logging.ReportError(ctx, lewnotify.Notify(ctx, *n))
 
 		logger.Info("syncing repository", "repo", repoName)
 		if err := SyncRepo(ctx, repoPath); err != nil {
@@ -60,13 +61,13 @@ func QuickSync(ctx context.Context, repoDir string) error {
 				Urgency: "critical",
 				Icon:    "dialog-warning",
 			}
-			logging.ReportError(ctx, notification.Notify(ctx, errN))
+			logging.ReportError(ctx, lewnotify.Notify(ctx, *errN))
 		}
 	}
 
 	n.Message = "Sync completed."
 	n.Progress = 1.0
-	logging.ReportError(ctx, notification.Notify(ctx, n))
+	logging.ReportError(ctx, lewnotify.Notify(ctx, *n))
 
 	return nil
 }

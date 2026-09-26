@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/cmdctx"
 	"github.com/lewtec/modot/internal/configcue"
@@ -141,7 +142,7 @@ func RunFullBackup(ctx context.Context) error {
 				Message:     name,
 				Progress:    float64(item.Idx+1) / float64(len(actions)),
 			}
-			logging.ReportError(ctx, notification.Notify(ctx, n2))
+			logging.ReportError(ctx, lewnotify.Notify(ctx, *n2))
 
 			// Nested rsync leaves report errors to the group. Isolate so one
 			// failed action does not cancel siblings (first-error-wins).
@@ -173,13 +174,13 @@ func RunFullBackup(ctx context.Context) error {
 		n.Message = strings.Join(failures, "\n")
 		n.Urgency = "critical"
 		n.Progress = 1.0
-		logging.ReportError(ctx, notification.Notify(ctx, n))
+		logging.ReportError(ctx, lewnotify.Notify(ctx, *n))
 		return fmt.Errorf("backup finished with %d failure(s): %s", len(failures), strings.Join(failures, "; "))
 	}
 
 	n.Title = "Backup finalizado"
 	n.Progress = 1.0
-	logging.ReportError(ctx, notification.Notify(ctx, n))
+	logging.ReportError(ctx, lewnotify.Notify(ctx, *n))
 	logger.Info("backup finished successfully")
 	return nil
 }
