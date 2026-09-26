@@ -3,10 +3,11 @@ package power
 import (
 	"context"
 	"fmt"
+
+	lewpower "github.com/lewtec/lewkit/x/driver/power"
 	"github.com/lewtec/modot/internal/api"
 	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/logging"
-	"net"
 )
 
 func Wake(ctx context.Context, host string) error {
@@ -22,47 +23,15 @@ func Wake(ctx context.Context, host string) error {
 	}
 
 	hostCfg, ok := hosts[host]
-	macStr := ""
 	if !ok {
 		return fmt.Errorf("%w: %s", api.ErrHostNotFound, host)
-	} else {
-		macStr = hostCfg.MAC
 	}
-
-	if macStr == "" {
+	if hostCfg.MAC == "" {
 		return fmt.Errorf("%w: host %s has no MAC address", api.ErrConfigNotFound, host)
 	}
-
-	hwAddr, err := net.ParseMAC(macStr)
-	if err != nil {
-		return fmt.Errorf("%w: %s (%w)", api.ErrInvalidAddr, macStr, err)
+	if err := lewpower.Wake(ctx, hostCfg.MAC); err != nil {
+		return err
 	}
-
-	packet := make([]byte, 6+16*6)
-	for i := range 6 {
-		packet[i] = 0xFF
-	}
-	for i := 1; i <= 16; i++ {
-		copy(packet[i*6:(i+1)*6], hwAddr)
-	}
-
-	var d net.Dialer
-	conn, err := d.DialContext(ctx, "udp", "255.255.255.255:9")
-	if err != nil {
-		return fmt.Errorf("dial UDP broadcast: %w", err)
-	}
-	defer func() {
-		if err := conn.Close(); err != nil {
-			logging.ReportError(ctx, err)
-		}
-	}()
-
-	_, err = conn.Write(packet)
-	if err != nil {
-		return fmt.Errorf("send magic packet: %w", err)
-	}
-
-	logger := logging.GetLogger(ctx)
-	logger.Info("sent Wake-on-LAN magic packet", "host", host, "mac", macStr)
+	logging.GetLogger(ctx).Info("sent Wake-on-LAN magic packet", "host", host, "mac", hostCfg.MAC)
 	return nil
 }

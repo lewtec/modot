@@ -7,7 +7,6 @@ import (
 
 	lewmedia "github.com/lewtec/lewkit/x/driver/media"
 	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
-	"github.com/lewtec/modot/internal/driver/notification"
 	"github.com/lewtec/modot/internal/logging"
 )
 
@@ -44,17 +43,12 @@ func ShowStatus(ctx context.Context) error {
 }
 
 func Notify(ctx context.Context, meta *Metadata) error {
-	if meta == nil || meta.Title == "" {
+	note, ok := lewmedia.StatusNotification(meta)
+	if !ok {
 		logger := logging.GetLogger(ctx)
 		logger.Warn("no active player with title found")
 		return nil
 	}
-
-	progress := 0.0
-	if meta.Length > 0 {
-		progress = float64(meta.Position) / float64(meta.Length)
-	}
-
 	iconPath := ""
 	if meta.ArtUrl != "" {
 		var err error
@@ -63,35 +57,18 @@ func Notify(ctx context.Context, meta *Metadata) error {
 			logging.ReportError(ctx, err)
 		}
 	}
-
-	title := meta.Title
-	if title == "" {
-		title = "Unknown Track"
-	}
-	message := meta.Artist
-	if message == "" {
-		message = "Unknown Artist"
-	}
-
-	n := notification.Notification{
-		ID:          notification.StatusNotificationID,
-		Title:       title,
-		Message:     message,
-		Icon:        iconPath,
-		Progress:    progress,
-		HasProgress: true,
-	}
+	note.Icon = iconPath
 
 	logger := logging.GetLogger(ctx)
 	logger.Info("sending media notification",
 		"player", meta.Player,
-		"title", title,
-		"artist", message,
-		"progress", progress,
+		"title", note.Title,
+		"artist", note.Message,
+		"progress", note.Progress,
 		"icon", iconPath,
 	)
 
-	return lewnotify.Notify(ctx, n)
+	return lewnotify.Notify(ctx, note)
 }
 
 func Watch(ctx context.Context) {

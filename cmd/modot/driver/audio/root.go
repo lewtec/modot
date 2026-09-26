@@ -5,8 +5,6 @@ import (
 
 	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	"github.com/lewtec/lewkit/x/driver/volume"
-	"github.com/lewtec/modot/internal/driver"
-	"github.com/lewtec/modot/internal/driver/notification"
 	"github.com/lewtec/modot/internal/logging"
 )
 
@@ -26,14 +24,20 @@ type Up struct{}
 
 func (Up) Description() string { return "Increase volume" }
 func (*Up) Run(ctx context.Context) error {
-	return adjustVolume(ctx, 0.05)
+	if err := volume.Increase(ctx); err != nil {
+		return err
+	}
+	return showVolume(ctx)
 }
 
 type Down struct{}
 
 func (Down) Description() string { return "Decrease volume" }
 func (*Down) Run(ctx context.Context) error {
-	return adjustVolume(ctx, -0.05)
+	if err := volume.Decrease(ctx); err != nil {
+		return err
+	}
+	return showVolume(ctx)
 }
 
 type Mute struct{}
@@ -53,49 +57,19 @@ func (*Show) Run(ctx context.Context) error {
 	return showVolume(ctx)
 }
 
-func adjustVolume(ctx context.Context, delta float64) error {
-	vol, err := volume.GetVolume(ctx)
-	if err != nil {
-		return err
-	}
-	if err := volume.SetVolume(ctx, driver.Clamp01(vol+delta)); err != nil {
-		return err
-	}
-	return showVolume(ctx)
-}
-
 func showVolume(ctx context.Context) error {
 	level, err := volume.GetVolume(ctx)
 	if err != nil {
 		return err
 	}
-	isMuted, err := volume.GetMute(ctx)
+	muted, err := volume.GetMute(ctx)
 	if err != nil {
 		return err
 	}
-	sinkName, err := volume.SinkName(ctx)
+	sink, err := volume.SinkName(ctx)
 	if err != nil {
 		return err
 	}
-
-	icon := "audio-volume-high"
-	if isMuted || level == 0 {
-		icon = "audio-volume-muted"
-	} else if level < .33 {
-		icon = "audio-volume-low"
-	} else if level < .66 {
-		icon = "audio-volume-medium"
-	}
-
-	logger := logging.GetLogger(ctx)
-	logger.Info("volume updated", "level", level, "sink", sinkName, "muted", isMuted)
-
-	return lewnotify.Notify(ctx, notification.Notification{
-		ID:          notification.StatusNotificationID,
-		Title:       "Volume",
-		Message:     sinkName,
-		Icon:        icon,
-		Progress:    level,
-		HasProgress: true,
-	})
+	logging.GetLogger(ctx).Info("volume updated", "level", level, "sink", sink, "muted", muted)
+	return lewnotify.Notify(ctx, volume.StatusNotification(level, muted, sink))
 }

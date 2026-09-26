@@ -10,8 +10,8 @@ import (
 	"github.com/lewtec/lewkit/x/cmd"
 	lewdriver "github.com/lewtec/lewkit/x/driver"
 	"github.com/lewtec/lewkit/x/driver/launcher"
+	lewwm "github.com/lewtec/lewkit/x/driver/wm"
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/driver/wm"
 	"github.com/lewtec/modot/internal/filespine"
 )
 
@@ -67,5 +67,5 @@ func (c *Workspace) Run(ctx context.Context) error {
 		return nil
 	}
 
-	return wm.SwitchToWorkspace(ctx, selected.Value, c.Move.Value())
+	return lewwm.SwitchToWorkspace(ctx, selected.Value, c.Move.Value())
 }
