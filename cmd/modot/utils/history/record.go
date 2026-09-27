@@ -52,10 +52,6 @@ func (r *Record) Run(ctx context.Context) error {
 		return database.RecordHistory(ctx, event)
 	}
 
-	if err := sendHistoryEvent(ctx, event); err == nil {
-		return nil
-	}
-
 	database, err := db.OpenFromCtx(ctx)
 	if err != nil {
 		return err
