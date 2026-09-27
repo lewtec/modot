@@ -46,6 +46,12 @@ func TestHistoryDatabaseIsOnGroup(t *testing.T) {
 
 	app = cmd.ParseOK[cmd.App[cli]](t, "utils", "history", "list", "--database", "/tmp/ws-hist2.db")
 	assert.Equal(t, "/tmp/ws-hist2.db", app.Args.Utils.History.Database.Value().URL())
+
+	app = cmd.ParseOK[cmd.App[cli]](t, "history", "list", "--format", "csv", "--database", "/tmp/ws-hist3.db")
+	require.NotNil(t, app.Args.History)
+	require.NotNil(t, app.Args.History.List)
+	assert.Equal(t, "/tmp/ws-hist3.db", app.Args.History.Database.Value().URL())
+	assert.Equal(t, "csv", app.Args.History.List.Format.Value().String())
 }
 
 func TestSelfInstallForceSelected(t *testing.T) {

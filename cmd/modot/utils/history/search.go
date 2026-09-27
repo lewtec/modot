@@ -12,6 +12,7 @@ import (
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lewtec/modot/internal/afterwait"
 	"github.com/lewtec/modot/internal/db"
+	"github.com/lewtec/modot/internal/types"
 )
 
 var ErrNoHistory = errors.New("no history found")
@@ -28,11 +29,22 @@ func (s *Search) Run(ctx context.Context) error {
 		return err
 	}
 
-	events, err := database.SearchHistory(ctx, "", 5000)
+	cwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("fetch history: %w", err)
+		return err
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = ""
 	}
 
+	var events []types.HistoryEvent
+	for event, err := range database.IterHistory(ctx, cwd, 5000) {
+		if err != nil {
+			return fmt.Errorf("fetch history: %w", err)
+		}
+		events = append(events, event)
+	}
 	if len(events) == 0 {
 		return ErrNoHistory
 	}
@@ -60,7 +72,7 @@ func (s *Search) Run(ctx context.Context) error {
 	idx, err := fuzzyfinder.Find(
 		events,
 		func(i int) string {
-			return events[i].Command
+			return finderLine(events[i], home)
 		},
 		options...,
 	)

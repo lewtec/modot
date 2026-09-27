@@ -100,7 +100,7 @@ The CUE `package` clause has no meaning. `package picuinha` and a missing clause
 | `tool` | Tool | Install the locked program | Load failure. Missing pin |
 | `driver`, `open` | none | Perform the live OS action | Driver failure |
 | `init` | Configuration | Write a starter `modot.cue` | Starter write failure |
-| `utils history` | History | Read rows | Store open failure |
+| `history`, `utils history` | History | Read rows | Store open failure |
 | `is` | none | Print a detection record | Detection failure |
 | `self-install`, `self-update` | Tool | Place this binary in the tool store | Install failure |
 | `svc`, `daemon` | none | Run the background process | Start failure |
