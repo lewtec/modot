@@ -24,8 +24,13 @@ func shortenCwd(dir, home string) string {
 	return dir
 }
 
-func finderLine(event types.HistoryEvent, home string) string {
-	return shortenCwd(event.Cwd, home) + "  " + event.Command
+func finderLine(event types.HistoryEvent) string {
+	return event.Command
+}
+
+// previewFits is false when a sidebar would take half of a narrow terminal.
+func previewFits(width int) bool {
+	return width >= 80
 }
 
 type collapsedRow struct {
@@ -65,7 +70,17 @@ type historySpec struct {
 	Command table.Field[string]
 }
 
+type historyBriefSpec struct {
+	Time    table.Field[time.Time]
+	Count   table.Field[int]
+	Command table.Field[string]
+}
+
 var historyLayout = table.Must(table.Make[historyLine](historySpec{
+	Time: table.Field[time.Time]{Format: time.DateTime},
+}))
+
+var historyBriefLayout = table.Must(table.Make[historyLine](historyBriefSpec{
 	Time: table.Field[time.Time]{Format: time.DateTime},
 }))
 

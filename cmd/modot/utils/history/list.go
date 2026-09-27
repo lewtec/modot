@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"slices"
-	"time"
 
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lewtec/modot/internal/db"
@@ -27,17 +26,14 @@ func (l *List) Run(ctx context.Context) error {
 	if err != nil {
 		home = ""
 	}
-	var lines []historyLine
-	for row, err := range database.ListHistory(ctx, int(l.Limit.Value())) {
-		if err != nil {
-			return err
-		}
-		lines = append(lines, historyLine{
-			Time:    time.Unix(row.Event.Timestamp, 0),
-			Count:   row.Count,
-			Cwd:     shortenCwd(row.Event.Cwd, home),
-			Command: row.Event.Command,
-		})
+	rows, err := collapseHistory(database.ListHistory(ctx, int(l.Limit.Value())))
+	if err != nil {
+		return err
 	}
-	return cmd.Rows(ctx, os.Stdout, slices.Values(lines), historyLayout)
+	slices.Reverse(rows)
+	layout := historyBriefLayout
+	if l.Columns.Value() != "" {
+		layout = historyLayout
+	}
+	return cmd.Rows(ctx, os.Stdout, historyLines(rows, home), layout)
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/lewtec/modot/internal/afterwait"
 	"github.com/lewtec/modot/internal/db"
 	"github.com/lewtec/modot/internal/types"
+	"golang.org/x/term"
 )
 
 var ErrNoHistory = errors.New("no history found")
@@ -33,11 +34,6 @@ func (s *Search) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = ""
-	}
-
 	var events []types.HistoryEvent
 	for event, err := range database.IterHistory(ctx, cwd, 5000) {
 		if err != nil {
@@ -49,8 +45,9 @@ func (s *Search) Run(ctx context.Context) error {
 		return ErrNoHistory
 	}
 
-	options := []fuzzyfinder.Option{
-		fuzzyfinder.WithPreviewWindow(func(i int, width int, height int) string {
+	var options []fuzzyfinder.Option
+	if width, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && previewFits(width) {
+		options = append(options, fuzzyfinder.WithPreviewWindow(func(i int, width int, height int) string {
 			if i == -1 {
 				return ""
 			}
@@ -58,7 +55,7 @@ func (s *Search) Run(ctx context.Context) error {
 			t := time.Unix(e.Timestamp, 0).Format("2006-01-02 15:04:05")
 			return fmt.Sprintf("Time:     %s\nExitCode: %d\nCwd:      %s\nDuration: %dms\n\nCommand:\n%s",
 				t, e.ExitCode, e.Cwd, e.Duration, e.Command)
-		}),
+		}))
 	}
 
 	if len(s.query) > 0 {
@@ -72,7 +69,7 @@ func (s *Search) Run(ctx context.Context) error {
 	idx, err := fuzzyfinder.Find(
 		events,
 		func(i int) string {
-			return finderLine(events[i], home)
+			return finderLine(events[i])
 		},
 		options...,
 	)
