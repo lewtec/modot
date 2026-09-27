@@ -2,21 +2,19 @@ package history
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"os"
-	"time"
+	"slices"
 
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lewtec/modot/internal/db"
 )
 
 type List struct {
-	Limit cmd.IntArg[int32] `long:"limit" help:"Limit number of entries" default:"5000"`
-	JSON  cmd.Flag          `long:"json" help:"Output as JSON"`
+	cmd.Output `flatten:""`
+	Limit      cmd.IntArg[int32] `long:"limit" help:"Limit number of entries" default:"5000"`
 }
 
-func (List) Description() string { return "List history entries (internal use)" }
+func (List) Description() string { return "List history entries, newest last" }
 
 func (l *List) Run(ctx context.Context) error {
 	database, err := db.OpenFromCtx(ctx)
@@ -24,21 +22,18 @@ func (l *List) Run(ctx context.Context) error {
 		return err
 	}
 
-	events, err := database.SearchHistory(ctx, "", int(l.Limit.Value()))
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = ""
+	}
+	rows, err := collapseHistory(database.ListHistory(ctx, int(l.Limit.Value())))
 	if err != nil {
 		return err
 	}
-
-	if l.JSON.Value() {
-		return json.NewEncoder(os.Stdout).Encode(events)
+	slices.Reverse(rows)
+	layout := historyBriefLayout
+	if l.Columns.Value() != "" {
+		layout = historyLayout
 	}
-
-	for _, e := range events {
-		t := time.Unix(e.Timestamp, 0).Format("2006-01-02 15:04:05")
-		if _, err := fmt.Fprintf(os.Stdout, "%s\t%s\n", t, e.Command); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return cmd.Rows(ctx, os.Stdout, historyLines(rows, home), layout)
 }

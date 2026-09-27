@@ -20,6 +20,7 @@ import (
 	pkg_system "github.com/lewtec/modot/cmd/modot/system"
 	pkg_tool "github.com/lewtec/modot/cmd/modot/tool"
 	pkg_utils "github.com/lewtec/modot/cmd/modot/utils"
+	pkg_history "github.com/lewtec/modot/cmd/modot/utils/history"
 )
 
 // cli is the modot command spec. Process flags live on cmd.App[cli].
@@ -31,6 +32,7 @@ type cli struct {
 	Codebase    *pkg_codebase.Command
 	Driver      *pkg_driver.Command
 	Experiments *pkg_experiments.Command
+	History     *pkg_history.Command
 	Home        *pkg_home.Command
 	Init        *pkg_init.Command
 	Is          *pkg_is.Command

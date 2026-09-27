@@ -29,10 +29,16 @@ type SearchHistoryParams struct {
 	Command string
 	Limit   int64
 }
+type HistoryPreferCwdParams struct {
+	PreferCwd string
+	RowLimit  int64
+}
 type Queries interface {
 	CopyAttachedHistory(ctx context.Context) error
 	CountHistorySrc(ctx context.Context) (int64, error)
 	GetHistory(ctx context.Context, limit int64) ([]History, error)
+	HistoryPreferCwd(ctx context.Context, arg HistoryPreferCwdParams) ([]History, error)
+	RecentHistory(ctx context.Context, limit int64) ([]History, error)
 	RecordHistory(ctx context.Context, arg RecordHistoryParams) error
 	SearchHistory(ctx context.Context, arg SearchHistoryParams) ([]History, error)
 }
@@ -48,6 +54,22 @@ func (w sqliteWrap) CountHistorySrc(ctx context.Context) (int64, error) {
 }
 func (w sqliteWrap) GetHistory(ctx context.Context, limit int64) ([]History, error) {
 	v, err := w.q.GetHistory(ctx, limit)
+	out := make([]History, len(v))
+	for i := range v {
+		out[i] = History(v[i])
+	}
+	return out, err
+}
+func (w sqliteWrap) HistoryPreferCwd(ctx context.Context, arg HistoryPreferCwdParams) ([]History, error) {
+	v, err := w.q.HistoryPreferCwd(ctx, sqlite.HistoryPreferCwdParams(arg))
+	out := make([]History, len(v))
+	for i := range v {
+		out[i] = History(v[i])
+	}
+	return out, err
+}
+func (w sqliteWrap) RecentHistory(ctx context.Context, limit int64) ([]History, error) {
+	v, err := w.q.RecentHistory(ctx, limit)
 	out := make([]History, len(v))
 	for i := range v {
 		out[i] = History(v[i])

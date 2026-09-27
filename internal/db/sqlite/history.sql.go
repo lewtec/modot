@@ -66,6 +66,86 @@ func (q *Queries) GetHistory(ctx context.Context, limit int64) ([]History, error
 	return items, nil
 }
 
+const historyPreferCwd = `-- name: HistoryPreferCwd :many
+SELECT id, command, cwd, timestamp, exit_code, duration_ms FROM (
+  SELECT id, command, cwd, timestamp, exit_code, duration_ms, (cwd = ?1) AS prefer
+  FROM history
+)
+ORDER BY prefer DESC, timestamp DESC, id DESC
+LIMIT ?2
+`
+
+type HistoryPreferCwdParams struct {
+	PreferCwd string
+	RowLimit  int64
+}
+
+func (q *Queries) HistoryPreferCwd(ctx context.Context, arg HistoryPreferCwdParams) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, historyPreferCwd, arg.PreferCwd, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []History
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Command,
+			&i.Cwd,
+			&i.Timestamp,
+			&i.ExitCode,
+			&i.DurationMs,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const recentHistory = `-- name: RecentHistory :many
+SELECT id, command, cwd, timestamp, exit_code, duration_ms FROM history
+ORDER BY timestamp DESC, id DESC
+LIMIT ?
+`
+
+func (q *Queries) RecentHistory(ctx context.Context, limit int64) ([]History, error) {
+	rows, err := q.db.QueryContext(ctx, recentHistory, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []History
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Command,
+			&i.Cwd,
+			&i.Timestamp,
+			&i.ExitCode,
+			&i.DurationMs,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const recordHistory = `-- name: RecordHistory :exec
 INSERT INTO history (command, cwd, timestamp, exit_code, duration_ms)
 VALUES (?, ?, ?, ?, ?)
