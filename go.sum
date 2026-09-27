@@ -166,8 +166,14 @@ github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
 github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3 h1:zcMi8R8vP0WrrXlFMNUBpDy/ydo3sTnCcUPowq1XmSc=
 github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3/go.mod h1:RSub3ourNF8Hf+swvw49Catm3s7HVf4hzdFxDUnEzdA=
-github.com/lewtec/lewkit v0.0.0-20260926004721-11710eb97853 h1:Q9WSq9PoTeu9+j5qn3Fg7FBqz3hQmIR7v/AVfi3jTYU=
-github.com/lewtec/lewkit v0.0.0-20260926004721-11710eb97853/go.mod h1:5JbYG3q20rGDjBvl3jc2AVwkC18lZMk87AMGWkPZJBk=
+github.com/lewtec/leaven v0.0.0-20260814142252-666e23083398 h1:WZkGYLNpijUbXwthaHVpgZssRFN052D1xnINef5qvt8=
+github.com/lewtec/leaven v0.0.0-20260814142252-666e23083398/go.mod h1:dm9Ri4N6fnxAcLFsAx9mJyy4mwuF9aLJesoB/G4SjiA=
+github.com/lewtec/leaven-tree-sitter/grammar v0.0.0-20260927175155-6b7c6c643bc9 h1:1kN9A+oHokqYbcH+xVcCukoJLX2KZnLsyS5T4yQUWDw=
+github.com/lewtec/leaven-tree-sitter/grammar v0.0.0-20260927175155-6b7c6c643bc9/go.mod h1:OxqZKICIWGwyxFEx8Wri6I4DCUU7lg0tSLzX73tkHQ8=
+github.com/lewtec/lewkit v0.0.0-20260927190338-001818778ffe h1:VtSLJnsdrioPPLd56iU2Ow8nbQNZ+jhLvh7fIRoL4RY=
+github.com/lewtec/lewkit v0.0.0-20260927190338-001818778ffe/go.mod h1:PsR/9TtvXzCM10+rHRoLSIfDQ6bANcwuIcw6Jtjbsdk=
+github.com/lewtec/wazero-tree-sitter/grammar v0.0.0-20260927175003-766673523e06 h1:qYGqfJ5fiQeRfSxsvcOwVbADQsZy8raGYr6l1EpaaOc=
+github.com/lewtec/wazero-tree-sitter/grammar v0.0.0-20260927175003-766673523e06/go.mod h1:xwgf7PJSOWRAqcuffR314NyyEYgsyeTP/Y1FxvykQBk=
 github.com/lib/pq v1.12.3 h1:tTWxr2YLKwIvK90ZXEw8GP7UFHtcbTtty8zsI+YjrfQ=
 github.com/lib/pq v1.12.3/go.mod h1:/p+8NSbOcwzAEI7wiMXFlgydTwcgTr3OSKMsD2BitpA=
 github.com/lucasb-eyer/go-colorful v1.2.0/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=
@@ -185,6 +191,8 @@ github.com/mitchellh/go-wordwrap v1.0.1 h1:TLuKupo69TCn6TQSyGxwI1EblZZEsQ0vMlAFQ
 github.com/mitchellh/go-wordwrap v1.0.1/go.mod h1:R62XHJLzvMFRBbcrT7m7WgmE1eOyTSsCt+hzestvNj0=
 github.com/mmcloughlin/md4 v0.1.2 h1:kGYl+iNbxhyz4u76ka9a+0TXP9KWt/LmnM0QhZwhcBo=
 github.com/mmcloughlin/md4 v0.1.2/go.mod h1:AAxFX59fddW0IguqNzWlf1lazh1+rXeIt/Bj49cqDTQ=
+github.com/modernc-tree-sitter/ccgo-tree-sitter/core v0.0.0-20260927184652-669b18df5afb h1:6nBzezcG46u3NP6VFP1qFxVZaOA8FfI+n6dHQkVWNtk=
+github.com/modernc-tree-sitter/ccgo-tree-sitter/core v0.0.0-20260927184652-669b18df5afb/go.mod h1:ZM0YgutCnS8l4O2+tpgtd/r44fuZqkXFV01PWfqeGaw=
 github.com/muesli/cancelreader v0.2.2 h1:3I4Kt4BQjOR54NavqnDogx/MIoWBFa0StPA8ELUXHmA=
 github.com/muesli/cancelreader v0.2.2/go.mod h1:3XuTXfFS2VjM+HTLZY9Ak0l6eUKfijIfMUZ4EgX0QYo=
 github.com/ncruces/go-sqlite3 v0.32.0 h1:hNBUXp88LrfQCsuyXLqWTbTUG35sUuktDsqhhgHvU20=
