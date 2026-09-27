@@ -18,6 +18,10 @@ type History struct {
 	ExitCode   int64
 	DurationMs int64
 }
+type HistoryPreferCwdParams struct {
+	PreferCwd string
+	RowLimit  int64
+}
 type RecordHistoryParams struct {
 	Command    string
 	Cwd        string
@@ -28,10 +32,6 @@ type RecordHistoryParams struct {
 type SearchHistoryParams struct {
 	Command string
 	Limit   int64
-}
-type HistoryPreferCwdParams struct {
-	PreferCwd string
-	RowLimit  int64
 }
 type Queries interface {
 	CopyAttachedHistory(ctx context.Context) error
