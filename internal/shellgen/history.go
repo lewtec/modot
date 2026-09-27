@@ -13,7 +13,7 @@ func GenerateHistory() (string, error) {
 		return
 	fi
 
-	# Send to daemon in background and detach completely to prevent job control messages
+	# Record in the background so the prompt is not blocked
 	(modot utils history record \
 		--command "$cmd" \
 		--cwd "$PWD" \

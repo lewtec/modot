@@ -18,7 +18,6 @@ type Generator func(context.Context) (string, error)
 
 var generators = map[string]Generator{
 	"05-flags":   func(ctx context.Context) (string, error) { return GenerateFlags(ctx) },
-	"06-daemon":  func(ctx context.Context) (string, error) { return GenerateDaemon() },
 	"20-history": func(ctx context.Context) (string, error) { return GenerateHistory() },
 }
 

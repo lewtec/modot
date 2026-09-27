@@ -7,15 +7,6 @@ import (
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 )
 
-// GenerateDaemon generates daemon startup code
-func GenerateDaemon() (string, error) {
-	return `# Start modot daemon if available
-if command -v modot >/dev/null 2>&1; then
-	(modot daemon --try &) &>/dev/null
-fi
-`, nil
-}
-
 // GenerateFlags generates shell init flags
 func GenerateFlags(ctx context.Context) (string, error) {
 	root, err := envdriver.GetDotfilesRoot(ctx)

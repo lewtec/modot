@@ -4,19 +4,15 @@ import (
 	"bufio"
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
-	"github.com/lewtec/modot/internal/logging"
-	"github.com/lewtec/modot/internal/types"
-	"net"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/lewtec/modot/internal/db"
+	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/types"
 )
 
 type Command struct {
@@ -115,37 +111,4 @@ func ingestAtuin(ctx context.Context) ([]types.HistoryEvent, error) {
 		return nil, fmt.Errorf("iterate atuin history: %w", err)
 	}
 	return events, nil
-}
-
-func sendHistoryEvent(ctx context.Context, event types.HistoryEvent) error {
-	socketPath := types.DaemonSocketPath()
-	dialer := websocket.Dialer{
-		NetDial: func(network, addr string) (net.Conn, error) {
-			return net.DialTimeout("unix", socketPath, 200*time.Millisecond)
-		},
-	}
-
-	conn, resp, err := dialer.Dial("ws://localhost/ws", nil)
-	if err != nil {
-		return err // Return error so caller can fallback
-	}
-	if resp != nil && resp.Body != nil {
-		resp.Body.Close()
-	}
-	defer logging.Close(ctx, conn, "socket", socketPath)
-
-	if dlErr := conn.SetWriteDeadline(time.Now().Add(500 * time.Millisecond)); dlErr != nil {
-		logging.ReportError(ctx, dlErr, "op", "set write deadline")
-	}
-	payload, marshalErr := json.Marshal(event)
-	if marshalErr != nil {
-		logging.ReportError(ctx, marshalErr)
-		return marshalErr
-	}
-	packet := types.StreamPacket{
-		Type:    "history_event",
-		Payload: payload,
-	}
-
-	return conn.WriteJSON(packet)
 }
