@@ -44,7 +44,9 @@ Examples:
   modot tool with uv -- uv --version
   modot tool with mise:go@1.21.0 -- go version
   modot tool with mise:go@1.21.0 mise:node@20 -- node --version
-  modot tool with nodejs uv -- node --help`
+  modot tool with nodejs uv -- node --help
+  modot tool with conda:ripgrep@15.2.0 -- rg --version
+  modot tool with conda:bioconda/samtools -- samtools --version`
 }
 
 func (w *With) Run(ctx context.Context) error {

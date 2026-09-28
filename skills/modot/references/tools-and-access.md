@@ -46,7 +46,8 @@ Points worth remembering:
 - Ephemeral access mode; combine with install/shims for day-to-day.
 
 Backends at user level: bare/curated names often registry; languages often
-`mise:`; repos often `github:`. If a bare name fails, try explicit backend or
+`mise:`; repos often `github:`; conda channels often `conda:` (`conda:ripgrep`,
+`conda:bioconda/samtools`). If a bare name fails, try explicit backend or
 `tool search` (see help).
 
 ## Other verbs (names only)
