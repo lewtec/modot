@@ -7,7 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/lewtec/modot/internal/driver"
+	lewdriver "github.com/lewtec/lewkit/x/driver"
+
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 )
 
@@ -29,17 +30,17 @@ type Driver interface {
 
 // Get returns the active shim driver
 func Get(ctx context.Context) (Driver, error) {
-	return driver.Get[Driver](ctx)
+	return lewdriver.Get[Driver](ctx)
 }
 
 // GenerateContent creates shim script content using the active driver
 func GenerateContent(ctx context.Context, command []string) (string, error) {
-	return driver.WithResult(ctx, func(d Driver) (string, error) { return d.GenerateContent(command) })
+	return lewdriver.WithResult(ctx, func(d Driver) (string, error) { return d.GenerateContent(command) })
 }
 
 // Generate creates a shim using the active driver
 func Generate(ctx context.Context, path string, command []string) error {
-	return driver.With(ctx, func(d Driver) error { return d.Generate(ctx, path, command) })
+	return lewdriver.With(ctx, func(d Driver) error { return d.Generate(ctx, path, command) })
 }
 
 // LocalBinDir returns ~/.local/bin for the current user.

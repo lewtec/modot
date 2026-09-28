@@ -9,11 +9,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	lewdriver "github.com/lewtec/lewkit/x/driver"
+	lewexec "github.com/lewtec/lewkit/x/driver/exec"
+
 	"github.com/lewtec/modot/internal/api"
 	"github.com/lewtec/modot/internal/atomicfile"
 	"github.com/lewtec/modot/internal/driver"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
-	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/executil"
 	"github.com/lewtec/modot/internal/logging"
 )
@@ -27,6 +29,8 @@ func (f *Factory) ID() string {
 func (f *Factory) Name() string {
 	return "Termux"
 }
+
+func (f *Factory) Weight() int { return 60 }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	// TERMUX_VERSION is not guaranteed to be exported in every shell/session.
@@ -43,13 +47,15 @@ func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	return fmt.Errorf("%w: not running in Termux", driver.ErrIncompatible)
 }
 
-func (f *Factory) New(ctx context.Context) (execdriver.Driver, error) {
+func (f *Factory) New(ctx context.Context) (lewexec.Driver, error) {
 	return &Driver{}, nil
 }
 
 type Driver struct{}
 
-func (d *Driver) Run(ctx context.Context, name string, args ...string) *exec.Cmd {
+func (d *Driver) Command(name string, args ...string) *exec.Cmd {
+	// lewkit exec.Driver.Command does not take a context.
+	ctx := context.Background()
 	logger := logging.GetLogger(ctx)
 
 	prefix := os.Getenv("PREFIX")
@@ -388,5 +394,5 @@ func (d *Driver) Which(ctx context.Context, name string) (string, error) {
 }
 
 func init() {
-	driver.Register[execdriver.Driver](&Factory{})
+	lewdriver.Register[lewexec.Driver](&Factory{})
 }

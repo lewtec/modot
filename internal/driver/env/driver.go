@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/lewtec/modot/internal/driver"
+	lewdriver "github.com/lewtec/lewkit/x/driver"
 )
 
 // Driver provides platform-specific environment operations.
@@ -41,32 +41,32 @@ type Driver interface {
 
 // GetDotfilesRoot locates the root directory of the dotfiles repository.
 func GetDotfilesRoot(ctx context.Context) (string, error) {
-	return driver.WithResult(ctx, func(d Driver) (string, error) { return d.GetDotfilesRoot(ctx) })
+	return lewdriver.WithResult(ctx, func(d Driver) (string, error) { return d.GetDotfilesRoot(ctx) })
 }
 
 // GetHostname returns the current system hostname.
 func GetHostname(ctx context.Context) (string, error) {
-	return driver.WithResult(ctx, func(d Driver) (string, error) { return d.GetHostname(ctx) })
+	return lewdriver.WithResult(ctx, func(d Driver) (string, error) { return d.GetHostname(ctx) })
 }
 
 // GetUserDataDir returns the path to the user data directory for modot.
 func GetUserDataDir(ctx context.Context) (string, error) {
-	return driver.WithResult(ctx, func(d Driver) (string, error) { return d.GetUserDataDir(ctx) })
+	return lewdriver.WithResult(ctx, func(d Driver) (string, error) { return d.GetUserDataDir(ctx) })
 }
 
 // GetConfigDir returns the path to the user config directory for modot.
 func GetConfigDir(ctx context.Context) (string, error) {
-	return driver.WithResult(ctx, func(d Driver) (string, error) { return d.GetConfigDir(ctx) })
+	return lewdriver.WithResult(ctx, func(d Driver) (string, error) { return d.GetConfigDir(ctx) })
 }
 
 // GetHomeDir returns the actual user home directory.
 func GetHomeDir(ctx context.Context) (string, error) {
-	return driver.WithResult(ctx, func(d Driver) (string, error) { return d.GetHomeDir(ctx) })
+	return lewdriver.WithResult(ctx, func(d Driver) (string, error) { return d.GetHomeDir(ctx) })
 }
 
 // IsPhone checks if the environment suggests we are running on a phone.
 func IsPhone(ctx context.Context) bool {
-	d, err := driver.Get[Driver](ctx)
+	d, err := lewdriver.Get[Driver](ctx)
 	if err != nil {
 		return false
 	}
@@ -75,7 +75,7 @@ func IsPhone(ctx context.Context) bool {
 
 // IsNixOS checks if the system is NixOS.
 func IsNixOS(ctx context.Context) bool {
-	d, err := driver.Get[Driver](ctx)
+	d, err := lewdriver.Get[Driver](ctx)
 	if err != nil {
 		return false
 	}
@@ -84,7 +84,7 @@ func IsNixOS(ctx context.Context) bool {
 
 // GetEssentialPaths returns platform-specific essential PATH directories.
 func GetEssentialPaths(ctx context.Context) []string {
-	paths, err := driver.WithResult(ctx, func(d Driver) ([]string, error) {
+	paths, err := lewdriver.WithResult(ctx, func(d Driver) ([]string, error) {
 		return d.GetEssentialPaths(ctx), nil
 	})
 	if err != nil {

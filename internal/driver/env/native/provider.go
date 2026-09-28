@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	lewdriver "github.com/lewtec/lewkit/x/driver"
+
 	"github.com/lewtec/modot/internal/driver"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 )
@@ -13,6 +15,7 @@ type Factory struct{}
 
 func (f *Factory) ID() string   { return "env_native" }
 func (f *Factory) Name() string { return "Native Environment" }
+func (f *Factory) Weight() int  { return 50 }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error { return nil }
 
@@ -42,5 +45,5 @@ func (d *Driver) GetEssentialPaths(ctx context.Context) []string {
 }
 
 func init() {
-	driver.Register[envdriver.Driver](&Factory{})
+	lewdriver.Register[envdriver.Driver](&Factory{})
 }

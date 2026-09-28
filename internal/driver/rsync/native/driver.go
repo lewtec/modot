@@ -6,8 +6,8 @@ import (
 	"io"
 	"log/slog"
 
+	lewdriver "github.com/lewtec/lewkit/x/driver"
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/driver"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	rsyncdriver "github.com/lewtec/modot/internal/driver/rsync"
 	"github.com/lewtec/modot/internal/executil"
@@ -18,13 +18,14 @@ import (
 var ErrBinaryNotAvailable = errors.New("rsync binary not available")
 
 func init() {
-	driver.Register[rsyncdriver.Driver](&Factory{})
+	lewdriver.Register[rsyncdriver.Driver](&Factory{})
 }
 
 type Factory struct{}
 
 func (f *Factory) ID() string   { return "rsync_native" }
 func (f *Factory) Name() string { return "Native rsync" }
+func (f *Factory) Weight() int  { return 60 }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	return execdriver.RequireBinary(ctx, "rsync")

@@ -3,8 +3,8 @@ package bash
 import (
 	"context"
 	"fmt"
+	lewdriver "github.com/lewtec/lewkit/x/driver"
 	"github.com/lewtec/modot/internal/atomicfile"
-	"github.com/lewtec/modot/internal/driver"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	shimdriver "github.com/lewtec/modot/internal/driver/shim"
 	"os"
@@ -21,6 +21,8 @@ func (f *Factory) ID() string {
 func (f *Factory) Name() string {
 	return "Bash Shim"
 }
+
+func (f *Factory) Weight() int { return 50 }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	_, err := execdriver.Which(ctx, "bash")
@@ -92,5 +94,5 @@ func (d *Driver) Generate(ctx context.Context, path string, command []string) er
 }
 
 func init() {
-	driver.Register[shimdriver.Driver](&Factory{})
+	lewdriver.Register[shimdriver.Driver](&Factory{})
 }

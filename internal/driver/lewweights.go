@@ -1,8 +1,6 @@
 package driver
 
 import (
-	"strings"
-
 	lewdriver "github.com/lewtec/lewkit/x/driver"
 )
 
@@ -17,6 +15,8 @@ var lewIface = map[string]string{
 	"github.com/lewtec/modot/internal/driver/dialog.Confirmer":    "github.com/lewtec/lewkit/x/driver/launcher.Confirmer",
 	"github.com/lewtec/modot/internal/driver/dialog.Driver":       "github.com/lewtec/lewkit/x/driver/launcher.Driver",
 	"github.com/lewtec/modot/internal/driver/dialog.Prompter":     "github.com/lewtec/lewkit/x/driver/launcher.Prompter",
+	"github.com/lewtec/modot/internal/driver/exec.Driver":         "github.com/lewtec/lewkit/x/driver/exec.Driver",
+	"github.com/lewtec/modot/internal/driver/httpclient.Driver":   "github.com/lewtec/lewkit/x/driver/httpclient.Driver",
 	"github.com/lewtec/modot/internal/driver/media.Driver":        "github.com/lewtec/lewkit/x/driver/media.Driver",
 	"github.com/lewtec/modot/internal/driver/notification.Driver": "github.com/lewtec/lewkit/x/driver/notification.Driver",
 	"github.com/lewtec/modot/internal/driver/opener.Driver":       "github.com/lewtec/lewkit/x/driver/opener.Driver",
@@ -47,9 +47,6 @@ func ApplyLewWeights(cue map[string]map[string]int) error {
 		name := iface
 		if mapped, ok := lewIface[iface]; ok {
 			name = mapped
-		}
-		if !strings.HasPrefix(name, "github.com/lewtec/lewkit/x/driver/") {
-			continue
 		}
 		row := overlay[name]
 		if row == nil {

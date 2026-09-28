@@ -4,15 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/lewtec/modot/internal/driver"
-	httpclientdriver "github.com/lewtec/modot/internal/driver/httpclient"
+	lewdriver "github.com/lewtec/lewkit/x/driver"
+	httpclientdriver "github.com/lewtec/lewkit/x/driver/httpclient"
 	"github.com/lewtec/modot/internal/githubutil"
 	"github.com/lewtec/modot/internal/logging"
 	"net/http"
 )
 
 func (s Source) GetJSON(ctx context.Context, url string, out any) error {
-	httpDriver, err := driver.Get[httpclientdriver.Driver](ctx)
+	httpDriver, err := lewdriver.Get[httpclientdriver.Driver](ctx)
 	if err != nil {
 		return fmt.Errorf("get http client driver: %w", err)
 	}

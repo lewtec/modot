@@ -10,13 +10,16 @@ import (
 	"sync"
 	"time"
 
+	lewdriver "github.com/lewtec/lewkit/x/driver"
+	lewhttp "github.com/lewtec/lewkit/x/driver/httpclient"
+
 	"github.com/lewtec/modot/internal/driver"
 	httpclientdriver "github.com/lewtec/modot/internal/driver/httpclient"
 	"github.com/lewtec/modot/internal/logging"
 )
 
 func init() {
-	driver.Register[httpclientdriver.Driver](&Factory{})
+	lewdriver.Register[lewhttp.Driver](&Factory{})
 }
 
 type Factory struct{}
@@ -24,11 +27,13 @@ type Factory struct{}
 func (f *Factory) ID() string   { return "httpclient_termux" }
 func (f *Factory) Name() string { return "Termux HTTP Client" }
 
+func (f *Factory) Weight() int { return 60 }
+
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	return driver.RequireTermux()
 }
 
-func (f *Factory) New(ctx context.Context) (httpclientdriver.Driver, error) {
+func (f *Factory) New(ctx context.Context) (lewhttp.Driver, error) {
 	return &Driver{
 		rootCAs: loadTermuxCerts(ctx),
 	}, nil

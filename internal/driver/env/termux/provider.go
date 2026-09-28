@@ -5,18 +5,21 @@ import (
 	"os"
 	"path/filepath"
 
+	lewdriver "github.com/lewtec/lewkit/x/driver"
+
 	"github.com/lewtec/modot/internal/driver"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 )
 
 func init() {
-	driver.Register[envdriver.Driver](&Factory{})
+	lewdriver.Register[envdriver.Driver](&Factory{})
 }
 
 type Factory struct{}
 
 func (f *Factory) ID() string   { return "env_termux" }
 func (f *Factory) Name() string { return "Termux Environment" }
+func (f *Factory) Weight() int  { return 60 }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	return driver.RequireTermux()

@@ -8,19 +8,22 @@ import (
 
 	"github.com/godbus/dbus/v5"
 
+	lewdriver "github.com/lewtec/lewkit/x/driver"
+
 	"github.com/lewtec/modot/internal/driver"
 	"github.com/lewtec/modot/internal/driver/tray"
 	"github.com/lewtec/modot/internal/logging"
 )
 
 func init() {
-	driver.Register[tray.Driver](&Factory{})
+	lewdriver.Register[tray.Driver](&Factory{})
 }
 
 type Factory struct{}
 
 func (f *Factory) ID() string   { return "tray_dbus" }
 func (f *Factory) Name() string { return "DBus" }
+func (f *Factory) Weight() int  { return 50 }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" {

@@ -5,24 +5,17 @@ import (
 	"fmt"
 	"os/exec"
 
+	lewdriver "github.com/lewtec/lewkit/x/driver"
+	lewexec "github.com/lewtec/lewkit/x/driver/exec"
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/driver"
 	"github.com/lewtec/modot/internal/executil"
 	"github.com/lewtec/modot/internal/logging"
 )
 
-// Driver provides platform-specific command execution.
-type Driver interface {
-	// Run creates an exec.Cmd configured for the platform.
-	Run(ctx context.Context, name string, args ...string) *exec.Cmd
-
-	// Which locates a command in PATH and returns its full path.
-	Which(ctx context.Context, name string) (string, error)
-}
-
 // IsBinaryAvailable checks if a command exists in PATH using the selected driver.
 func IsBinaryAvailable(ctx context.Context, name string) bool {
-	d, err := driver.Get[Driver](ctx)
+	d, err := lewdriver.Get[lewexec.Driver](ctx)
 	if err != nil {
 		return false
 	}
@@ -37,22 +30,27 @@ func IsBinaryAvailable(ctx context.Context, name string) bool {
 func Run(ctx context.Context, name string, args ...string) (*exec.Cmd, error) {
 	logger := logging.GetLogger(ctx)
 	logger.Debug("running command", "name", name, "args", args)
-	d, err := driver.Get[Driver](ctx)
+	d, err := lewdriver.Get[lewexec.Driver](ctx)
 	if err != nil {
 		return nil, err
 	}
-	cmd := d.Run(ctx, name, args...)
+	// Command has no context. Bind the caller's ctx so cancel still kills
+	// the process when the caller runs the returned Cmd itself.
+	base := d.Command(name, args...)
+	path := base.Path
+	if path == "" {
+		path = name
+	}
+	cmd := exec.CommandContext(ctx, path, args...)
+	cmd.Env = base.Env
+	cmd.Dir = base.Dir
 	attachDefaultWriters(ctx, cmd)
 	return cmd, nil
 }
 
 // Which locates a command in PATH using the selected driver.
 func Which(ctx context.Context, name string) (string, error) {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return "", err
-	}
-	return d.Which(ctx, name)
+	return lewexec.Which(ctx, name)
 }
 
 // MustRun creates and returns an exec.Cmd using the selected driver.

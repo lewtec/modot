@@ -3,7 +3,8 @@ package shell
 import (
 	"context"
 
-	"github.com/lewtec/modot/internal/driver"
+	lewdriver "github.com/lewtec/lewkit/x/driver"
+
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 )
 
@@ -15,6 +16,7 @@ type whichFactory struct {
 
 func (f *whichFactory) ID() string   { return f.id }
 func (f *whichFactory) Name() string { return f.name }
+func (f *whichFactory) Weight() int  { return 50 }
 
 func (f *whichFactory) CheckCompatibility(ctx context.Context) error {
 	_, err := execdriver.Which(ctx, f.binary)
@@ -35,5 +37,5 @@ func (d *whichDriver) Path(ctx context.Context) (string, error) {
 
 // RegisterWhich registers a PATH-resolved shell implementation.
 func RegisterWhich(id, name, binary string) {
-	driver.Register[Driver](&whichFactory{id: id, name: name, binary: binary})
+	lewdriver.Register[Driver](&whichFactory{id: id, name: name, binary: binary})
 }

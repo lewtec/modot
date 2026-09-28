@@ -1,22 +1,14 @@
-// Package driver provides the generic pluggable driver system.
+// Package driver provides compatibility helpers for host capabilities.
 //
-// All interaction with the host system (audio, clipboard, notifications, window
-// managers, power, screenshots, terminals, etc.) goes through capability
-// interfaces defined under subdirectories. Concrete implementations register
-// themselves using driver.Register[T] (usually from an init function).
+// Implementations register on github.com/lewtec/lewkit/x/driver. Selection is
+// lewdriver.Get, using weights from modot.cue (ApplyLewWeights) and
+// CheckCompatibility. This package still exposes Require*, IsTermux, and the
+// local Register/Get pair used by tests.
 //
-// Selection happens via driver.Get[T](ctx), which respects configured weights
-// (from modot.cue) and calls CheckCompatibility on candidates.
-//
-// For testing and debugging you can force a particular implementation using an
-// environment variable:
-//
-//	MODOT_FORCE_DRIVER=rsync_gokrazy
-//	MODOT_FORCE_RSYNC_DRIVER=rsync_gokrazy
-//
-// The forced driver (if registered for the interface) is given an effective
-// weight of 101 so it is considered first. If its CheckCompatibility fails,
-// normal fallback to other candidates occurs.
+// Force a lewkit-registered implementation with LEWKIT_FORCE_DRIVER or
+// LEWKIT_FORCE_<IFACE>_DRIVER (weight 101). The local registry still honors
+// MODOT_FORCE_* for tests that register here. An incompatible pin falls
+// through to the next candidate.
 //
 // The central list of all driver implementations is pulled in via the
 // internal/driver/prelude package (imported with blank import from cmd/modot/root.go).
