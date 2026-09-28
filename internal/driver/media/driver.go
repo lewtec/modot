@@ -63,7 +63,7 @@ func GetArtCachePath(ctx context.Context, url string) (string, error) {
 	defer func() {
 		if closer := resp.Body; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+				slog.Error("unexpected error", "op", "close", "error", err)
 			}
 		}
 	}()

@@ -138,7 +138,6 @@ func loadTermuxCerts(ctx context.Context) *x509.CertPool {
 	}
 
 	// Last resort: return empty pool
-	logger := slog.Default()
-	logger.Warn("could not load any CA certificates for Termux")
+	slog.Warn("could not load any CA certificates for Termux")
 	return pool
 }

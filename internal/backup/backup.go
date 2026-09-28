@@ -52,7 +52,6 @@ type backupConfig struct {
 }
 
 func RunFullBackup(ctx context.Context) error {
-	logger := slog.Default()
 	rawCfg, err := configcue.LoadHome(ctx)
 	if err != nil {
 		return err
@@ -67,10 +66,10 @@ func RunFullBackup(ctx context.Context) error {
 		return err
 	}
 	if len(actions) == 0 {
-		logger.Info("no backup actions configured")
+		slog.Info("no backup actions configured")
 		return nil
 	}
-	logger.Info("backup started", "actions", len(actions))
+	slog.Info("backup started", "actions", len(actions))
 
 	n := &notification.Notification{
 		ID:          notification.BackupNotificationID,
@@ -124,13 +123,12 @@ func RunFullBackup(ctx context.Context) error {
 			name, kind := actionLabel(item.Idx, item.Action)
 			out := actionOutcome{Name: name, Kind: kind}
 
-			logger := slog.Default()
 			s.Update(name)
-			logger.Info("backup action started", "index", item.Idx+1, "total", len(actions), "name", name, "kind", kind)
+			slog.Info("backup action started", "index", item.Idx+1, "total", len(actions), "name", name, "kind", kind)
 
 			if cmdctx.IsDryRun(ctx) {
-				logger.Info("dry-run: skipping", "name", name)
-				logger.Info("backup action completed (dry-run)", "name", name, "kind", kind)
+				slog.Info("dry-run: skipping", "name", name)
+				slog.Info("backup action completed (dry-run)", "name", name, "kind", kind)
 				return out, nil
 			}
 
@@ -146,18 +144,18 @@ func RunFullBackup(ctx context.Context) error {
 
 				// Nested rsync leaves report errors to the group. Isolate so one
 				// failed action does not cancel siblings (first-error-wins).
-				slog.ErrorContext(ctx, "unexpected error", "error", err)
+				slog.Error("unexpected error", "error", err)
 			}
 
 			if err := taskgroup.Isolate(ctx, func(ctx context.Context) error {
 				return item.Action.Run(ctx, n2)
 			}); err != nil {
-				logger.Error("backup action failed", "name", name, "kind", kind, "error", err)
+				slog.Error("backup action failed", "name", name, "kind", kind, "error", err)
 				out.Err = err
 				return out, nil
 			}
 
-			logger.Info("backup action completed", "name", name, "kind", kind)
+			slog.Info("backup action completed", "name", name, "kind", kind)
 			return out, nil
 		},
 	}.Run(ctx)
@@ -172,13 +170,13 @@ func RunFullBackup(ctx context.Context) error {
 		}
 	}
 	if len(failures) > 0 {
-		logger.Error("backup finished with failures", "count", len(failures))
+		slog.Error("backup finished with failures", "count", len(failures))
 		n.Title = "Backup finalizado com falhas"
 		n.Message = strings.Join(failures, "\n")
 		n.Urgency = "critical"
 		n.Progress = 1.0
 		if err := lewnotify.Notify(ctx, *n); err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "error", err)
+			slog.Error("unexpected error", "error", err)
 		}
 		return fmt.Errorf("backup finished with %d failure(s): %s", len(failures), strings.Join(failures, "; "))
 	}
@@ -186,9 +184,9 @@ func RunFullBackup(ctx context.Context) error {
 	n.Title = "Backup finalizado"
 	n.Progress = 1.0
 	if err := lewnotify.Notify(ctx, *n); err != nil {
-		slog.ErrorContext(ctx, "unexpected error", "error", err)
+		slog.Error("unexpected error", "error", err)
 	}
-	logger.Info("backup finished successfully")
+	slog.Info("backup finished successfully")
 	return nil
 }
 

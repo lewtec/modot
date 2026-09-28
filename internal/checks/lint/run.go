@@ -30,18 +30,18 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 			continue
 		}
 		if t.Output == "" {
-			slog.WarnContext(ctx, "lint tool missing output codec; skipping", "tool", t.Name)
+			slog.Warn("lint tool missing output codec; skipping", "tool", t.Name)
 			continue
 		}
 		det, err := checks.EvaluateDetect(dir, t.Detect)
 		if err != nil {
 			if err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "tool", t.Name, "context", "lint detect", "error", err)
+				slog.Error("unexpected error", "tool", t.Name, "context", "lint detect", "error", err)
 			}
 			continue
 		}
 		if !det.Applicable {
-			slog.DebugContext(ctx, "lint tool not applicable", "tool", t.Name)
+			slog.Debug("lint tool not applicable", "tool", t.Name)
 			continue
 		}
 		applicable = append(applicable, item{tool: t, detect: det})
@@ -57,12 +57,11 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 		PoolKind: taskgroup.Control,
 		TaskName: func(_ int, it item) string { return "lint:" + it.tool.Name },
 		Fn: func(ctx context.Context, s *taskgroup.Status, it item) (*sarif.Run, error) {
-			l := slog.Default()
 			s.Update("running " + it.tool.Name)
 			run, err := runOne(ctx, dir, it.tool, it.detect)
 			if err != nil {
 				if err != nil {
-					slog.ErrorContext(ctx, "unexpected error", "linter", it.tool.Name, "context", "linter failed", "error", err)
+					slog.Error("unexpected error", "linter", it.tool.Name, "context", "linter failed", "error", err)
 				}
 				return nil, nil
 			}
@@ -70,7 +69,7 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 			if run != nil {
 				resultCount = len(run.Results)
 			}
-			l.Info("linter ok", "linter", it.tool.Name, "sarif_results", resultCount)
+			slog.Info("linter ok", "linter", it.tool.Name, "sarif_results", resultCount)
 			return run, nil
 		},
 	}.Run(ctx)

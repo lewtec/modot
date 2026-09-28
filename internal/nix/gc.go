@@ -16,8 +16,7 @@ import (
 )
 
 func CleanupProfiles(ctx context.Context) error {
-	logger := slog.Default()
-	logger.Info("Searching for old Nix profiles to cleanup...")
+	slog.Info("Searching for old Nix profiles to cleanup...")
 
 	baseDir := "/nix/var/nix/profiles"
 
@@ -43,7 +42,7 @@ func CleanupProfiles(ctx context.Context) error {
 
 		entries, err := os.ReadDir(dir)
 		if err != nil {
-			logger.Error("failed to read directory", "dir", dir, "error", err)
+			slog.Error("failed to read directory", "dir", dir, "error", err)
 			continue
 		}
 
@@ -78,13 +77,13 @@ func CleanupProfiles(ctx context.Context) error {
 	}
 
 	if len(filesToRemove) == 0 {
-		logger.Info("No old profiles found to cleanup.")
+		slog.Info("No old profiles found to cleanup.")
 		return nil
 	}
 
 	sort.Strings(filesToRemove)
 
-	logger.Info(fmt.Sprintf("Found %d old profile links to remove.", len(filesToRemove)))
+	slog.Info(fmt.Sprintf("Found %d old profile links to remove.", len(filesToRemove)))
 
 	if os.Getuid() != 0 {
 		return sudo.Enqueue(ctx, &types.SudoCommand{

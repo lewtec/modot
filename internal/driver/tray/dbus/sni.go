@@ -192,8 +192,7 @@ func (s *StatusNotifierItem) SecondaryActivate(x, y int32) *dbus.Error {
 }
 
 func (s *StatusNotifierItem) logPoint(msg string, x, y int32) *dbus.Error {
-	logger := slog.Default()
-	logger.Info(msg, "x", x, "y", y)
+	slog.Info(msg, "x", x, "y", y)
 	return nil
 }
 

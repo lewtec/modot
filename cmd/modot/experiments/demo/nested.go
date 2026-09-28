@@ -21,27 +21,24 @@ Map when you need aggregate progress.`
 }
 
 func (*Nested) Run(ctx context.Context) error {
-	logger := slog.Default()
-	logger.Info("scheduling bundle with Isolate children")
+	slog.Info("scheduling bundle with Isolate children")
 
 	taskgroup.Go(ctx, "bundle", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update("starting bundle phase")
 		time.Sleep(60 * time.Millisecond)
 		err := taskgroup.Isolate(ctx, func(ctx context.Context) error {
 			icons := taskgroup.Go(ctx, "bundle:icons", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
-				logger := slog.Default()
 				s.Update("generating icons")
 				for i := 0; i < 3; i++ {
-					logger.Info("icon", "num", i)
+					slog.Info("icon", "num", i)
 					time.Sleep(90 * time.Millisecond)
 				}
 				return nil
 			})
 			taskgroup.Go(ctx, "bundle:manifest", taskgroup.IO, func(ctx context.Context, s *taskgroup.Status) error {
-				logger := slog.Default()
 				s.Update("writing manifest.json")
 				time.Sleep(130 * time.Millisecond)
-				logger.Info("manifest written")
+				slog.Info("manifest written")
 				return nil
 			}, icons)
 			return nil
@@ -50,7 +47,7 @@ func (*Nested) Run(ctx context.Context) error {
 			return err
 		}
 		s.Update("bundle complete")
-		slog.InfoContext(ctx, "isolate subtree done")
+		slog.Info("isolate subtree done")
 		return nil
 	})
 	return nil

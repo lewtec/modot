@@ -105,7 +105,6 @@ func applyPatch(state *State, p statePatch) {
 // With a taskgroup in ctx, filesystem work is mapped in parallel; state patches
 // are reduced in input order afterward (no mutex on the live state map).
 func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) error {
-	logger := slog.Default()
 	orderedActions := SortActions(actions)
 
 	work := make([]Action, 0, len(orderedActions))
@@ -121,7 +120,7 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 	applyFS := func(ctx context.Context, action Action) (statePatch, error) {
 		switch action.Type {
 		case ActionDelete:
-			logger.Info("pruning orphaned file", "target", PrettyPath(action.Target))
+			slog.Info("pruning orphaned file", "target", PrettyPath(action.Target))
 			if _, err := os.Lstat(action.Target); err == nil {
 				if err := os.Remove(action.Target); err != nil {
 					return statePatch{}, fmt.Errorf("remove orphaned file %s: %w", action.Target, err)
@@ -131,9 +130,9 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 
 		case ActionCreate, ActionUpdate:
 			if action.Type == ActionCreate {
-				logger.Info("creating", "target", PrettyPath(action.Target), "source", action.Desired.File.SourceInfo())
+				slog.Info("creating", "target", PrettyPath(action.Target), "source", action.Desired.File.SourceInfo())
 			} else {
-				logger.Info("updating", "target", PrettyPath(action.Target), "source", action.Desired.File.SourceInfo())
+				slog.Info("updating", "target", PrettyPath(action.Target), "source", action.Desired.File.SourceInfo())
 			}
 
 			if err := os.MkdirAll(filepath.Dir(action.Target), 0755); err != nil {
@@ -174,7 +173,7 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 			writeErr := atomicfile.Write(action.Target, reader, action.Desired.File.Mode())
 			if closer := reader; closer != nil {
 				if err := closer.Close(); err != nil {
-					slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+					slog.Error("unexpected error", "op", "close", "error", err)
 				}
 			}
 			if writeErr != nil {

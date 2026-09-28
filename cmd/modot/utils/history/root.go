@@ -40,7 +40,7 @@ func ingestBash(ctx context.Context) ([]types.HistoryEvent, error) {
 	defer func() {
 		if closer := file; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "close", "path", path, "error", err)
+				slog.Error("unexpected error", "op", "close", "path", path, "error", err)
 			}
 		}
 	}()
@@ -86,7 +86,7 @@ func ingestAtuin(ctx context.Context) ([]types.HistoryEvent, error) {
 	defer func() {
 		if closer := dbConn; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "close", "path", dbPath, "error", err)
+				slog.Error("unexpected error", "op", "close", "path", dbPath, "error", err)
 			}
 		}
 	}()
@@ -98,7 +98,7 @@ func ingestAtuin(ctx context.Context) ([]types.HistoryEvent, error) {
 	defer func() {
 		if closer := rows; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+				slog.Error("unexpected error", "op", "close", "error", err)
 			}
 		}
 	}()

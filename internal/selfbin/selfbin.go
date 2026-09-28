@@ -41,6 +41,6 @@ func EnsureModotShim(ctx context.Context, modotPath string) error {
 	if err != nil {
 		return err
 	}
-	slog.InfoContext(ctx, "modot shim ready", "path", shimPath, "target", modotPath)
+	slog.Info("modot shim ready", "path", shimPath, "target", modotPath)
 	return nil
 }

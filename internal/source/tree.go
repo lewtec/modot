@@ -78,6 +78,6 @@ func (b Builder) Tree(ctx context.Context) (*Tree, error) {
 		return nil, err
 	}
 	tree.Warnings = warnings
-	slog.DebugContext(ctx, "dest composed", "files", len(tree.files))
+	slog.Debug("dest composed", "files", len(tree.files))
 	return tree, nil
 }

@@ -56,8 +56,6 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 		s.Update(updateMsg)
 		// Nested plan/apply Maps own aggregate bars; no Unit shell here.
 
-		logger := slog.Default()
-
 		cfg, err := configcue.LoadHome(ctx)
 		if err != nil {
 			return fmt.Errorf("load config: %w", err)
@@ -140,7 +138,7 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 					home, err := os.UserHomeDir()
 					if err != nil {
 						// Best-effort hook: skip GTK reload rather than fail apply.
-						logger.Warn("failed to get home directory for gtk theme reload", "error", err)
+						slog.Warn("failed to get home directory for gtk theme reload", "error", err)
 						return nil
 					}
 					dummyTheme := filepath.Join(home, ".local", "share", "themes", "dummy")
@@ -156,12 +154,12 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 						// Switch to dummy and back to force GTK reload
 						if cmd, err := execdriver.Run(ctx, "dconf", "write", "/org/gnome/desktop/interface/gtk-theme", "'dummy'"); err == nil {
 							if err := cmd.Run(); err != nil {
-								logger.Warn("failed to switch to dummy theme", "error", err)
+								slog.Warn("failed to switch to dummy theme", "error", err)
 							}
 						}
 						if cmd, err := execdriver.Run(ctx, "dconf", "write", "/org/gnome/desktop/interface/gtk-theme", fmt.Sprintf("'%s'", targetTheme)); err == nil {
 							if err := cmd.Run(); err != nil {
-								logger.Warn("failed to restore gtk theme", "theme", targetTheme, "error", err)
+								slog.Warn("failed to restore gtk theme", "theme", targetTheme, "error", err)
 							}
 						}
 					}

@@ -19,8 +19,7 @@ func (p *StrictConflictResolverPlugin) Name() string {
 }
 
 func (p *StrictConflictResolverPlugin) Process(ctx context.Context, files []File) ([]File, error) {
-	logger := slog.Default()
-	logger.Debug("running strict conflict resolution")
+	slog.Debug("running strict conflict resolution")
 
 	ownedPaths := make(map[string]File) // FinalPath -> File info
 

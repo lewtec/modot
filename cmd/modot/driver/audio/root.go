@@ -70,6 +70,6 @@ func showVolume(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	slog.InfoContext(ctx, "volume updated", "level", level, "sink", sink, "muted", muted)
+	slog.Info("volume updated", "level", level, "sink", sink, "muted", muted)
 	return lewnotify.Notify(ctx, volume.StatusNotification(level, muted, sink))
 }

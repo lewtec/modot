@@ -32,6 +32,6 @@ func Wake(ctx context.Context, host string) error {
 	if err := lewpower.Wake(ctx, hostCfg.MAC); err != nil {
 		return err
 	}
-	slog.InfoContext(ctx, "sent Wake-on-LAN magic packet", "host", host, "mac", hostCfg.MAC)
+	slog.Info("sent Wake-on-LAN magic packet", "host", host, "mac", hostCfg.MAC)
 	return nil
 }

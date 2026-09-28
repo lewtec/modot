@@ -75,7 +75,7 @@ Locate-X recipes live in CODEMAP.md.
 ## Patterns
 
 - The context argument is always named `ctx`.
-- Log with `slog`. `cmd/modot/root.go` sets `slog.Default` to a `lewkit/x/logging` handler.
+- Log with `slog.Info`, `slog.Debug`, `slog.Warn`, and `slog.Error`. `cmd/modot/root.go` sets `slog.Default` to a `lewkit/x/logging` handler.
 - An inner scope must not reuse an outer scope's `ctx`.
 - Prefer channels over locked shared state when that keeps the code simpler (it often does).
 - `context.Background` and friends need a real reason. "No context in scope" is not one.

@@ -30,11 +30,10 @@ func EnsureCachedDir(ctx context.Context, provider string, key string, fetch fun
 
 	hash := sha256.Sum256([]byte(key))
 	dest := filepath.Join(cacheRoot, hex.EncodeToString(hash[:]))
-	logger := slog.Default()
 	noCache := cmdctx.IsNoCache(ctx)
 
 	if st, err := os.Stat(dest); err == nil && st.IsDir() && !noCache {
-		logger.Debug("source cache hit", "provider", provider, "cache_dir", dest)
+		slog.Debug("source cache hit", "provider", provider, "cache_dir", dest)
 		return dest, nil
 	}
 
@@ -43,26 +42,26 @@ func EnsureCachedDir(ctx context.Context, provider string, key string, fetch fun
 	defer lock.Unlock()
 
 	if st, err := os.Stat(dest); err == nil && st.IsDir() && !noCache {
-		logger.Debug("source cache hit after wait", "provider", provider, "cache_dir", dest)
+		slog.Debug("source cache hit after wait", "provider", provider, "cache_dir", dest)
 		return dest, nil
 	}
 
 	// Dry-run + no-cache: widen plan only; do not re-fetch.
 	if noCache && cmdctx.IsDryRun(ctx) {
 		if st, err := os.Stat(dest); err == nil && st.IsDir() {
-			logger.Debug("no-cache: would re-fetch source (dry-run)", "provider", provider, "cache_dir", dest)
+			slog.Debug("no-cache: would re-fetch source (dry-run)", "provider", provider, "cache_dir", dest)
 			return dest, nil
 		}
 	}
 
 	if noCache {
-		logger.Debug("no-cache: source cache miss", "provider", provider, "cache_dir", dest)
+		slog.Debug("no-cache: source cache miss", "provider", provider, "cache_dir", dest)
 	} else {
-		logger.Info("source cache miss", "provider", provider, "cache_dir", dest)
+		slog.Info("source cache miss", "provider", provider, "cache_dir", dest)
 	}
 	tmpDest := dest + ".tmp"
 	if err := func() error { return os.RemoveAll(tmpDest) }(); err != nil {
-		slog.ErrorContext(ctx, "unexpected error", "op", "remove_all", "path", tmpDest, "error", err)
+		slog.Error("unexpected error", "op", "remove_all", "path", tmpDest, "error", err)
 	}
 	if err := os.RemoveAll(tmpDest); err != nil {
 		return "", err
@@ -70,20 +69,20 @@ func EnsureCachedDir(ctx context.Context, provider string, key string, fetch fun
 	if err := os.MkdirAll(tmpDest, 0755); err != nil {
 		return "", err
 	}
-	logger.Info("source fetch start", "provider", provider, "tmp_dir", tmpDest)
+	slog.Info("source fetch start", "provider", provider, "tmp_dir", tmpDest)
 	if err := fetch(tmpDest); err != nil {
 		if err := func() error { return os.RemoveAll(tmpDest) }(); err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "op", "remove_all", "path", tmpDest, "error", err)
+			slog.Error("unexpected error", "op", "remove_all", "path", tmpDest, "error", err)
 		}
 		return "", err
 	}
 	if err := atomicReplaceDir(dest, tmpDest); err != nil {
 		if err := func() error { return os.RemoveAll(tmpDest) }(); err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "op", "remove_all", "path", tmpDest, "error", err)
+			slog.Error("unexpected error", "op", "remove_all", "path", tmpDest, "error", err)
 		}
 		return "", err
 	}
-	logger.Info("source fetch done", "provider", provider, "cache_dir", dest)
+	slog.Info("source fetch done", "provider", provider, "cache_dir", dest)
 	return dest, nil
 }
 

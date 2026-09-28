@@ -21,7 +21,6 @@ import (
 )
 
 func SetStatic(ctx context.Context, path string) error {
-	logger := slog.Default()
 	if path == "" {
 		cfg, err := configcue.LoadForWorkspace(ctx, "")
 		if err != nil {
@@ -44,7 +43,7 @@ func SetStatic(ctx context.Context, path string) error {
 		path = files[rand.Intn(len(files))]
 	}
 
-	logger.Info("setting wallpaper", "path", path)
+	slog.Info("setting wallpaper", "path", path)
 
 	// Stop existing wallpaper-change service if it exists (best-effort).
 	// Missing/not-loaded unit is expected; unexpected stop failures are reported.
@@ -56,7 +55,7 @@ func SetStatic(ctx context.Context, path string) error {
 			!strings.Contains(msg, "not loaded") &&
 			!strings.Contains(msg, "exit status 5") {
 			if err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "systemctl --user stop wallpaper-change.service", "error", err)
+				slog.Error("unexpected error", "op", "systemctl --user stop wallpaper-change.service", "error", err)
 			}
 		}
 	}
@@ -77,13 +76,12 @@ type APODResponse struct {
 }
 
 func SetAPOD(ctx context.Context) error {
-	logger := slog.Default()
 	apiKey := os.Getenv("NASA_API_KEY")
 	if apiKey == "" {
 		apiKey = "DEMO_KEY"
 	}
 
-	logger.Info("fetching NASA Astronomy Picture of the Day")
+	slog.Info("fetching NASA Astronomy Picture of the Day")
 
 	httpDriver, err := lewdriver.Get[lewhttp.Driver](ctx)
 	if err != nil {
@@ -98,7 +96,7 @@ func SetAPOD(ctx context.Context) error {
 	defer func() {
 		if closer := resp.Body; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+				slog.Error("unexpected error", "op", "close", "error", err)
 			}
 		}
 	}()
@@ -136,7 +134,7 @@ func SetAPOD(ctx context.Context) error {
 	defer func() {
 		if closer := imgResp.Body; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+				slog.Error("unexpected error", "op", "close", "error", err)
 			}
 		}
 	}()

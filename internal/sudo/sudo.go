@@ -112,7 +112,7 @@ func Enqueue(ctx context.Context, cmd *types.SudoCommand) error {
 	}
 	defer func() {
 		if err := f.Abort(); err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "op", "atomicfile.Abort", "error", err)
+			slog.Error("unexpected error", "op", "atomicfile.Abort", "error", err)
 		}
 	}()
 	if _, err := f.Write(data); err != nil {
@@ -128,7 +128,7 @@ func Enqueue(ctx context.Context, cmd *types.SudoCommand) error {
 		Icon:    "dialog-password",
 	}
 	if err := lewnotify.Notify(ctx, *n); err != nil {
-		slog.ErrorContext(ctx, "unexpected error", "error", err)
+		slog.Error("unexpected error", "error", err)
 	}
 
 	return nil
@@ -151,14 +151,14 @@ func List(ctx context.Context) ([]*types.SudoCommand, error) {
 			data, err := os.ReadFile(filepath.Join(dir, entry.Name()))
 			if err != nil {
 				if err != nil {
-					slog.ErrorContext(ctx, "unexpected error", "error", err)
+					slog.Error("unexpected error", "error", err)
 				}
 				continue
 			}
 			var cmd types.SudoCommand
 			if err := json.Unmarshal(data, &cmd); err != nil {
 				if err != nil {
-					slog.ErrorContext(ctx, "unexpected error", "error", err)
+					slog.Error("unexpected error", "error", err)
 				}
 				continue
 			}

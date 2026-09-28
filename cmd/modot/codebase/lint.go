@@ -62,18 +62,17 @@ func (c *Lint) Run(ctx context.Context) error {
 }
 
 func saveSarifToCI(ctx context.Context, report *sarif.Report) {
-	logger := slog.Default()
 	sarifEnvVars := []string{"MISE_CI_SARIF_OUTPUT_DIR"}
 	for _, envVar := range sarifEnvVars {
 		if outputDir := os.Getenv(envVar); outputDir != "" {
 			if err := os.MkdirAll(outputDir, 0755); err != nil {
-				logger.Warn("failed to create SARIF output directory", "output_dir", outputDir, "error", err)
+				slog.Warn("failed to create SARIF output directory", "output_dir", outputDir, "error", err)
 				continue
 			}
 
 			sarifPath := filepath.Join(outputDir, "lint.sarif")
 			if err := writeSarifAtomic(sarifPath, report); err != nil {
-				logger.Warn("failed to write SARIF report", "sarif_path", sarifPath, "error", err)
+				slog.Warn("failed to write SARIF report", "sarif_path", sarifPath, "error", err)
 			}
 		}
 	}

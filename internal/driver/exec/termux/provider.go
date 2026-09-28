@@ -56,7 +56,6 @@ type Driver struct{}
 func (d *Driver) Command(name string, args ...string) *exec.Cmd {
 	// lewkit exec.Driver.Command does not take a context.
 	ctx := context.Background()
-	logger := slog.Default()
 
 	prefix := os.Getenv("PREFIX")
 	if prefix == "" {
@@ -74,21 +73,21 @@ func (d *Driver) Command(name string, args ...string) *exec.Cmd {
 	fullArgs = append(fullArgs, args...)
 
 	inProot := os.Getenv("MODOT_IN_PROOT")
-	logger.Info("proot check", "MODOT_IN_PROOT", inProot, "command", fullArgs)
+	slog.Info("proot check", "MODOT_IN_PROOT", inProot, "command", fullArgs)
 	if inProot == "1" {
-		logger.Info("already inside proot, running directly", "command", fullArgs)
+		slog.Info("already inside proot, running directly", "command", fullArgs)
 		cmd := exec.CommandContext(ctx, fullPath, args...)
 		cmd.Env = setupTermuxEnv(ctx, prefix)
 		return cmd
 	}
 
 	if os.Getenv("MODOT_USE_PROOT") == "1" {
-		logger.Debug("proot enabled via MODOT_USE_PROOT, using proot for command execution", "command", fullArgs)
+		slog.Debug("proot enabled via MODOT_USE_PROOT, using proot for command execution", "command", fullArgs)
 		return d.runWithProot(ctx, fullPath, args, prefix)
 	}
 
 	// Default: run directly without proot
-	logger.Debug("proot is opt-in, running directly", "command", fullArgs)
+	slog.Debug("proot is opt-in, running directly", "command", fullArgs)
 	cmd := exec.CommandContext(ctx, fullPath, args...)
 	cmd.Env = setupTermuxEnv(ctx, prefix)
 	return cmd
@@ -96,19 +95,18 @@ func (d *Driver) Command(name string, args ...string) *exec.Cmd {
 
 // runWithProot wraps command execution in proot with termux-chroot-like setup
 func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []string, prefix string) *exec.Cmd {
-	logger := slog.Default()
 
 	// Setup resolv.conf and SSL certs for proot environment
 	if resolvPath, err := ensureResolvConf(ctx); err != nil {
-		logger.Warn("failed to setup resolv.conf", "error", err)
+		slog.Warn("failed to setup resolv.conf", "error", err)
 	} else {
-		logger.Debug("resolv.conf configured", "path", resolvPath)
+		slog.Debug("resolv.conf configured", "path", resolvPath)
 	}
 
 	if certPath, err := ensureSSLCerts(ctx); err != nil {
-		logger.Warn("failed to setup SSL certificates", "error", err)
+		slog.Warn("failed to setup SSL certificates", "error", err)
 	} else {
-		logger.Debug("SSL certificates configured", "path", certPath)
+		slog.Debug("SSL certificates configured", "path", certPath)
 	}
 
 	prootPath, err := d.Which(ctx, "proot")
@@ -171,7 +169,7 @@ func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []strin
 	prootArgs = append(prootArgs, fullPath)
 	prootArgs = append(prootArgs, args...)
 
-	logger.Debug("using proot for command execution", "proot", prootPath)
+	slog.Debug("using proot for command execution", "proot", prootPath)
 	cmd := exec.CommandContext(ctx, prootPath, prootArgs...)
 
 	// Setup environment for proot
@@ -191,7 +189,7 @@ func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []strin
 	// Set sentinel to prevent proot nesting
 	filteredEnv = append(filteredEnv, "MODOT_IN_PROOT=1")
 
-	logger.Debug("setting proot environment", "sentinel", "MODOT_IN_PROOT=1")
+	slog.Debug("setting proot environment", "sentinel", "MODOT_IN_PROOT=1")
 	cmd.Env = filteredEnv
 	return cmd
 }
@@ -231,7 +229,7 @@ func setupTermuxEnv(ctx context.Context, prefix string) []string {
 			// Cannot safely fix HOME/mise paths; leave env as-is rather than guess.
 			// Caller still gets a usable command; mise may mis-resolve in chroot.
 			err; err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "context", "termux exec: GetHomeDir failed", "error", err)
+			slog.Error("unexpected error", "context", "termux exec: GetHomeDir failed", "error", err)
 		}
 	} else {
 		envMap["HOME"] = actualHome
@@ -260,14 +258,12 @@ func ensureResolvConf(ctx context.Context) (string, error) {
 
 	resolvConfPath := filepath.Join(prefix, "etc", "resolv.conf")
 
-	logger := slog.Default()
-
 	// Check if resolv.conf exists and has valid content
 	if content, err := os.ReadFile(resolvConfPath); err == nil {
 		contentStr := string(content)
 		// Check if it has our nameserver entries
 		if strings.Contains(contentStr, "8.8.8.8") {
-			logger.Debug("resolv.conf already configured", "path", resolvConfPath)
+			slog.Debug("resolv.conf already configured", "path", resolvConfPath)
 			return resolvConfPath, nil
 		}
 	}
@@ -287,15 +283,15 @@ nameserver 1.1.1.1
 		return "", fmt.Errorf("write resolv.conf: %w", err)
 	}
 
-	logger.Info("created resolv.conf for Termux DNS", "path", resolvConfPath)
+	slog.Info("created resolv.conf for Termux DNS", "path", resolvConfPath)
 
 	// Verify it was written
 	if content, err := os.ReadFile(resolvConfPath); err != nil {
 		if err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "context", "failed to verify resolv.conf after writing", "error", err)
+			slog.Error("unexpected error", "context", "failed to verify resolv.conf after writing", "error", err)
 		}
 	} else {
-		logger.Info("resolv.conf content verified", "size", len(content))
+		slog.Info("resolv.conf content verified", "size", len(content))
 	}
 
 	return resolvConfPath, nil
@@ -319,11 +315,9 @@ func ensureSSLCerts(ctx context.Context) (string, error) {
 	sslDir := filepath.Join(prefix, "etc", "ssl", "certs")
 	targetCert := filepath.Join(sslDir, "ca-certificates.crt")
 
-	logger := slog.Default()
-
 	// Check if already linked/copied
 	if _, err := os.Stat(targetCert); err == nil {
-		logger.Debug("SSL certificates already configured", "path", targetCert)
+		slog.Debug("SSL certificates already configured", "path", targetCert)
 		return targetCert, nil
 	}
 
@@ -346,7 +340,7 @@ func ensureSSLCerts(ctx context.Context) (string, error) {
 	relPath := filepath.Join("..", "..", "tls", "cert.pem")
 	if err := os.Symlink(relPath, targetCert); err != nil {
 		// If symlink fails, copy the file
-		logger.Debug("symlink failed, copying certificate file", "error", err)
+		slog.Debug("symlink failed, copying certificate file", "error", err)
 		certData, err := os.ReadFile(sourceCert)
 		if err != nil {
 			return "", fmt.Errorf("read source cert %s: %w", sourceCert, err)
@@ -354,26 +348,25 @@ func ensureSSLCerts(ctx context.Context) (string, error) {
 		if err := atomicfile.WriteBytes(targetCert, certData, 0o644); err != nil {
 			return "", fmt.Errorf("write cert to %s: %w", targetCert, err)
 		}
-		logger.Info("copied SSL certificates", "from", sourceCert, "to", targetCert, "size", len(certData))
+		slog.Info("copied SSL certificates", "from", sourceCert, "to", targetCert, "size", len(certData))
 	} else {
-		logger.Info("symlinked SSL certificates", "from", relPath, "to", targetCert)
+		slog.Info("symlinked SSL certificates", "from", relPath, "to", targetCert)
 	}
 
 	return targetCert, nil
 }
 
 func (d *Driver) Which(ctx context.Context, name string) (string, error) {
-	logger := slog.Default()
 
 	// Custom Which implementation to avoid SIGSYS errors on Android/Termux
 	// Do not use os/exec.LookPath as it can trigger SIGSYS on Android with Go 1.24+
 
 	if filepath.IsAbs(name) {
 		if _, err := os.Stat(name); err == nil {
-			logger.Debug("which", "binary", name, "result", name)
+			slog.Debug("which", "binary", name, "result", name)
 			return name, nil
 		}
-		logger.Debug("which", "binary", name, "result", api.ErrBinaryNotFound)
+		slog.Debug("which", "binary", name, "result", api.ErrBinaryNotFound)
 		return "", fmt.Errorf("%w: %s", api.ErrBinaryNotFound, name)
 	}
 
@@ -390,11 +383,11 @@ func (d *Driver) Which(ctx context.Context, name string) (string, error) {
 	for _, dir := range filepath.SplitList(path) {
 		fullPath := filepath.Join(dir, name)
 		if info, err := os.Stat(fullPath); err == nil && !info.IsDir() {
-			logger.Debug("which", "binary", name, "result", fullPath)
+			slog.Debug("which", "binary", name, "result", fullPath)
 			return fullPath, nil
 		}
 	}
-	logger.Debug("which", "binary", name, "result", api.ErrBinaryNotFound)
+	slog.Debug("which", "binary", name, "result", api.ErrBinaryNotFound)
 	return "", fmt.Errorf("%w: %s", api.ErrBinaryNotFound, name)
 }
 

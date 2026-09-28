@@ -22,7 +22,6 @@ import (
 )
 
 func RunApply(ctx context.Context, action string) error {
-	logger := slog.Default()
 	dryRun := cmdctx.IsDryRun(ctx)
 	root := cmdarg.PrefixPath(ctx)
 
@@ -43,13 +42,13 @@ func RunApply(ctx context.Context, action string) error {
 	}
 
 	if !envdriver.IsNixOS(ctx) || root != "/" {
-		logger.Info("skipping nixos rebuild", "prefix", root)
+		slog.Info("skipping nixos rebuild", "prefix", root)
 		return nil
 	}
 
-	logger.Info("running NixOS rebuild", "action", action)
+	slog.Info("running NixOS rebuild", "action", action)
 	if dryRun {
-		logger.Info("dry-run: skipping nixos-rebuild")
+		slog.Info("dry-run: skipping nixos-rebuild")
 		return nil
 	}
 
@@ -59,7 +58,7 @@ func RunApply(ctx context.Context, action string) error {
 		return fmt.Errorf("hostname: %w", err)
 	}
 	if hostname == "riverwood" {
-		logger.Info("performing remote build for riverwood")
+		slog.Info("performing remote build for riverwood")
 		ref := fmt.Sprintf(".#nixosConfigurations.%s.config.system.build.toplevel", hostname)
 		nixResult, err := nix.RemoteBuild(ctx, ref, "whiterun", true)
 		if err != nil {
@@ -72,7 +71,6 @@ func RunApply(ctx context.Context, action string) error {
 }
 
 func applySystemFiles(ctx context.Context, prefix string, cfg *configcue.Config, modulesDir string, dryRun bool) error {
-	logger := slog.Default()
 	builder, err := source.StandardDotfilesOptions{
 		ConfigTreeTarget: prefix,
 		ModulesDir:       modulesDir,
@@ -104,7 +102,7 @@ func applySystemFiles(ctx context.Context, prefix string, cfg *configcue.Config,
 	if err != nil {
 		return fmt.Errorf("create manager: %w", err)
 	}
-	logger.Info("applying system files", "prefix", prefix, "files", len(tree.Files()))
+	slog.Info("applying system files", "prefix", prefix, "files", len(tree.Files()))
 	_, err = manager.Apply(ctx, dotfiles.ApplyOptions{DryRun: dryRun})
 	return err
 }

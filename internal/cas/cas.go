@@ -66,7 +66,7 @@ func (c *CASWriter) Seal() (string, error) {
 		}
 	} else {
 		if err := func() error { return os.Remove(c.tempFile.Name()) }(); err != nil {
-			slog.ErrorContext(c.ctx, "unexpected error", "op", "remove", "error", err)
+			slog.Error("unexpected error", "op", "remove", "error", err)
 		}
 	}
 

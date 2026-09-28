@@ -30,7 +30,7 @@ func (s Source) GetJSON(ctx context.Context, url string, out any) error {
 	defer func() {
 		if closer := resp.Body; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+				slog.Error("unexpected error", "op", "close", "error", err)
 			}
 		}
 	}()

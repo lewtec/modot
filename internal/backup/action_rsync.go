@@ -31,12 +31,11 @@ var (
 )
 
 func (a RsyncAction) Run(ctx context.Context, n *notification.Notification) error {
-	logger := slog.Default()
 
 	if strings.TrimSpace(a.Src) == "" || strings.TrimSpace(a.Dst) == "" {
 		return ErrRsyncNeedsSrcAndDst
 	}
-	logger.Info("rsync sync", "from", a.Src, "to", a.Dst)
+	slog.Info("rsync sync", "from", a.Src, "to", a.Dst)
 
 	// Use a pipe so we can forward rsync output lines to the desktop notification
 	// (preserving the previous live-update behavior) while the driver handles
@@ -58,12 +57,12 @@ func (a RsyncAction) Run(ctx context.Context, n *notification.Notification) erro
 			line := strings.TrimSpace(scanner.Text())
 			if line != "" {
 				n.Message = line
-				logger.Debug("rsync", "line", line)
+				slog.Debug("rsync", "line", line)
 			}
 			if time.Since(lastUpdate) > time.Second {
 				if (*notification.Notification)(n) != nil {
 					if err := lewnotify.Notify(ctx, *n); err != nil {
-						slog.ErrorContext(ctx, "unexpected error", "error", err)
+						slog.Error("unexpected error", "error", err)
 					}
 				}
 				lastUpdate = time.Now()
@@ -78,7 +77,7 @@ func (a RsyncAction) Run(ctx context.Context, n *notification.Notification) erro
 		// Close write side so the scanner goroutine drains and exits.
 		pw; closer != nil {
 		if err := closer.Close(); err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+			slog.Error("unexpected error", "op", "close", "error", err)
 		}
 	}
 	scanErr := <-scanDone

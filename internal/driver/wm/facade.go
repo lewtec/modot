@@ -15,7 +15,7 @@ func ToggleScratchpadWithInfo(ctx context.Context) error {
 	}
 	if err := media.ShowStatus(ctx); err != nil {
 		if err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "error",
+			slog.Error("unexpected error", "error",
 
 				// NextWorkspace switches to the next numbered workspace, moving the focused container when move is set.
 				err)

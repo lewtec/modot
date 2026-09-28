@@ -95,13 +95,12 @@ func (d *Driver) Run(ctx context.Context) error {
 	}
 
 	// Emit NewMenu signal to let watcher know we have a menu
-	logger := slog.Default()
 	if err := d.conn.Emit("/StatusNotifierItem", "org.kde.StatusNotifierItem.NewMenu"); err != nil {
-		logger.Warn("failed to emit NewMenu signal", "error", err)
+		slog.Warn("failed to emit NewMenu signal", "error", err)
 	}
 
 	if err := d.conn.Emit("/StatusNotifierItem", "org.kde.StatusNotifierItem.NewStatus", "Active"); err != nil {
-		logger.Warn("failed to emit NewStatus signal", "error", err)
+		slog.Warn("failed to emit NewStatus signal", "error", err)
 	}
 
 	// Register with watcher
@@ -109,7 +108,7 @@ func (d *Driver) Run(ctx context.Context) error {
 	call := watcher.Call("org.kde.StatusNotifierWatcher.RegisterStatusNotifierItem", 0, serviceName)
 	if call.Err != nil {
 		if err := fmt.Errorf("register with watcher: %w", call.Err); err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "error", err)
+			slog.Error("unexpected error", "error", err)
 		}
 	}
 
@@ -123,7 +122,7 @@ func (d *Driver) Close() {
 		if d.conn != nil {
 			if err := d.conn.Close(); err != nil {
 				if err != nil {
-					slog.ErrorContext(d.ctx, "unexpected error", "error", err)
+					slog.Error("unexpected error", "error", err)
 				}
 			}
 		}

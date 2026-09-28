@@ -45,8 +45,7 @@ func ShowStatus(ctx context.Context) error {
 func Notify(ctx context.Context, meta *Metadata) error {
 	note, ok := lewmedia.StatusNotification(meta)
 	if !ok {
-		logger := slog.Default()
-		logger.Warn("no active player with title found")
+		slog.Warn("no active player with title found")
 		return nil
 	}
 	iconPath := ""
@@ -55,14 +54,13 @@ func Notify(ctx context.Context, meta *Metadata) error {
 		iconPath, err = GetArtCachePath(ctx, meta.ArtUrl)
 		if err != nil {
 			if err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "error", err)
+				slog.Error("unexpected error", "error", err)
 			}
 		}
 	}
 	note.Icon = iconPath
 
-	logger := slog.Default()
-	logger.Info("sending media notification",
+	slog.Info("sending media notification",
 		"player", meta.Player,
 		"title", note.Title,
 		"artist", note.Message,
@@ -77,12 +75,11 @@ func Watch(ctx context.Context) {
 	err := lewmedia.Watch(ctx, func(meta *Metadata) {
 		if err := Notify(ctx, meta); err != nil {
 			if err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "error", err)
+				slog.Error("unexpected error", "error", err)
 			}
 		}
 	})
 	if err != nil {
-		logger := slog.Default()
-		logger.Error("media watch failed", "error", err)
+		slog.Error("media watch failed", "error", err)
 	}
 }

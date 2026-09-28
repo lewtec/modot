@@ -127,7 +127,7 @@ func (a GitRepoSyncAction) hasHEAD(ctx context.Context) (bool, error) {
 	if c, ok := live.(io.Closer); ok {
 		if closer := c; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+				slog.Error("unexpected error", "op", "close", "error", err)
 			}
 		}
 	}
@@ -248,7 +248,7 @@ func (a GitRepoSyncAction) pullRebase(ctx context.Context, remoteName, branch st
 	if err := a.run(ctx, "pull", "--rebase", remoteName, branch); err != nil {
 		if abortErr := a.run(ctx, "rebase", "--abort"); abortErr != nil {
 			if err := abortErr; err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "git rebase --abort", "path", a.Src, "error", err)
+				slog.Error("unexpected error", "op", "git rebase --abort", "path", a.Src, "error", err)
 			}
 		}
 		return fmt.Errorf("git pull --rebase failed for %s: %w", a.Src, err)

@@ -93,7 +93,7 @@ func notifySaved(ctx context.Context, path string, target TargetType) {
 	}
 	if err := lewnotify.Notify(ctx, n); err != nil {
 		if err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "error", err)
+			slog.Error("unexpected error", "error", err)
 		}
 	}
 }

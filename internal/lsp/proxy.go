@@ -47,7 +47,6 @@ func Run(ctx context.Context, r io.Reader, w io.Writer) error {
 }
 
 func (p *Proxy) loop(ctx context.Context) error {
-	logger := slog.Default()
 	for {
 		msg, err := p.client.ReadMessage()
 		if err != nil {
@@ -62,11 +61,11 @@ func (p *Proxy) loop(ctx context.Context) error {
 				p.closeAll(ctx)
 				return nil
 			}
-			logger.Error("lsp handle client", "method", msg.Method, "error", err)
+			slog.Error("lsp handle client", "method", msg.Method, "error", err)
 			if msg.IsRequest() {
 				if writeErr := p.client.WriteError(msg.ID, CodeInternalError, err.Error()); writeErr != nil {
 					if err := writeErr; err != nil {
-						slog.ErrorContext(ctx, "unexpected error", "error", err)
+						slog.Error("unexpected error", "error", err)
 					}
 				}
 			}
@@ -125,7 +124,6 @@ func (p *Proxy) handleNotification(ctx context.Context, msg *Message) error {
 }
 
 func (p *Proxy) onInitialize(ctx context.Context, msg *Message) error {
-	logger := slog.Default()
 
 	var params struct {
 		RootURI          string `json:"rootUri"`
@@ -165,7 +163,7 @@ func (p *Proxy) onInitialize(ctx context.Context, msg *Message) error {
 	// Load codebase config at client root (empty lsp block is fine).
 	cueCfg, err := configcue.LoadForWorkspace(ctx, root)
 	if err != nil {
-		logger.Warn("lsp: load codebase config failed; continuing with empty lsp routes", "root", root, "error", err)
+		slog.Warn("lsp: load codebase config failed; continuing with empty lsp routes", "root", root, "error", err)
 		p.cfg = Config{}
 	} else {
 		cfg, err := LoadConfig(cueCfg)
@@ -179,7 +177,7 @@ func (p *Proxy) onInitialize(ctx context.Context, msg *Message) error {
 	p.rootURI = rootURI
 	p.initParams = msg.Params
 
-	logger.Info("lsp initialized", "root", root, "servers", len(p.cfg.Servers), "languages", len(p.cfg.Languages))
+	slog.Info("lsp initialized", "root", root, "servers", len(p.cfg.Servers), "languages", len(p.cfg.Languages))
 	return p.client.WriteResult(msg.ID, initializeResult(rootURI))
 }
 
@@ -208,7 +206,7 @@ func (p *Proxy) onDidOpen(ctx context.Context, msg *Message) error {
 		return nil
 	}
 	if err := p.ensureLanguage(ctx, lang); err != nil {
-		slog.WarnContext(ctx, "lsp ensure language", "language", lang, "error", err)
+		slog.Warn("lsp ensure language", "language", lang, "error", err)
 		return nil
 	}
 	// Async full sync fan-out.
@@ -255,7 +253,7 @@ func (p *Proxy) onDidChange(ctx context.Context, msg *Message) error {
 	raw, marshalErr := json.Marshal(fullParams)
 	if marshalErr != nil {
 		if err := marshalErr; err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "error", err)
+			slog.Error("unexpected error", "error", err)
 		}
 		return nil
 	}
@@ -298,12 +296,12 @@ func (p *Proxy) syncNotify(ctx context.Context, lang, method string, params json
 			var raw any
 			if unmarshalErr := json.Unmarshal(params, &raw); unmarshalErr != nil {
 				if err := unmarshalErr; err != nil {
-					slog.ErrorContext(ctx, "unexpected error", "error", err)
+					slog.Error("unexpected error", "error", err)
 				}
 				raw = nil
 			}
 			if err := backend.Notify(method, raw); err != nil {
-				slog.DebugContext(ctx, "lsp sync notify", "server", backend.ServerID, "method", method, "error", err)
+				slog.Debug("lsp sync notify", "server", backend.ServerID, "method", method, "error", err)
 			}
 		}(backend)
 	}
@@ -337,7 +335,7 @@ func (p *Proxy) fanoutNotifyAll(ctx context.Context, msg *Message) error {
 	var raw any
 	if unmarshalErr := json.Unmarshal(msg.Params, &raw); unmarshalErr != nil {
 		if err := unmarshalErr; err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "error", err)
+			slog.Error("unexpected error", "error", err)
 		}
 		raw = nil
 	}
@@ -345,7 +343,7 @@ func (p *Proxy) fanoutNotifyAll(ctx context.Context, msg *Message) error {
 		backend := b
 		go func() {
 			if err := backend.Notify(msg.Method, raw); err != nil {
-				slog.DebugContext(ctx, "lsp notify all", "server", backend.ServerID, "error", err)
+				slog.Debug("lsp notify all", "server", backend.ServerID, "error", err)
 			}
 		}()
 	}
@@ -368,7 +366,7 @@ func (p *Proxy) forwardRequest(ctx context.Context, msg *Message) error {
 	var targets []*Backend
 	if lang != "" {
 		if err := p.ensureLanguage(ctx, lang); err != nil {
-			slog.WarnContext(ctx, "lsp ensure language", "language", lang, "error", err)
+			slog.Warn("lsp ensure language", "language", lang, "error", err)
 		}
 		for _, b := range p.bindingsLive(lang) {
 			if !b.HasCapability(cap) {
@@ -403,7 +401,7 @@ func (p *Proxy) forwardRequest(ctx context.Context, msg *Message) error {
 	if len(msg.Params) > 0 {
 		if unmarshalErr := json.Unmarshal(msg.Params, &rawParams); unmarshalErr != nil {
 			if err := unmarshalErr; err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "error", err)
+				slog.Error("unexpected error", "error", err)
 			}
 			rawParams = nil
 		}
@@ -518,7 +516,7 @@ func (p *Proxy) ensureLanguage(ctx context.Context, lang string) error {
 				},
 			}); notifyErr != nil {
 				if err := notifyErr; err != nil {
-					slog.ErrorContext(ctx, "unexpected error", "server", b.ServerID, "op", "didOpen replay", "error", err)
+					slog.Error("unexpected error", "server", b.ServerID, "op", "didOpen replay", "error", err)
 				}
 			}
 		}
@@ -539,7 +537,7 @@ func (p *Proxy) initializeBackend(ctx context.Context, backend *Backend) error {
 	if len(p.initParams) > 0 {
 		if unmarshalErr := json.Unmarshal(p.initParams, &base); unmarshalErr != nil {
 			if err := unmarshalErr; err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "error", err)
+				slog.Error("unexpected error", "error", err)
 			}
 			base = nil
 		}
@@ -580,14 +578,14 @@ func (p *Proxy) onBackendMessage(serverID string, msg *Message) {
 				}
 				if unmarshalErr := json.Unmarshal(msg.Params, &params); unmarshalErr != nil {
 					if err := unmarshalErr; err != nil {
-						slog.ErrorContext(p.ctx, "unexpected error", "error", err)
+						slog.Error("unexpected error", "error", err)
 					}
 				}
 				result := make([]any, len(params.Items))
 				raw, marshalErr := json.Marshal(result)
 				if marshalErr != nil {
 					if err := marshalErr; err != nil {
-						slog.ErrorContext(p.ctx, "unexpected error", "error", err)
+						slog.Error("unexpected error", "error", err)
 					}
 					raw = json.RawMessage("null")
 				}
@@ -601,7 +599,7 @@ func (p *Proxy) onBackendMessage(serverID string, msg *Message) {
 						Result:  raw,
 					}); writeErr != nil {
 						if err := writeErr; err != nil {
-							slog.ErrorContext(p.ctx, "unexpected error", "server", serverID, "error", err)
+							slog.Error("unexpected error", "server", serverID, "error", err)
 						}
 					}
 				}
@@ -618,7 +616,7 @@ func (p *Proxy) onBackendMessage(serverID string, msg *Message) {
 						Result:  json.RawMessage("null"),
 					}); writeErr != nil {
 						if err := writeErr; err != nil {
-							slog.ErrorContext(p.ctx, "unexpected error", "server", serverID, "error", err)
+							slog.Error("unexpected error", "server", serverID, "error", err)
 						}
 					}
 				}
@@ -636,20 +634,20 @@ func (p *Proxy) onBackendMessage(serverID string, msg *Message) {
 						Result:  json.RawMessage("null"),
 					}); writeErr != nil {
 						if err := writeErr; err != nil {
-							slog.ErrorContext(p.ctx, "unexpected error", "server", serverID, "error", err)
+							slog.Error("unexpected error", "server", serverID, "error", err)
 						}
 					}
 				}
 				return
 			}
-			slog.DebugContext(p.ctx, "lsp ignoring backend request", "server", serverID, "method", msg.Method)
+			slog.Debug("lsp ignoring backend request", "server", serverID, "method", msg.Method)
 		}()
 		return
 	}
 	// Notifications (diagnostics, logMessage, …)
 	if writeErr := p.client.WriteMessage(msg); writeErr != nil {
 		if err := writeErr; err != nil {
-			slog.ErrorContext(p.ctx, "unexpected error", "error", err)
+			slog.Error("unexpected error", "error", err)
 		}
 	}
 }
@@ -675,12 +673,12 @@ func (p *Proxy) closeAll(ctx context.Context) {
 		// best-effort shutdown
 		if _, reqErr := b.Request(shutdownCtx, "shutdown", nil); reqErr != nil {
 			if err := reqErr; err != nil {
-				slog.ErrorContext(shutdownCtx, "unexpected error", "server", id, "op", "shutdown", "error", err)
+				slog.Error("unexpected error", "server", id, "op", "shutdown", "error", err)
 			}
 		}
 		if notifyErr := b.Notify("exit", nil); notifyErr != nil {
 			if err := notifyErr; err != nil {
-				slog.ErrorContext(shutdownCtx, "unexpected error", "server", id, "op", "exit", "error", err)
+				slog.Error("unexpected error", "server", id, "op", "exit", "error", err)
 			}
 		}
 		b.Close()

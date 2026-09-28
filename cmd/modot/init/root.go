@@ -133,7 +133,7 @@ func generateConfig(ctx context.Context, configPath string) error {
 	if err := tmpl.Execute(f, data); err != nil {
 		if closer := f; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+				slog.Error("unexpected error", "op", "close", "error", err)
 			}
 		}
 		if rmErr := os.Remove(tmpPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {

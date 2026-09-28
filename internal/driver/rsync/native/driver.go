@@ -37,14 +37,13 @@ func (f *Factory) New(ctx context.Context) (rsyncdriver.Driver, error) {
 type Driver struct{}
 
 func (d *Driver) Sync(ctx context.Context, src, dst string, opts rsyncdriver.Options) error {
-	logger := slog.Default()
 	return rsyncdriver.SyncWith(ctx, src, dst, opts, []string{"-avP"},
 		func(ctx context.Context, args []string, st *taskgroup.Status, extraOut io.Writer) error {
-			return d.execRsync(ctx, args, st, extraOut, logger)
+			return d.execRsync(ctx, args, st, extraOut)
 		})
 }
 
-func (d *Driver) execRsync(ctx context.Context, args []string, st *taskgroup.Status, extraOut io.Writer, logger *slog.Logger) error {
+func (d *Driver) execRsync(ctx context.Context, args []string, st *taskgroup.Status, extraOut io.Writer) error {
 	if !execdriver.IsBinaryAvailable(ctx, "rsync") {
 		return ErrBinaryNotAvailable
 	}
@@ -62,7 +61,7 @@ func (d *Driver) execRsync(ctx context.Context, args []string, st *taskgroup.Sta
 		if c, ok := base.(io.Closer); ok {
 			if closer := c; closer != nil {
 				if err := closer.Close(); err != nil {
-					slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+					slog.Error("unexpected error", "op", "close", "error", err)
 				}
 			}
 		}

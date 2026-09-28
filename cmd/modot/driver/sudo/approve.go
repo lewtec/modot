@@ -17,17 +17,16 @@ type Approve struct {
 func (Approve) Description() string { return "Approve and execute a pending command" }
 
 func (c *Approve) Run(ctx context.Context) error {
-	logger := slog.Default()
 	slug := c.slug.Value()
 	sc, err := sudo.Get(slug)
 	if err != nil {
 		return err
 	}
 
-	logger.Info("approving command", "command", sc.Command, "args", sc.Args, "slug", slug)
+	slog.Info("approving command", "command", sc.Command, "args", sc.Args, "slug", slug)
 	defer func() {
 		if err := func() error { return sudo.Remove(slug) }(); err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "op", "sudo-remove", "error", err)
+			slog.Error("unexpected error", "op", "sudo-remove", "error", err)
 		}
 	}()
 

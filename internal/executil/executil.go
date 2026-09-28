@@ -120,7 +120,7 @@ func GetBinaryHash(ctx context.Context) (string, error) {
 	defer func() {
 		if closer := file; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+				slog.Error("unexpected error", "op", "close", "error", err)
 			}
 		}
 	}()

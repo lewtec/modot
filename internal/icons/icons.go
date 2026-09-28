@@ -57,8 +57,7 @@ func GetIconPath(ctx context.Context, url string) (string, error) {
 	faviconURL := fmt.Sprintf("https://www.google.com/s2/favicons?sz=128&domain=%s", domain)
 
 	perform := func(ctx context.Context) error {
-		logger := slog.Default()
-		logger.Info("downloading favicon", "url", normalized, "target", path)
+		slog.Info("downloading favicon", "url", normalized, "target", path)
 
 		req, err := http.NewRequestWithContext(ctx, "GET", faviconURL, nil)
 		if err != nil {
@@ -76,7 +75,7 @@ func GetIconPath(ctx context.Context, url string) (string, error) {
 		defer func() {
 			if closer := resp.Body; closer != nil {
 				if err := closer.Close(); err != nil {
-					slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+					slog.Error("unexpected error", "op", "close", "error", err)
 				}
 			}
 		}()

@@ -31,7 +31,7 @@ func ExtractPackage(ctx context.Context, gofile string) (string, error) {
 	defer func() {
 		if closer := f; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+				slog.Error("unexpected error", "op", "close", "error", err)
 			}
 		}
 	}()
@@ -55,14 +55,13 @@ func (r DetectedRoot) Children(ctx context.Context) (iter.Seq[DetectedRoot], err
 		return nil, err
 	}
 	return func(yield func(DetectedRoot) bool) {
-		logger := slog.Default()
 		for _, item := range items {
 			dirname := path.Base(path.Dir(item))
 			dir := path.Join(r.Dir, dirname)
 			file := path.Join(dir, "root.go")
 			pkg, err := ExtractPackage(ctx, file)
 			if err != nil {
-				logger.Warn("skipping root.go: ExtractPackage failed", "file", file, "error", err)
+				slog.Warn("skipping root.go: ExtractPackage failed", "file", file, "error", err)
 				continue
 			}
 			if !yield(DetectedRoot{
@@ -107,7 +106,7 @@ func HandleRegistryCodegen(ctx context.Context, r DetectedRoot) error {
 	defer func() {
 		if closer := f; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+				slog.Error("unexpected error", "op", "close", "error", err)
 			}
 		}
 	}()
@@ -229,10 +228,10 @@ func main() {
 	rootCtx := context.Background() //nolint:forbidigo // process root
 	app, err := cmd.Parse[autoRegistry](os.Args[1:]...)
 	if err != nil {
-		slog.ErrorContext(rootCtx, "unexpected error", "context", "fatal error", "error", err)
+		slog.Error("unexpected error", "context", "fatal error", "error", err)
 		return
 	}
 	if err := app.Run(rootCtx); err != nil {
-		slog.ErrorContext(rootCtx, "unexpected error", "context", "fatal error", "error", err)
+		slog.Error("unexpected error", "context", "fatal error", "error", err)
 	}
 }

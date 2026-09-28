@@ -97,7 +97,6 @@ func ResolveBinPath(ctx context.Context, binName, toolSpec string) (string, erro
 // modotBin is the absolute path to the modot binary; when empty,
 // the default under the user data dir is used.
 func EnsureLocalBinWrapper(ctx context.Context, modotBin string) error {
-	logger := slog.Default()
 	home, err := envdriver.ResolveHomeDir()
 	if err != nil {
 		return fmt.Errorf("get home directory: %w", err)
@@ -131,6 +130,6 @@ func EnsureLocalBinWrapper(ctx context.Context, modotBin string) error {
 		return fmt.Errorf("write mise wrapper: %w", err)
 	}
 
-	logger.Info("created mise wrapper", "path", wrapperPath, "modot", modotBin)
+	slog.Info("created mise wrapper", "path", wrapperPath, "modot", modotBin)
 	return nil
 }

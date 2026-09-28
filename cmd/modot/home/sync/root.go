@@ -21,8 +21,7 @@ func (c *Command) Run(ctx context.Context) error {
 		return fmt.Errorf("get dotfiles root: %w", err)
 	}
 
-	logger := slog.Default()
-	logger.Info("==> Pulling dotfiles changes...")
+	slog.Info("==> Pulling dotfiles changes...")
 	pullCmd := execdriver.MustRun(ctx, "git", "-C", root, "pull")
 	pullCmd.Stdout = pullCmd.Stderr
 	if err := pullCmd.Run(); err != nil {

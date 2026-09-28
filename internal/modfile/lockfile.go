@@ -69,7 +69,7 @@ func writeSumFile(ctx context.Context, path string, sum *SumFile) error {
 	}
 	defer func() {
 		if err := f.Abort(); err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "op", "atomicfile.Abort", "error", err)
+			slog.Error("unexpected error", "op", "atomicfile.Abort", "error", err)
 		}
 	}()
 	enc := json.NewEncoder(f)

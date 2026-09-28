@@ -28,18 +28,17 @@ func LogApplyResult(ctx context.Context, result *ApplyResult, opts LogApplyOptio
 	if result == nil {
 		return
 	}
-	logger := slog.Default()
 	hasChanges := result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 || (opts.ShowNoop && result.FilesNoOp > 0)
 	if result.StateDropped > 0 {
 		msg := "dropped gitignored paths from state"
 		if opts.DryRun {
 			msg = "would drop gitignored paths from state"
 		}
-		logger.Info(msg, "count", result.StateDropped)
+		slog.Info(msg, "count", result.StateDropped)
 	}
 	if !hasChanges {
 		if opts.NoChangesTarget != "" && !opts.DryRun && result.StateDropped == 0 {
-			logger.Info("no changes needed", "target", opts.NoChangesTarget)
+			slog.Info("no changes needed", "target", opts.NoChangesTarget)
 		}
 	} else {
 		for _, a := range deployer.SortActions(result.Actions) {
@@ -50,7 +49,7 @@ func LogApplyResult(ctx context.Context, result *ApplyResult, opts LogApplyOptio
 			if a.Desired.File != nil {
 				sourceInfo = a.Desired.File.SourceInfo()
 			}
-			logger.Info("apply action",
+			slog.Info("apply action",
 				"type", a.Type,
 				"target", deployer.PrettyPath(a.Target),
 				"source", sourceInfo,
@@ -64,10 +63,10 @@ func LogApplyResult(ctx context.Context, result *ApplyResult, opts LogApplyOptio
 		if opts.ShowNoop {
 			attrs = append(attrs, "noop", result.FilesNoOp)
 		}
-		logger.Info("apply summary", attrs...)
+		slog.Info("apply summary", attrs...)
 	}
 	// After the file diff (or idle message), surface module soft diagnostics.
 	for _, w := range result.Warnings {
-		logger.Warn(w)
+		slog.Warn(w)
 	}
 }

@@ -21,11 +21,10 @@ Uses the same primitives as the other demos:
 
 func (*Loop) Run(ctx context.Context) error {
 	taskgroup.Go(ctx, "loop-demo", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
-		logger := slog.Default()
 
 		for i := 1; i <= 5; i++ {
 			time.Sleep(1 * time.Second)
-			logger.Info("log line from loop", "iteration", i)
+			slog.Info("log line from loop", "iteration", i)
 			s.Update(fmt.Sprintf("step %d/5", i))
 			s.Progress(int64(i), 5)
 		}

@@ -337,24 +337,22 @@ func forcePackage(src string) string {
 }
 
 func warnLegacyDir(ctx context.Context, dir string) {
-	logger := slog.Default()
 	for _, name := range []string{"workspaced.cue", "workspaced.lock.json"} {
 		candidate := filepath.Join(dir, name)
 		if !fileExists(candidate) {
 			continue
 		}
 		next := strings.ReplaceAll(name, "workspaced", "modot")
-		logger.Warn("ignoring leftover file", "path", candidate, "use", next)
+		slog.Warn("ignoring leftover file", "path", candidate, "use", next)
 	}
 }
 
 // WarnLegacyEnv reports previous env names. The values are not read.
 func WarnLegacyEnv(ctx context.Context) {
-	logger := slog.Default()
 	for _, env := range os.Environ() {
 		key, _, _ := strings.Cut(env, "=")
 		if strings.HasPrefix(key, "WORKSPACED_") {
-			logger.Warn("ignoring leftover environment variable", "name", key, "use", "MODOT_"+strings.TrimPrefix(key, "WORKSPACED_"))
+			slog.Warn("ignoring leftover environment variable", "name", key, "use", "MODOT_"+strings.TrimPrefix(key, "WORKSPACED_"))
 		}
 	}
 }
@@ -742,11 +740,9 @@ func resolveLocalSourceSpec(workspaceRoot, modulePath, spec string) (string, boo
 func marshalModotValue(ctx context.Context, configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
 	if !configValue.Exists() {
 		if len(discovered) > 0 {
-			logger := slog.Default()
-			logger.Warn("experimental cue export produced empty result", "reason", "missing config", "layers", discovered)
+			slog.Warn("experimental cue export produced empty result", "reason", "missing config", "layers", discovered)
 		} else if len(paths) > 0 {
-			logger := slog.Default()
-			logger.Warn("experimental cue export produced empty result", "reason", "missing config", "paths", paths)
+			slog.Warn("experimental cue export produced empty result", "reason", "missing config", "paths", paths)
 		}
 		return json.Marshal(map[string]any{})
 	}
@@ -755,11 +751,9 @@ func marshalModotValue(ctx context.Context, configValue cue.Value, paths []strin
 		return nil, fmt.Errorf("marshal cue config to json: %w", err)
 	}
 	if string(b) == "{}" && len(discovered) > 0 {
-		logger := slog.Default()
-		logger.Warn("experimental cue export produced empty result", "reason", "config resolved to empty object", "layers", discovered)
+		slog.Warn("experimental cue export produced empty result", "reason", "config resolved to empty object", "layers", discovered)
 	} else if string(b) == "{}" && len(paths) > 0 {
-		logger := slog.Default()
-		logger.Warn("experimental cue export produced empty result", "reason", "config resolved to empty object", "paths", paths)
+		slog.Warn("experimental cue export produced empty result", "reason", "config resolved to empty object", "paths", paths)
 	}
 	return b, nil
 }
@@ -793,11 +787,9 @@ func formatModotDef(ctx context.Context, configValue cue.Value, paths []string, 
 func formatModotSyntax(ctx context.Context, configValue cue.Value, paths []string, discovered []Layer, kind, errLabel string, opts ...cue.Option) ([]byte, error) {
 	if !configValue.Exists() {
 		if len(discovered) > 0 {
-			logger := slog.Default()
-			logger.Warn("experimental cue "+kind+" produced empty result", "reason", "missing config", "layers", discovered)
+			slog.Warn("experimental cue "+kind+" produced empty result", "reason", "missing config", "layers", discovered)
 		} else if len(paths) > 0 {
-			logger := slog.Default()
-			logger.Warn("experimental cue "+kind+" produced empty result", "reason", "missing config", "paths", paths)
+			slog.Warn("experimental cue "+kind+" produced empty result", "reason", "missing config", "paths", paths)
 		}
 		return []byte("{}\n"), nil
 	}

@@ -57,27 +57,26 @@ func main() {
 		defer func() {
 			if closer := f; closer != nil {
 				if err := closer.Close(); err != nil {
-					slog.ErrorContext(rootCtx, "unexpected error", "op", "close", "path", exe, "error", err)
+					slog.Error("unexpected error", "op", "close", "path", exe, "error", err)
 				}
 			}
 		}()
 		if _, err = io.Copy(h, f); err != nil {
 			panic(err)
 		}
-		slog.InfoContext(rootCtx, "build time", "t", h.Sum(nil))
+		slog.Info("build time", "t", h.Sum(nil))
 	}
 	if _, err := configcue.LoadHome(rootCtx); err != nil {
-		slog.DebugContext(rootCtx, "failed to load config", "error", err)
+		slog.Debug("failed to load config", "error", err)
 	}
 
 	pkg_daemon.ExecuteCLI = executeCLI
 
 	if err := run(rootCtx, level); err != nil {
-		logger := slog.Default()
 		if details := cueerrors.Details(err, nil); details != "" {
-			logger.Error("error", "err", err, "details", "\n"+details)
+			slog.Error("error", "err", err, "details", "\n"+details)
 		} else {
-			logger.Error("error", "err", err)
+			slog.Error("error", "err", err)
 		}
 		os.Exit(1)
 	}
@@ -116,7 +115,7 @@ func run(ctx context.Context, level *slog.LevelVar) error {
 	}
 	cancel()
 	if runErr != nil {
-		slog.ErrorContext(ctx, "task group error", "err", runErr)
+		slog.Error("task group error", "err", runErr)
 	}
 	return runErr
 }
@@ -136,7 +135,7 @@ func setup(ctx context.Context, app cmd.App[cli]) (context.Context, *taskgroup.S
 	armedNoCache := app.Args.NoCache.Value()
 	ctx = cmdctx.WithNoCache(ctx, armedNoCache)
 	if armedNoCache {
-		slog.InfoContext(ctx, "no-cache enabled (flag or MODOT_NO_CACHE)")
+		slog.Info("no-cache enabled (flag or MODOT_NO_CACHE)")
 	}
 
 	base := taskgroup.DefaultLimits()

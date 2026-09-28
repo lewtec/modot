@@ -172,8 +172,7 @@ func makeLockLookups(ctx context.Context) (func(string) map[string]any, func(str
 func getFavicon(ctx context.Context, url string) (string, error) {
 	iconPath, err := icons.GetIconPath(ctx, url)
 	if err != nil {
-		logger := slog.Default()
-		logger.Error("failed to get favicon", "url", url, "error", err)
+		slog.Error("failed to get favicon", "url", url, "error", err)
 		// Return fallback icon
 		return "applications-internet", nil
 	}

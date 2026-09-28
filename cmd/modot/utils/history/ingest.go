@@ -54,9 +54,9 @@ func ingestEvents(ctx context.Context, load func(context.Context) ([]types.Histo
 		return err
 	}
 	if len(events) == 0 {
-		slog.InfoContext(ctx, "No events to ingest")
+		slog.Info("No events to ingest")
 		return nil
 	}
-	slog.InfoContext(ctx, "Ingesting events...", "amount", len(events))
+	slog.Info("Ingesting events...", "amount", len(events))
 	return database.BatchRecordHistory(ctx, events)
 }

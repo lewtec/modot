@@ -24,14 +24,13 @@ TERM=dumb → plain Wait.`
 }
 
 func (*Cpu10k) Run(ctx context.Context) error {
-	logger := slog.Default()
 
 	items := make([]int, cpu10kItems)
 	for i := range items {
 		items[i] = i
 	}
 
-	logger.Info("cpu10k: calling Map.Run",
+	slog.Info("cpu10k: calling Map.Run",
 		"items", len(items),
 		"per_item", "100ms",
 	)
@@ -62,7 +61,7 @@ func (*Cpu10k) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	logger.Info("cpu10k finished",
+	slog.Info("cpu10k finished",
 		"results", len(results),
 		"first", results[0],
 		"last", results[len(results)-1],

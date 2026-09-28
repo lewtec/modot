@@ -57,12 +57,11 @@ func Generate(ctx context.Context) (string, error) {
 
 	var errs []error
 	if profile {
-		logger := slog.Default()
 		for i, key := range keys {
 			if outs[i].err != nil {
 				continue
 			}
-			logger.Info("shell generator timing", "generator", key, "duration", outs[i].duration)
+			slog.Info("shell generator timing", "generator", key, "duration", outs[i].duration)
 		}
 	}
 

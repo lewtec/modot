@@ -36,6 +36,6 @@ type loggingTransport struct {
 }
 
 func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	slog.DebugContext(req.Context(), "http request", "url", req.URL.String())
+	slog.Debug("http request", "url", req.URL.String())
 	return t.base.RoundTrip(req)
 }

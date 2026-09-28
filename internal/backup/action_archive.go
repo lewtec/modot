@@ -63,7 +63,7 @@ func (action ArchiveAction) Run(ctx context.Context, _ *notification.Notificatio
 			}
 			return nil
 		}(); err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "op", "remove",
+			slog.Error("unexpected error", "op", "remove",
 
 				"path", tmpPath, "error", err)
 		}

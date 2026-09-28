@@ -273,8 +273,7 @@ func (m *DBusMenu) handleEvent(id int32, eventId string, data dbus.Variant, time
 		if idx >= 0 && idx < len(m.driver.state.Menu) {
 			item := m.driver.state.Menu[idx]
 			if item.Callback != nil {
-				logger := slog.Default()
-				logger.Info("executing menu callback", "label", item.Label)
+				slog.Info("executing menu callback", "label", item.Label)
 				go item.Callback()
 			}
 		}
@@ -294,7 +293,7 @@ func (m *DBusMenu) EmitLayoutUpdated() {
 	if m.driver.conn != nil {
 		if err := m.driver.conn.Emit("/MenuBar", "com.canonical.dbusmenu.LayoutUpdated", rev, int32(0)); err != nil {
 			if err != nil {
-				slog.ErrorContext(m.driver.ctx, "unexpected error", "error", err)
+				slog.Error("unexpected error", "error", err)
 			}
 		}
 	}

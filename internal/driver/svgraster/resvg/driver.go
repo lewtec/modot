@@ -74,7 +74,7 @@ func (d *Driver) RasterizeSVG(ctx context.Context, svg string, width int, height
 	}
 	defer func() {
 		if err := func() error { return os.RemoveAll(tmpDir) }(); err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "op", "remove_all", "error", err)
+			slog.Error("unexpected error", "op", "remove_all", "error", err)
 		}
 	}()
 
@@ -109,7 +109,7 @@ func (d *Driver) RasterizeSVG(ctx context.Context, svg string, width int, height
 	defer func() {
 		if closer := f; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+				slog.Error("unexpected error", "op", "close", "error", err)
 			}
 		}
 	}()

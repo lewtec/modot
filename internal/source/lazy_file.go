@@ -27,7 +27,7 @@ func (f *TemplateFile) Reader() (io.ReadCloser, error) {
 	defer func() {
 		if closer := srcReader; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(f.Context, "unexpected error", "op", "close", "error", err)
+				slog.Error("unexpected error", "op", "close", "error", err)
 			}
 		}
 	}()

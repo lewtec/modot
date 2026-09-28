@@ -29,12 +29,11 @@ type AnnotateOptions struct {
 // Outside GHA it logs a warning and returns nil (soft no-op).
 // Exit code is never based on findings.
 func AnnotateIfApplicable(ctx context.Context, report *sarif.Report, opts AnnotateOptions) error {
-	logger := slog.Default()
 	if report == nil {
 		return nil
 	}
 	if !IsGitHubActions() {
-		logger.Warn("lint --review: not running on GitHub Actions; skipping annotations")
+		slog.Warn("lint --review: not running on GitHub Actions; skipping annotations")
 		return nil
 	}
 	out := opts.Out
@@ -55,11 +54,11 @@ func AnnotateIfApplicable(ctx context.Context, report *sarif.Report, opts Annota
 
 	diffLines, err := RelevantDiffLines(ctx, root)
 	if err != nil {
-		logger.Warn("lint --review: cannot compute relevant diff; skipping annotations", "error", err)
+		slog.Warn("lint --review: cannot compute relevant diff; skipping annotations", "error", err)
 		return nil
 	}
 	if len(diffLines) == 0 {
-		logger.Warn("lint --review: empty relevant diff; skipping annotations")
+		slog.Warn("lint --review: empty relevant diff; skipping annotations")
 		return nil
 	}
 
@@ -79,7 +78,7 @@ func AnnotateIfApplicable(ctx context.Context, report *sarif.Report, opts Annota
 			n++
 		}
 	}
-	logger.Info("lint --review: wrote workflow annotations", "count", n)
+	slog.Info("lint --review: wrote workflow annotations", "count", n)
 	return nil
 }
 

@@ -31,17 +31,16 @@ func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options)
 	if len(colors) == 0 {
 		return nil, ctx.Err()
 	}
-	logger := slog.Default()
-	logger.Info("sampled colors from image", "unique_colors", len(colors))
+	slog.Info("sampled colors from image", "unique_colors", len(colors))
 
 	labColors := make([]api.LAB, len(colors))
 	for i, c := range colors {
 		labColors[i] = api.RGBToLAB(c)
 	}
-	logger.Info("converted to LAB color space")
+	slog.Info("converted to LAB color space")
 
 	population := initPopulation(rng, opts.ColorCount, numSurvivors+numNewborns)
-	logger.Info("initialized population", "size", len(population), "colors_per_palette", opts.ColorCount)
+	slog.Info("initialized population", "size", len(population), "colors_per_palette", opts.ColorCount)
 
 	generation := 0
 	var prevBestFitness float64
@@ -57,13 +56,13 @@ func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options)
 		scored := scorePop(population, labColors, opts.Polarity)
 
 		bestFitness := scored[0].fitness
-		logger.Info("generation completed",
+		slog.Info("generation completed",
 			"generation", generation,
 			"best_fitness", bestFitness,
 			"population_size", len(population))
 
 		if generation > 0 && bestFitness == prevBestFitness {
-			logger.Info("converged - fitness unchanged", "generations", generation)
+			slog.Info("converged - fitness unchanged", "generations", generation)
 			break
 		}
 		prevBestFitness = bestFitness
@@ -79,10 +78,10 @@ func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options)
 
 	scored := scorePop(population, labColors, opts.Polarity)
 	best := scored[0].individual
-	logger.Info("evolution complete", "final_fitness", scored[0].fitness, "total_generations", generation)
+	slog.Info("evolution complete", "final_fitness", scored[0].fitness, "total_generations", generation)
 
 	pal := mapToPalette(best, opts.ColorCount)
-	logger.Info("palette generated successfully")
+	slog.Info("palette generated successfully")
 	return pal, nil
 }
 

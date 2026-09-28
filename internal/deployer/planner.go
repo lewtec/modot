@@ -49,7 +49,7 @@ func planOne(ctx context.Context, target string, d DesiredState, current Managed
 
 	// --no-cache: force rewrite of every existing target (noops become updates).
 	if cmdctx.IsNoCache(ctx) {
-		slog.DebugContext(ctx, "no-cache: forcing update", "target", target)
+		slog.Debug("no-cache: forcing update", "target", target)
 		return Action{Type: ActionUpdate, Target: target, Desired: d, Current: current}, nil
 	}
 
@@ -86,7 +86,7 @@ func planOne(ctx context.Context, target string, d DesiredState, current Managed
 			desiredHash, err := calculateHash(reader)
 			if closer := reader; closer != nil {
 				if err := closer.Close(); err != nil {
-					slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+					slog.Error("unexpected error", "op", "close", "error", err)
 				}
 			}
 			if err != nil {
@@ -100,7 +100,7 @@ func planOne(ctx context.Context, target string, d DesiredState, current Managed
 				actualHash, err := calculateHash(targetFile)
 				if closer := targetFile; closer != nil {
 					if err := closer.Close(); err != nil {
-						slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+						slog.Error("unexpected error", "op", "close", "error", err)
 					}
 				}
 				if err != nil {

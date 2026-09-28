@@ -36,22 +36,21 @@ func (p *Pipeline) AddPlugin(plugin Plugin) {
 
 // Run executes the full pipeline.
 func (p *Pipeline) Run(ctx context.Context, initial []File) ([]File, error) {
-	logger := slog.Default()
 	current := initial
 
 	for i, plugin := range p.plugins {
-		logger.Debug("running plugin", "index", i, "name", plugin.Name(), "input_count", len(current))
+		slog.Debug("running plugin", "index", i, "name", plugin.Name(), "input_count", len(current))
 
 		result, err := plugin.Process(ctx, current)
 		if err != nil {
 			return nil, fmt.Errorf("plugin %s failed: %w", plugin.Name(), err)
 		}
 
-		logger.Debug("plugin completed", "name", plugin.Name(), "output_count", len(result))
+		slog.Debug("plugin completed", "name", plugin.Name(), "output_count", len(result))
 		current = result
 	}
 
-	logger.Info("pipeline completed", "total_plugins", len(p.plugins), "final_count", len(current))
+	slog.Info("pipeline completed", "total_plugins", len(p.plugins), "final_count", len(current))
 	return current, nil
 }
 

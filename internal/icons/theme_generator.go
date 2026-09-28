@@ -98,11 +98,11 @@ func RunThemeGenerate(ctx context.Context, opts ThemeGenerateOptions) error {
 			}
 		} else if cmdctx.IsDryRun(ctx) {
 			if _, err := os.Stat(indexPath); err == nil {
-				slog.DebugContext(ctx, "no-cache: would regenerate icons (dry-run)", "output", outputDir)
+				slog.Debug("no-cache: would regenerate icons (dry-run)", "output", outputDir)
 				return nil
 			}
 		} else {
-			slog.DebugContext(ctx, "no-cache: regenerating icons", "output", outputDir)
+			slog.Debug("no-cache: regenerating icons", "output", outputDir)
 		}
 		if err := runThemeGenerateEngine(ctx, opts, inputDir, outputDir); err != nil {
 			return err

@@ -12,12 +12,11 @@ import (
 
 // RunAll loads CUE formatter tools and runs applicable ones serially.
 func RunAll(ctx context.Context, dir string) error {
-	logger := slog.Default()
 	tools, err := checks.LoadToolsForDir(ctx, dir, "formatter")
 	if err != nil {
 		return err
 	}
-	logger.Info("running formatters", "count", len(tools), "dir", dir)
+	slog.Info("running formatters", "count", len(tools), "dir", dir)
 
 	type item struct {
 		tool   checks.Tool
@@ -31,7 +30,7 @@ func RunAll(ctx context.Context, dir string) error {
 		det, err := checks.EvaluateDetect(dir, t.Detect)
 		if err != nil {
 			if err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "tool", t.Name, "context", "formatter detect", "error", err)
+				slog.Error("unexpected error", "tool", t.Name, "context", "formatter detect", "error", err)
 			}
 			continue
 		}
@@ -55,12 +54,11 @@ func RunAll(ctx context.Context, dir string) error {
 		Serial:   true,
 		TaskName: func(_ int, it item) string { return "fmt:" + it.tool.Name },
 		Fn: func(ctx context.Context, s *taskgroup.Status, it item) (*toolFailure, error) {
-			l := slog.Default()
 			s.Update("running " + it.tool.Name)
-			l.Info("running formatter", "name", it.tool.Name)
+			slog.Info("running formatter", "name", it.tool.Name)
 			if err := runOne(ctx, dir, it.tool, it.detect); err != nil {
 				if err != nil {
-					slog.ErrorContext(ctx, "unexpected error", "name", it.tool.Name, "context", "formatter failed", "error", err)
+					slog.Error("unexpected error", "name", it.tool.Name, "context", "formatter failed", "error", err)
 				}
 				return &toolFailure{name: it.tool.Name, err: err}, nil
 			}

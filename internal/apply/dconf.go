@@ -74,7 +74,7 @@ func ApplyHomeDconf(ctx context.Context) error {
 	}
 	defer func() {
 		if err := func() error { return os.Remove(tmpIni) }(); err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "op", "remove", "error", err)
+			slog.Error("unexpected error", "op", "remove", "error", err)
 		}
 	}()
 	return applyDconf(ctx, tmpIni)
@@ -90,12 +90,12 @@ func writeTempDconfIni(ctx context.Context, content string) (string, error) {
 	if _, err := f.WriteString(content); err != nil {
 		if closer := f; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+				slog.Error("unexpected error", "op", "close", "error", err)
 			}
 		}
 		if rmErr := os.Remove(path); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
 			if err := rmErr; err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "path", path, "error", err)
+				slog.Error("unexpected error", "path", path, "error", err)
 			}
 		}
 		return "", err
@@ -103,7 +103,7 @@ func writeTempDconfIni(ctx context.Context, content string) (string, error) {
 	if err := f.Close(); err != nil {
 		if rmErr := os.Remove(path); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
 			if err := rmErr; err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "path", path, "error", err)
+				slog.Error("unexpected error", "path", path, "error", err)
 			}
 		}
 		return "", err
@@ -178,7 +178,7 @@ func applyDconf(ctx context.Context, iniFile string) error {
 	defer func() {
 		if closer := file; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+				slog.Error("unexpected error", "op", "close", "error", err)
 			}
 		}
 	}()

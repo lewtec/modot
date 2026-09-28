@@ -125,15 +125,15 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 	if warm && !noCache {
 		// cache hit
 	} else if noCache && cmdctx.IsDryRun(ctx) && warm {
-		slog.DebugContext(ctx, "no-cache: would regenerate icons (dry-run)", "cache_dir", cacheDir)
+		slog.Debug("no-cache: would regenerate icons (dry-run)", "cache_dir", cacheDir)
 	} else {
 		if noCache {
-			slog.DebugContext(ctx, "no-cache: regenerating icons", "cache_dir", cacheDir)
+			slog.Debug("no-cache: regenerating icons", "cache_dir", cacheDir)
 		}
 		workDir := cacheDir + ".tmp"
 		if rmErr := os.RemoveAll(workDir); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
 			if err := rmErr; err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "path", workDir, "error", err)
+				slog.Error("unexpected error", "path", workDir, "error", err)
 			}
 		}
 		if err := os.MkdirAll(workDir, 0755); err != nil {
@@ -158,7 +158,7 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 		if err != nil {
 			if rmErr := os.RemoveAll(workDir); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
 				if err := rmErr; err != nil {
-					slog.ErrorContext(ctx, "unexpected error", "path", workDir, "error", err)
+					slog.Error("unexpected error", "path", workDir, "error", err)
 				}
 			}
 			return module.ResolveResult{}, err
@@ -166,7 +166,7 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 		if err := atomicReplaceDir(cacheDir, workDir); err != nil {
 			if rmErr := os.RemoveAll(workDir); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
 				if err := rmErr; err != nil {
-					slog.ErrorContext(ctx, "unexpected error", "path", workDir, "error", err)
+					slog.Error("unexpected error", "path", workDir, "error", err)
 				}
 			}
 			return module.ResolveResult{}, err

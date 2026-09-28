@@ -130,8 +130,7 @@ func ensureGithubSource(ctx context.Context, alias string, src modfile.SourceCon
 		return "", fmt.Errorf("source alias %q (github) requires repo", alias)
 	}
 
-	logger := slog.Default()
-	logger.Info("resolving github source", "alias", s.Alias, "repo", s.Repo(), "ref", s.Ref(), "url", s.Config.URL)
+	slog.Info("resolving github source", "alias", s.Alias, "repo", s.Repo(), "ref", s.Ref(), "url", s.Config.URL)
 	return sourcecache.EnsureCachedDir(ctx, "github", s.CacheKey(), func(tmpDir string) error {
 		meta, err := downloadAndExtractTarball(ctx, s, tmpDir, "")
 		if err != nil {
@@ -140,7 +139,7 @@ func ensureGithubSource(ctx context.Context, alias string, src modfile.SourceCon
 		if err := s.WriteMeta(tmpDir, meta); err != nil {
 			return fmt.Errorf("write source metadata: %w", err)
 		}
-		logger.Info("fetched github source", "alias", s.Alias, "url", meta.URL, "sha256", meta.Hash)
+		slog.Info("fetched github source", "alias", s.Alias, "url", meta.URL, "sha256", meta.Hash)
 		return nil
 	})
 }

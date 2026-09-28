@@ -35,7 +35,7 @@ func BindStreams(ctx context.Context, extraOut io.Writer) (io.Writer, func()) {
 				// Sync performs an rsync transfer using the selected driver.
 				// See Driver.Sync for semantics and taskgroup integration.
 				if err := closer.Close(); err != nil {
-					slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+					slog.Error("unexpected error", "op", "close", "error", err)
 				}
 			}
 		}
@@ -57,7 +57,6 @@ func RunWithTaskGroup(
 	opts Options,
 	perform func(ctx context.Context, st *taskgroup.Status, extraOut io.Writer) error,
 ) error {
-	logger := slog.Default()
 	if taskgroup.FromContext(ctx) == nil {
 		// Direct execution (no task tracking). Forward to extra output if provided.
 		return perform(ctx, nil, opts.Output)
@@ -73,11 +72,11 @@ func RunWithTaskGroup(
 		err := perform(ctx, st, opts.Output)
 		if err != nil {
 			st.Update(fmt.Sprintf("error: %v", err))
-			logger.Error("rsync task failed", "name", name, "error", err)
+			slog.Error("rsync task failed", "name", name, "error", err)
 		} else {
 			st.Progress(1, 1)
 			st.Update("done")
-			logger.Debug("rsync task completed", "name", name)
+			slog.Debug("rsync task completed", "name", name)
 		}
 		errCh <- err
 		return err

@@ -19,23 +19,22 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 	if modFile == nil || len(entries) == 0 {
 		return nil
 	}
-	logger := slog.Default()
 
 	needsWork := make([]string, 0, len(entries))
 	for alias, entry := range entries {
 		if strings.TrimSpace(entry.Hash) != "" {
-			logger.Debug("source lock hash already present, skipping re-resolution", "source", alias)
+			slog.Debug("source lock hash already present, skipping re-resolution", "source", alias)
 			continue
 		}
 		needsWork = append(needsWork, alias)
 	}
 	sort.Strings(needsWork)
 	if len(needsWork) == 0 {
-		logger.Info("source lock hashes computed", "sources", len(entries), "resolved", 0)
+		slog.Info("source lock hashes computed", "sources", len(entries), "resolved", 0)
 		return nil
 	}
 
-	logger.Info("computing source lock hashes", "sources", len(entries), "pending", len(needsWork))
+	slog.Info("computing source lock hashes", "sources", len(entries), "pending", len(needsWork))
 
 	// Map owns the aggregate bar. Children are Control — httpclient.WithProgress
 	// already takes Internet slots. Internet here plus nested fetch deadlocks
@@ -49,8 +48,7 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 		Fn: func(ctx context.Context, s *taskgroup.Status, alias string) (sourceLockHashUpdate, error) {
 			entry := entries[alias]
 			s.Update(alias)
-			logger := slog.Default()
-			logger.Info("computing source lock hash", "source", alias, "provider", entry.Provider)
+			slog.Info("computing source lock hash", "source", alias, "provider", entry.Provider)
 
 			src, ok := modFile.Sources[alias]
 			if !ok {
@@ -87,7 +85,7 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 				entry.Ref = r
 			}
 			entry.Hash = hash
-			logger.Info("computed source lock hash", "source", alias)
+			slog.Info("computed source lock hash", "source", alias)
 			return sourceLockHashUpdate{alias: alias, entry: entry}, nil
 		},
 	}.Run(ctx)
@@ -98,6 +96,6 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 	for _, u := range updates {
 		entries[u.alias] = u.entry
 	}
-	logger.Info("source lock hashes computed", "sources", len(entries), "resolved", len(updates))
+	slog.Info("source lock hashes computed", "sources", len(entries), "resolved", len(updates))
 	return nil
 }

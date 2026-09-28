@@ -169,7 +169,7 @@ func readToolVersion(ctx context.Context, path, toolName string) (string, error)
 	defer func() {
 		if closer := f; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+				slog.Error("unexpected error", "op", "close", "error", err)
 			}
 		}
 	}()

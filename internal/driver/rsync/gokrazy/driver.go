@@ -3,7 +3,6 @@ package gokrazy
 import (
 	"context"
 	"io"
-	"log/slog"
 
 	lewdriver "github.com/lewtec/lewkit/x/driver"
 	"github.com/lewtec/lewkit/x/taskgroup"
@@ -34,15 +33,14 @@ func (f *Factory) New(ctx context.Context) (rsyncdriver.Driver, error) {
 type Driver struct{}
 
 func (d *Driver) Sync(ctx context.Context, src, dst string, opts rsyncdriver.Options) error {
-	logger := slog.Default()
 	// gokrazy/rsync: avoid -P/--partial (not implemented); use long --progress.
 	return rsyncdriver.SyncWith(ctx, src, dst, opts, []string{"-av", "--progress"},
 		func(ctx context.Context, args []string, st *taskgroup.Status, extraOut io.Writer) error {
-			return d.runRsyncCmd(ctx, args, st, extraOut, logger)
+			return d.runRsyncCmd(ctx, args, st, extraOut)
 		})
 }
 
-func (d *Driver) runRsyncCmd(ctx context.Context, args []string, st *taskgroup.Status, extraOut io.Writer, logger *slog.Logger) error {
+func (d *Driver) runRsyncCmd(ctx context.Context, args []string, st *taskgroup.Status, extraOut io.Writer) error {
 	// rsynccmd gives us a drop-in replacement for spawning rsync.
 	cmd := gokrsync.Command("rsync", args...)
 	out, done := rsyncdriver.BindStreams(ctx, extraOut)

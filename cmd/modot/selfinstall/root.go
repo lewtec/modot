@@ -53,15 +53,13 @@ func runSelfInstall(ctx context.Context, force bool) error {
 	if !force {
 		if _, err := os.Stat(installPath); err == nil {
 			alreadyInstalled = true
-			logger := slog.Default()
-			logger.Info("already installed", "path", installPath)
+			slog.Info("already installed", "path", installPath)
 		}
 	}
 
 	// Copy binary (unless already installed and not forcing)
 	if !alreadyInstalled {
-		logger := slog.Default()
-		logger.Info("installing modot", "version", currentVersion, "path", installPath, "force", force)
+		slog.Info("installing modot", "version", currentVersion, "path", installPath, "force", force)
 
 		if err := os.MkdirAll(installDir, 0755); err != nil {
 			return fmt.Errorf("create install directory: %w", err)
@@ -75,25 +73,24 @@ func runSelfInstall(ctx context.Context, force bool) error {
 			return fmt.Errorf("set permissions: %w", err)
 		}
 
-		logger.Info("binary installed", "path", installPath)
+		slog.Info("binary installed", "path", installPath)
 	}
 
 	// Always regenerate shims (even if binary already installed)
-	logger := slog.Default()
-	logger.Info("regenerating shims")
+	slog.Info("regenerating shims")
 
 	if err := selfbin.EnsureModotShim(ctx, installPath); err != nil {
 		return fmt.Errorf("create shim: %w", err)
 	}
 	if err := createMiseShim(ctx); err != nil {
-		logger.Warn("failed to create mise shim", "error", err)
+		slog.Warn("failed to create mise shim", "error", err)
 	}
 
-	logger.Info("modot installed successfully", "version", currentVersion)
+	slog.Info("modot installed successfully", "version", currentVersion)
 	if alreadyInstalled {
-		logger.Info("shims regenerated (use --force to reinstall binary)")
+		slog.Info("shims regenerated (use --force to reinstall binary)")
 	}
-	logger.Info("add ~/.local/bin to your PATH if not already added")
+	slog.Info("add ~/.local/bin to your PATH if not already added")
 
 	return nil
 }
@@ -113,7 +110,7 @@ func createMiseShim(ctx context.Context) error {
 	if err := miseutil.EnsureLocalBinWrapper(ctx, modotBin); err != nil {
 		return err
 	}
-	slog.InfoContext(ctx, "created mise wrapper", "target", "open lazy --home mise")
+	slog.Info("created mise wrapper", "target", "open lazy --home mise")
 	return nil
 }
 
@@ -125,7 +122,7 @@ func copyFile(ctx context.Context, src, dst string) error {
 	defer func() {
 		if closer := source; closer != nil {
 			if err := closer.Close(); err != nil {
-				slog.ErrorContext(ctx, "unexpected error", "op", "close", "path", src, "error", err)
+				slog.Error("unexpected error", "op", "close", "path", src, "error", err)
 			}
 		}
 	}()
@@ -136,7 +133,7 @@ func copyFile(ctx context.Context, src, dst string) error {
 	}
 	defer func() {
 		if err := f.Abort(); err != nil {
-			slog.ErrorContext(ctx, "unexpected error", "op", "atomicfile.Abort", "error", err)
+			slog.Error("unexpected error", "op", "atomicfile.Abort", "error", err)
 		}
 	}()
 	if _, err := io.Copy(f, source); err != nil {
