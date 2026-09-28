@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 // ImportWorkspacedHistory copies command history from the pre-rename sqlite
@@ -56,15 +56,25 @@ func (d *DB) streamLegacyHistory(ctx context.Context, s *taskgroup.Status, legac
 		return err
 	}
 	raw.SetMaxOpenConns(1)
-	defer logging.Close(ctx, raw, "path", dest)
+	defer func() {
+		if closer := raw; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.Error("unexpected error", "op", "close", "path", dest, "error", err)
+			}
+		}
+	}()
 
 	if _, err := raw.ExecContext(ctx, `ATTACH DATABASE ? AS srcdb`, legacy); err != nil {
 		return err
 	}
-	defer logging.RunCleanup(ctx, "detach legacy history", func() error {
-		_, err := raw.ExecContext(ctx, `DETACH DATABASE srcdb`)
-		return err
-	})
+	defer func() {
+		if err := func() error {
+			_, err := raw.ExecContext(ctx, `DETACH DATABASE srcdb`)
+			return err
+		}(); err != nil {
+			slog.Error("unexpected error", "op", "detach legacy history", "error", err)
+		}
+	}()
 
 	tx, err := raw.BeginTx(ctx, nil)
 	if err != nil {
@@ -76,7 +86,9 @@ func (d *DB) streamLegacyHistory(ctx context.Context, s *taskgroup.Status, legac
 			return
 		}
 		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
-			logging.ReportError(ctx, err, "op", "rollback legacy history")
+			if err != nil {
+				slog.Error("unexpected error", "op", "rollback legacy history", "error", err)
+			}
 		}
 	}()
 
@@ -95,10 +107,9 @@ func (d *DB) streamLegacyHistory(ctx context.Context, s *taskgroup.Status, legac
 	if err != nil {
 		return err
 	}
-	logger := logging.GetLogger(ctx)
 	if total == 0 {
 		s.Update("no commands to import")
-		logger.Info("no workspaced history to ingest", "amount", total)
+		slog.Info("no workspaced history to ingest", "amount", total)
 		return nil
 	}
 	existing, err := q.GetHistory(ctx, 1)
@@ -107,7 +118,7 @@ func (d *DB) streamLegacyHistory(ctx context.Context, s *taskgroup.Status, legac
 	}
 	if len(existing) > 0 {
 		s.Update(fmt.Sprintf("left unchanged, %d commands in source", total))
-		logger.Info("workspaced history left unchanged", "source", total)
+		slog.Info("workspaced history left unchanged", "source", total)
 		return nil
 	}
 	s.Update(fmt.Sprintf("importing %d commands", total))
@@ -121,6 +132,6 @@ func (d *DB) streamLegacyHistory(ctx context.Context, s *taskgroup.Status, legac
 	committed = true
 	s.Progress(total, total)
 	s.Update(fmt.Sprintf("imported %d commands", total))
-	logger.Info("imported workspaced history", "amount", total)
+	slog.Info("imported workspaced history", "amount", total)
 	return nil
 }

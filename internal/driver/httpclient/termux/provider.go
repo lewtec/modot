@@ -3,6 +3,7 @@ package termux
 import (
 	"context"
 	"crypto/x509"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/lewtec/modot/internal/driver"
 	httpclientdriver "github.com/lewtec/modot/internal/driver/httpclient"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 func init() {
@@ -138,7 +138,6 @@ func loadTermuxCerts(ctx context.Context) *x509.CertPool {
 	}
 
 	// Last resort: return empty pool
-	logger := logging.GetLogger(ctx)
-	logger.Warn("could not load any CA certificates for Termux")
+	slog.Warn("could not load any CA certificates for Termux")
 	return pool
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/lewtec/lewkit/x/tool/github"
 	"github.com/lewtec/lewkit/x/tool/registry"
 	apps "github.com/lewtec/lewkit/x/tool/registry/applications"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -46,7 +45,7 @@ func reportInstallFailure(name, msg string) {
 
 func testInstallContext(t *testing.T) (ctx context.Context, wait func()) {
 	t.Helper()
-	base := logging.NewWriterContext(t.Output())
+	base := t.Context()
 	group, ctx := taskgroup.New(base, taskgroup.DefaultLimits())
 	return ctx, func() {
 		done := make(chan error, 1)

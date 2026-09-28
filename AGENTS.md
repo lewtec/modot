@@ -75,11 +75,11 @@ Locate-X recipes live in CODEMAP.md.
 ## Patterns
 
 - The context argument is always named `ctx`.
-- `logger = logging.GetLogger(ctx)`. Do not import `log/slog` directly.
-- An inner scope must not reuse an outer scope's `logger` or `ctx`.
+- Log with `slog.Info`, `slog.Debug`, `slog.Warn`, and `slog.Error`. `cmd/modot/root.go` sets `slog.Default` to a `lewkit/x/logging` handler.
+- An inner scope must not reuse an outer scope's `ctx`.
 - Prefer channels over locked shared state when that keeps the code simpler (it often does).
 - `context.Background` and friends need a real reason. "No context in scope" is not one.
-- Test root ctx: `logging.NewWriterContext(t.Output())` (or `b.Output()` / `io.Discard`). Not `NewRootContext(nil)` — that is `slog.Default()` on stderr.
+- Test root ctx: `t.Context()` or `b.Context()`.
 - Pipeable data goes to stdout; everything else to stderr. Stdout is for one-line-per-record output (line-oriented text, JSONL) that another program can consume without multi-line parsing.
 
 ### Taskgroup map/reduce

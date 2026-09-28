@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"github.com/lewtec/modot/internal/atomicfile"
 	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/driver/notification"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 func Capture(ctx context.Context, targetType TargetType) (string, error) {
@@ -59,11 +59,15 @@ func Capture(ctx context.Context, targetType TargetType) (string, error) {
 	// Post-processing: Clipboard
 	go func() {
 		if err := lewclip.WriteImage(ctx, img); err != nil {
-			logging.ReportError(ctx, err)
+			if err != nil {
+				slog.
+
+					// Post-processing: Notification
+					ErrorContext(ctx, "unexpected error", "error", err)
+			}
 		}
 	}()
 
-	// Post-processing: Notification
 	notifySaved(ctx, path, targetType)
 
 	return path, nil
@@ -88,7 +92,9 @@ func notifySaved(ctx context.Context, path string, target TargetType) {
 		Icon:    "camera-photo",
 	}
 	if err := lewnotify.Notify(ctx, n); err != nil {
-		logging.ReportError(ctx, err)
+		if err != nil {
+			slog.Error("unexpected error", "error", err)
+		}
 	}
 }
 

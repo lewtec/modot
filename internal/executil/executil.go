@@ -5,13 +5,13 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type stdoutKey struct{}
@@ -117,7 +117,13 @@ func GetBinaryHash(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("open executable: %w", err)
 	}
-	defer logging.Close(ctx, file)
+	defer func() {
+		if closer := file; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.Error("unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {

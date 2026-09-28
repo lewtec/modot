@@ -3,12 +3,12 @@ package source
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"sort"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/modfile"
 	_ "github.com/lewtec/modot/internal/modfile/sourceprovider/prelude"
 	"github.com/lewtec/modot/internal/module"
@@ -39,7 +39,6 @@ type enabledModule struct {
 }
 
 func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File, error) {
-	logger := logging.GetLogger(ctx)
 	sumFilePath := filepath.Join(filepath.Dir(p.baseDir), "modot.lock.json")
 	modFile, err := modfile.ModFileFromConfig(p.cfg)
 	if err != nil {
@@ -64,7 +63,7 @@ func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File
 	for _, modName := range moduleNames {
 		modEntry := modules[modName]
 		if !modEntry.Enable {
-			logger.Debug("module disabled", "module", modName)
+			slog.Debug("module disabled", "module", modName)
 			continue
 		}
 		enabled = append(enabled, enabledModule{name: modName, entry: modEntry})
@@ -106,7 +105,6 @@ func (p *ModuleScannerPlugin) resolveModule(
 	sumFile *modfile.SumFile,
 	resolver module.SourceRefResolver,
 ) ([]File, error) {
-	logger := logging.GetLogger(ctx)
 	moduleSource, err := modfile.ResolveModuleFromConfig(p.cfg, m.name, m.entry, p.baseDir, sumFile)
 	if err != nil {
 		return nil, fmt.Errorf("module %q: %w", m.name, err)
@@ -121,7 +119,7 @@ func (p *ModuleScannerPlugin) resolveModule(
 	if moduleSource.Version != "" {
 		sourceSpec += "@" + moduleSource.Version
 	}
-	logger.Info("loading module", "module", m.name, "from", sourceSpec)
+	slog.Info("loading module", "module", m.name, "from", sourceSpec)
 
 	// Clone so Prepare/Resolve never mutate shared CUE config from parallel workers.
 	moduleConfig := cloneModuleConfig(m.entry.Config)

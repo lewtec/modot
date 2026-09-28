@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"reflect"
 	"sort"
@@ -25,7 +26,6 @@ import (
 	"sync"
 
 	"github.com/lewtec/modot/internal/compat"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 var (
@@ -224,8 +224,7 @@ func Get[T any](ctx context.Context) (T, error) {
 
 	ifaceName := getInterfaceName(t)
 	weights := driverWeights[ifaceName]
-	logger := logging.GetLogger(ctx)
-	logger.Debug("loading driver weights", "interface", ifaceName, "weights", weights, "all_weights", driverWeights)
+	slog.Debug("loading driver weights", "interface", ifaceName, "weights", weights, "all_weights", driverWeights)
 
 	factories := make([]DriverFactory[T], 0)
 	if byID, ok := Drivers[t]; ok {
@@ -248,7 +247,7 @@ func Get[T any](ctx context.Context) (T, error) {
 			}
 		}
 		if hasMatching {
-			logger.Info("driver force active via environment variable",
+			slog.Info("driver force active via environment variable",
 				"interface", ifaceName, "forced_driver", forced)
 		}
 	}
@@ -261,10 +260,10 @@ func Get[T any](ctx context.Context) (T, error) {
 	}
 
 	// Log all factories before sorting
-	logger.Debug("available driver factories", "interface", ifaceName, "count", len(factories))
+	slog.Debug("available driver factories", "interface", ifaceName, "count", len(factories))
 	for _, f := range factories {
 		w := effectiveWeight(weights, f.ID(), ifaceName)
-		logger.Debug("factory registered", "interface", ifaceName, "id", f.ID(), "name", f.Name(), "weight", w)
+		slog.Debug("factory registered", "interface", ifaceName, "id", f.ID(), "name", f.Name(), "weight", w)
 	}
 
 	// Sort factories by (effective) weight then ID.
@@ -286,18 +285,18 @@ func Get[T any](ctx context.Context) (T, error) {
 
 		if err := cachedCheck(factory.ID(), factory.CheckCompatibility, ctx); err != nil {
 			report = append(report, fmt.Sprintf("❌ [SKIP] %s (%s) weight=%d: %v", factory.ID(), factory.Name(), weight, err))
-			logger.Debug("driver skipped", "interface", ifaceName, "id", factory.ID(), "name", factory.Name(), "weight", weight, "error", err)
+			slog.Debug("driver skipped", "interface", ifaceName, "id", factory.ID(), "name", factory.Name(), "weight", weight, "error", err)
 			continue
 		}
 
 		instance, err := factory.New(ctx)
 		if err != nil {
 			report = append(report, fmt.Sprintf("⚠️ [FAIL] %s (%s) weight=%d: initialization failed: %v", factory.ID(), factory.Name(), weight, err))
-			logger.Debug("driver init failed", "interface", ifaceName, "id", factory.ID(), "name", factory.Name(), "weight", weight, "error", err)
+			slog.Debug("driver init failed", "interface", ifaceName, "id", factory.ID(), "name", factory.Name(), "weight", weight, "error", err)
 			continue
 		}
 
-		logger.Debug("driver selected", "interface", ifaceName, "id", factory.ID(), "name", factory.Name(), "weight", weight)
+		slog.Debug("driver selected", "interface", ifaceName, "id", factory.ID(), "name", factory.Name(), "weight", weight)
 		return instance, nil
 	}
 

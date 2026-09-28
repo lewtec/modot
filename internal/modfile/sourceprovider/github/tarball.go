@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 
 	lewfs "github.com/lewtec/lewkit/x/fs"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/lewtec/modot/internal/archive"
 	"github.com/lewtec/modot/internal/githubutil"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 func downloadAndExtractTarball(ctx context.Context, source Source, destDir string, expectedHash string) (sourceMeta, error) {
@@ -55,7 +55,13 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 	if err != nil {
 		return "", err
 	}
-	defer logging.Close(ctx, resp.Body)
+	defer func() {
+		if closer := resp.Body; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.Error("unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		hint := ""
 		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusForbidden {
@@ -72,7 +78,13 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 	if err != nil {
 		return "", err
 	}
-	defer logging.Close(ctx, root)
+	defer func() {
+		if closer := root; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.Error("unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 	tfs, err := tarfs.Open(ctx, body)
 	if err != nil {
 		return "", err

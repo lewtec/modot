@@ -6,15 +6,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/lewtec/modot/internal/atomicfile"
-	"github.com/lewtec/modot/internal/constants"
-	envdriver "github.com/lewtec/modot/internal/driver/env"
-	"github.com/lewtec/modot/internal/logging"
 	"io/fs"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
 	"text/template"
+
+	"github.com/lewtec/modot/internal/atomicfile"
+	"github.com/lewtec/modot/internal/constants"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
 
 	"github.com/lewtec/lewkit/x/cmd"
 )
@@ -130,7 +131,11 @@ func generateConfig(ctx context.Context, configPath string) error {
 		return fmt.Errorf("create config temp file: %w", err)
 	}
 	if err := tmpl.Execute(f, data); err != nil {
-		logging.Close(ctx, f)
+		if closer := f; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.Error("unexpected error", "op", "close", "error", err)
+			}
+		}
 		if rmErr := os.Remove(tmpPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
 			err = errors.Join(err, rmErr)
 		}

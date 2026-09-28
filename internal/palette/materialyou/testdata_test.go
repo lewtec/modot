@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/palette/api"
 	"github.com/lewtec/modot/internal/palette/palettetest"
 	"github.com/stretchr/testify/require"
@@ -23,7 +22,7 @@ func loadGoldenPalette(t testing.TB, name string) *api.Palette {
 func TestMaterialYouFromTestdataSolid(t *testing.T) {
 	t.Parallel()
 	img := palettetest.LoadImage(t, "solid_4285f4.png")
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	d := &Driver{}
 
 	dark, err := d.Extract(ctx, img, api.Options{Polarity: api.PolarityDark, ColorCount: 16})
@@ -60,7 +59,7 @@ func TestGenerateColorschemeSourceHex(t *testing.T) {
 func TestMaterialYouFromTestdataBliss(t *testing.T) {
 	t.Parallel()
 	img := palettetest.LoadImage(t, "bliss.jpg")
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	d := &Driver{}
 	opts := api.Options{Polarity: api.PolarityDark, ColorCount: 16, MaxSamples: 10000}
 
@@ -76,7 +75,7 @@ func TestMaterialYouFromTestdataBliss(t *testing.T) {
 }
 
 func BenchmarkMaterialYouExtract(b *testing.B) {
-	ctx := logging.NewWriterContext(b.Output())
+	ctx := b.Context()
 	d := &Driver{}
 	opts := api.Options{Polarity: api.PolarityDark, ColorCount: 16, MaxSamples: 10000}
 

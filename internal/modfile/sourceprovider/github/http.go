@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"net/http"
+
 	lewdriver "github.com/lewtec/lewkit/x/driver"
 	httpclientdriver "github.com/lewtec/lewkit/x/driver/httpclient"
 	"github.com/lewtec/modot/internal/githubutil"
-	"github.com/lewtec/modot/internal/logging"
-	"net/http"
 )
 
 func (s Source) GetJSON(ctx context.Context, url string, out any) error {
@@ -26,7 +27,13 @@ func (s Source) GetJSON(ctx context.Context, url string, out any) error {
 	if err != nil {
 		return err
 	}
-	defer logging.Close(ctx, resp.Body)
+	defer func() {
+		if closer := resp.Body; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.Error("unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		hint := ""
 		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusForbidden {

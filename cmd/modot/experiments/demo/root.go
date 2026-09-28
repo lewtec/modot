@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 var ErrSimulated503 = errors.New("simulated 503 from registry (demo failure)")
@@ -49,21 +49,19 @@ func (*Command) Run(ctx context.Context) error {
 }
 
 func runTasksDemo(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
 
-	logger.Info("Scheduling work on the session obtained via context.")
-	logger.Info("Tasks use IO / CPU / Internet pools, have dependencies, emit logs, and report progress.")
+	slog.Info("Scheduling work on the session obtained via context.")
+	slog.Info("Tasks use IO / CPU / Internet pools, have dependencies, emit logs, and report progress.")
 
 	// Internet task with determinate progress + logs.
 	// Layout is "ICON BAR title: subtitle" — subtitle is size/phase only, not
 	// a repeated title or a percent (the bar already shows fraction).
 	download := taskgroup.Go(ctx, "bundle.tar.gz", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
-		logger := logging.GetLogger(ctx)
-		logger.Info("starting download")
+		slog.Info("starting download")
 
 		s.Update("connecting")
 		time.Sleep(120 * time.Millisecond)
-		logger.Info("GET", "url", "https://cdn.example.com/bundle.tar.gz")
+		slog.Info("GET", "url", "https://cdn.example.com/bundle.tar.gz")
 		const total int64 = 10 * 1024 * 1024 // simulated 10 MiB
 		s.Progress(0, total)
 		s.Update(fmt.Sprintf("0 B / %.0f MiB", float64(total)/(1024*1024)))
@@ -73,60 +71,56 @@ func runTasksDemo(ctx context.Context) error {
 			s.Update(fmt.Sprintf("%.1f MiB / %.0f MiB", float64(cur)/(1024*1024), float64(total)/(1024*1024)))
 			time.Sleep(70 * time.Millisecond)
 			if i == 5 {
-				logger.Info("midpoint received, checking partial checksum")
+				slog.Info("midpoint received, checking partial checksum")
 			}
 		}
-		logger.Info("download complete", "sha256", "verified")
+		slog.Info("download complete", "sha256", "verified")
 		return nil
 	})
 
 	// CPU-bound work that depends on the download.
 	build := taskgroup.Go(ctx, "build", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
-		logger := logging.GetLogger(ctx)
 		s.Update("preparing sources")
 		time.Sleep(80 * time.Millisecond)
 		for step := 1; step <= 4; step++ {
-			logger.Info("gcc -c", "src", fmt.Sprintf("part%d.c", step), "opt", "-O2")
+			slog.Info("gcc -c", "src", fmt.Sprintf("part%d.c", step), "opt", "-O2")
 			s.Update(fmt.Sprintf("part %d/4", step))
 			time.Sleep(140 * time.Millisecond)
 		}
 		s.Update("linking")
 		time.Sleep(160 * time.Millisecond)
-		logger.Info("build finished", "binary", "./bin/app")
+		slog.Info("build finished", "binary", "./bin/app")
 		return nil
 	}, download)
 
 	// Another CPU task in parallel with build (after download).
 	taskgroup.Go(ctx, "check", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
-		logger := logging.GetLogger(ctx)
 		s.Update("static analysis")
 		time.Sleep(90 * time.Millisecond)
-		logger.Info("golangci-lint", "issues", 0)
-		logger.Info("govulncheck", "status", "clean")
+		slog.Info("golangci-lint", "issues", 0)
+		slog.Info("govulncheck", "status", "clean")
 		time.Sleep(220 * time.Millisecond)
 		return nil
 	}, download)
 
 	// IO task that depends on build.
 	taskgroup.Go(ctx, "install", taskgroup.IO, func(ctx context.Context, s *taskgroup.Status) error {
-		logger := logging.GetLogger(ctx)
 		s.Update("installing to $HOME/.local/bin")
 		time.Sleep(60 * time.Millisecond)
-		logger.Info("cp", "src", "./bin/app", "dst", "~/.local/bin/app")
+		slog.Info("cp", "src", "./bin/app", "dst", "~/.local/bin/app")
 		done := s.Unit()
 		time.Sleep(180 * time.Millisecond)
 		done()
-		logger.Info("binary installed")
+		slog.Info("binary installed")
 		return nil
 	}, build)
 
 	// Indeterminate task (no Total) running in parallel.
 	taskgroup.Go(ctx, "lint", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
-		logger := logging.GetLogger(ctx)
 		s.Update("linting workspace")
 		for i := 0; i < 3; i++ {
 			time.Sleep(160 * time.Millisecond)
-			logger.Info("checked package", "num", i+1)
+			slog.Info("checked package", "num", i+1)
 		}
 		s.Update("formatting check")
 		time.Sleep(120 * time.Millisecond)
@@ -135,10 +129,9 @@ func runTasksDemo(ctx context.Context) error {
 
 	// A task that fails so the error UI is visible.
 	taskgroup.Go(ctx, "publish", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
-		logger := logging.GetLogger(ctx)
 		s.Update("connecting to registry")
 		time.Sleep(140 * time.Millisecond)
-		logger.Info("POST", "path", "/artifacts")
+		slog.Info("POST", "path", "/artifacts")
 		time.Sleep(200 * time.Millisecond)
 		return ErrSimulated503
 	}, build)

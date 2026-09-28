@@ -1,9 +1,8 @@
 package httpclient
 
 import (
+	"log/slog"
 	"net/http"
-
-	"github.com/lewtec/modot/internal/logging"
 )
 
 // Driver provides an HTTP client with platform-specific certificate handling.
@@ -37,6 +36,6 @@ type loggingTransport struct {
 }
 
 func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	logging.GetLogger(req.Context()).Debug("http request", "url", req.URL.String())
+	slog.Debug("http request", "url", req.URL.String())
 	return t.base.RoundTrip(req)
 }

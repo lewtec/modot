@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,7 +41,7 @@ func TestProxyInitializeEmptyConfig(t *testing.T) {
 	serverIn, clientToServer := io.Pipe()    // client writes → server reads
 	clientFromServer, serverOut := io.Pipe() // server writes → client reads
 
-	ctx, cancel := context.WithCancel(logging.NewWriterContext(io.Discard))
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	errCh := make(chan error, 1)
@@ -104,7 +103,7 @@ func TestProxyMultiRootRejected(t *testing.T) {
 	serverIn, clientToServer := io.Pipe()
 	clientFromServer, serverOut := io.Pipe()
 
-	ctx, cancel := context.WithCancel(logging.NewWriterContext(io.Discard))
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	go func() {
 		if err := Run(ctx, serverIn, serverOut); err != nil {

@@ -3,6 +3,7 @@ package exec
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os/exec"
 
 	lewdriver "github.com/lewtec/lewkit/x/driver"
@@ -10,7 +11,6 @@ import (
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/driver"
 	"github.com/lewtec/modot/internal/executil"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 // IsBinaryAvailable checks if a command exists in PATH using the selected driver.
@@ -28,8 +28,7 @@ func IsBinaryAvailable(ctx context.Context, name string) bool {
 // otherwise the process os.Stderr. Context writers from executil override
 // stdout/stderr when set.
 func Run(ctx context.Context, name string, args ...string) (*exec.Cmd, error) {
-	logger := logging.GetLogger(ctx)
-	logger.Debug("running command", "name", name, "args", args)
+	slog.Debug("running command", "name", name, "args", args)
 	d, err := lewdriver.Get[lewexec.Driver](ctx)
 	if err != nil {
 		return nil, err
@@ -60,8 +59,7 @@ func Which(ctx context.Context, name string) (string, error) {
 func MustRun(ctx context.Context, name string, args ...string) *exec.Cmd {
 	cmd, err := Run(ctx, name, args...)
 	if err != nil {
-		logger := logging.GetLogger(ctx)
-		logger.Warn("exec driver unavailable; falling back to raw os/exec", "name", name, "error", err)
+		slog.Warn("exec driver unavailable; falling back to raw os/exec", "name", name, "error", err)
 		cmd = exec.CommandContext(ctx, name, args...) //nolint:forbidigo // facade fallback when driver.Get fails
 		attachDefaultWriters(ctx, cmd)
 		return cmd

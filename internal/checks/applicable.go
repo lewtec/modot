@@ -3,8 +3,7 @@ package checks
 import (
 	"context"
 	"errors"
-
-	"github.com/lewtec/modot/internal/logging"
+	"log/slog"
 )
 
 // SkipFunc is called when a check is skipped during Applicable selection.
@@ -14,24 +13,22 @@ type SkipFunc func(name, reason string, err error)
 // LogSkip returns a SkipFunc that logs skips using the logger on ctx.
 // not-applicable skips use Info; detect failures use Warn.
 func LogSkip(ctx context.Context, kind string) SkipFunc {
-	logger := logging.GetLogger(ctx)
 	return func(name, reason string, err error) {
 		if err != nil {
-			logger.Warn(kind+" skipped", kind, name, "reason", reason, "error", err)
+			slog.Warn(kind+" skipped", kind, name, "reason", reason, "error", err)
 			return
 		}
-		logger.Info(kind+" skipped", kind, name, "reason", reason)
+		slog.Info(kind+" skipped", kind, name, "reason", reason)
 	}
 }
 
 // LogDetectFailures logs only Detect errors, silently ignoring not-applicable skips.
 func LogDetectFailures(ctx context.Context, kind string) SkipFunc {
-	logger := logging.GetLogger(ctx)
 	return func(name, reason string, err error) {
 		if err == nil {
 			return
 		}
-		logger.Warn(kind+" detection failed", "name", name, "error", err)
+		slog.Warn(kind+" detection failed", "name", name, "error", err)
 	}
 }
 

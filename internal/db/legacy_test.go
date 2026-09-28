@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
 
+	lewlog "github.com/lewtec/lewkit/x/logging"
 	"github.com/lewtec/lewkit/x/taskgroup"
 	lewtest "github.com/lewtec/lewkit/x/test"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,7 +19,11 @@ import (
 
 func TestOpenURLImportsLegacyHistoryOnce(t *testing.T) {
 	var logs bytes.Buffer
-	ctx := logging.NewWriterContext(io.MultiWriter(t.Output(), &logs))
+	prev := slog.Default()
+	h := lewlog.NewHandler(io.MultiWriter(t.Output(), &logs), &slog.HandlerOptions{Level: slog.LevelDebug})
+	slog.SetDefault(slog.New(h))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+	ctx := t.Context()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
@@ -67,7 +72,7 @@ func TestOpenURLImportsLegacyHistoryOnce(t *testing.T) {
 }
 
 func TestOpenURLImportsLegacyHistoryAsIOTask(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
@@ -95,7 +100,7 @@ func TestOpenURLImportsLegacyHistoryAsIOTask(t *testing.T) {
 }
 
 func TestOpenURLSkipsLegacyWhenHistoryExists(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 

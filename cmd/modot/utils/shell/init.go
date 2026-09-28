@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -17,7 +18,6 @@ import (
 	"github.com/lewtec/modot/internal/cmdctx"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/shellgen"
 	"github.com/lewtec/modot/internal/version"
 )
@@ -36,11 +36,10 @@ Uses caching for performance - regenerates only when source files change.`
 }
 
 func (i *Init) Run(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
 	startTime := time.Now()
 	defer func() {
 		if i.Profile.Value() {
-			logger.Info("shell init total time", "duration", time.Since(startTime))
+			slog.Info("shell init total time", "duration", time.Since(startTime))
 		}
 	}()
 	shell := "bash"
@@ -77,23 +76,23 @@ func (i *Init) Run(ctx context.Context) error {
 	if !i.Force.Value() && !cmdctx.IsNoCache(ctx) {
 		if content, err := os.ReadFile(cacheFile); err == nil {
 			if i.Profile.Value() {
-				logger.Info("shell init cache hit", "cache_file", cacheFile)
+				slog.Info("shell init cache hit", "cache_file", cacheFile)
 			}
 			fmt.Print(string(content))
 			return nil
 		}
 	}
 	if cmdctx.IsNoCache(ctx) {
-		logger.Debug("no-cache: regenerating shell init", "cache_file", cacheFile)
+		slog.Debug("no-cache: regenerating shell init", "cache_file", cacheFile)
 	}
 	if i.Profile.Value() {
-		logger.Info("shell init cache miss, generating")
+		slog.Info("shell init cache miss, generating")
 	}
 
 	// Read all prelude files in parallel
 	t1 := time.Now()
 	if i.Profile.Value() {
-		logger.Info("shell init glob files", "duration", time.Since(t1), "files", len(allFiles))
+		slog.Info("shell init glob files", "duration", time.Since(t1), "files", len(allFiles))
 	}
 
 	// Separate .source.sh files from regular .sh files
@@ -146,7 +145,7 @@ func (i *Init) Run(ctx context.Context) error {
 		return fmt.Errorf("execute source files: %w", err)
 	}
 	if i.Profile.Value() {
-		logger.Info("shell init executed .source.sh files", "duration", time.Since(t2), "files", len(sourceFiles))
+		slog.Info("shell init executed .source.sh files", "duration", time.Since(t2), "files", len(sourceFiles))
 	}
 
 	var output strings.Builder
@@ -161,7 +160,7 @@ func (i *Init) Run(ctx context.Context) error {
 		return fmt.Errorf("generate inline shell initialization: %w", err)
 	}
 	if i.Profile.Value() {
-		logger.Info("shell init generated inline code", "duration", time.Since(t3))
+		slog.Info("shell init generated inline code", "duration", time.Since(t3))
 	}
 	output.WriteString(inlineCode)
 
@@ -203,12 +202,12 @@ func (i *Init) Run(ctx context.Context) error {
 	// Atomic repopulate: write temp then rename over the cache file.
 	tmpCache := cacheFile + ".tmp"
 	if err := os.WriteFile(tmpCache, []byte(result), 0644); err != nil {
-		logger.Warn("failed to write shell init cache", "cache_file", tmpCache, "error", err)
+		slog.Warn("failed to write shell init cache", "cache_file", tmpCache, "error", err)
 	} else if err := os.Rename(tmpCache, cacheFile); err != nil {
 		if rmErr := os.Remove(tmpCache); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
 			// best-effort cleanup; primary error is rename failure
 		}
-		logger.Warn("failed to finalize shell init cache", "cache_file", cacheFile, "error", err)
+		slog.Warn("failed to finalize shell init cache", "cache_file", cacheFile, "error", err)
 	}
 
 	fmt.Print(result)
@@ -290,16 +289,15 @@ func executeSourceFiles(ctx context.Context, sourceFiles map[string]string) (map
 			return "source:" + item.key
 		},
 		Fn: func(ctx context.Context, s *taskgroup.Status, item sourceItem) (sourceOutput, error) {
-			logger := logging.GetLogger(ctx)
 			cmd, err := execdriver.Run(ctx, "bash", item.path)
 			if err != nil {
-				logger.Warn("failed to execute .source.sh", "source", item.key+".source.sh", "error", err)
+				slog.Warn("failed to execute .source.sh", "source", item.key+".source.sh", "error", err)
 				return sourceOutput{}, nil
 			}
 			cmd.Env = os.Environ()
 			output, err := cmd.Output()
 			if err != nil {
-				logger.Warn("failed to execute .source.sh", "source", item.key+".source.sh", "error", err)
+				slog.Warn("failed to execute .source.sh", "source", item.key+".source.sh", "error", err)
 				return sourceOutput{}, nil
 			}
 			return sourceOutput{output: string(output), ok: true}, nil

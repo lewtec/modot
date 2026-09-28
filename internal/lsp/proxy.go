@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/url"
 	"path/filepath"
 	"strings"
@@ -12,7 +13,6 @@ import (
 	"time"
 
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 // Proxy is the editor-facing LSP router.
@@ -47,7 +47,6 @@ func Run(ctx context.Context, r io.Reader, w io.Writer) error {
 }
 
 func (p *Proxy) loop(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
 	for {
 		msg, err := p.client.ReadMessage()
 		if err != nil {
@@ -62,10 +61,12 @@ func (p *Proxy) loop(ctx context.Context) error {
 				p.closeAll(ctx)
 				return nil
 			}
-			logger.Error("lsp handle client", "method", msg.Method, "error", err)
+			slog.Error("lsp handle client", "method", msg.Method, "error", err)
 			if msg.IsRequest() {
 				if writeErr := p.client.WriteError(msg.ID, CodeInternalError, err.Error()); writeErr != nil {
-					logging.ReportError(ctx, writeErr)
+					if err := writeErr; err != nil {
+						slog.Error("unexpected error", "error", err)
+					}
 				}
 			}
 		}
@@ -123,7 +124,6 @@ func (p *Proxy) handleNotification(ctx context.Context, msg *Message) error {
 }
 
 func (p *Proxy) onInitialize(ctx context.Context, msg *Message) error {
-	logger := logging.GetLogger(ctx)
 
 	var params struct {
 		RootURI          string `json:"rootUri"`
@@ -163,7 +163,7 @@ func (p *Proxy) onInitialize(ctx context.Context, msg *Message) error {
 	// Load codebase config at client root (empty lsp block is fine).
 	cueCfg, err := configcue.LoadForWorkspace(ctx, root)
 	if err != nil {
-		logger.Warn("lsp: load codebase config failed; continuing with empty lsp routes", "root", root, "error", err)
+		slog.Warn("lsp: load codebase config failed; continuing with empty lsp routes", "root", root, "error", err)
 		p.cfg = Config{}
 	} else {
 		cfg, err := LoadConfig(cueCfg)
@@ -177,7 +177,7 @@ func (p *Proxy) onInitialize(ctx context.Context, msg *Message) error {
 	p.rootURI = rootURI
 	p.initParams = msg.Params
 
-	logger.Info("lsp initialized", "root", root, "servers", len(p.cfg.Servers), "languages", len(p.cfg.Languages))
+	slog.Info("lsp initialized", "root", root, "servers", len(p.cfg.Servers), "languages", len(p.cfg.Languages))
 	return p.client.WriteResult(msg.ID, initializeResult(rootURI))
 }
 
@@ -206,7 +206,7 @@ func (p *Proxy) onDidOpen(ctx context.Context, msg *Message) error {
 		return nil
 	}
 	if err := p.ensureLanguage(ctx, lang); err != nil {
-		logging.GetLogger(ctx).Warn("lsp ensure language", "language", lang, "error", err)
+		slog.Warn("lsp ensure language", "language", lang, "error", err)
 		return nil
 	}
 	// Async full sync fan-out.
@@ -252,7 +252,9 @@ func (p *Proxy) onDidChange(ctx context.Context, msg *Message) error {
 	}
 	raw, marshalErr := json.Marshal(fullParams)
 	if marshalErr != nil {
-		logging.ReportError(ctx, marshalErr)
+		if err := marshalErr; err != nil {
+			slog.Error("unexpected error", "error", err)
+		}
 		return nil
 	}
 	go p.syncNotify(ctx, doc.Language, "textDocument/didChange", raw)
@@ -293,11 +295,13 @@ func (p *Proxy) syncNotify(ctx context.Context, lang, method string, params json
 			defer wg.Done()
 			var raw any
 			if unmarshalErr := json.Unmarshal(params, &raw); unmarshalErr != nil {
-				logging.ReportError(ctx, unmarshalErr)
+				if err := unmarshalErr; err != nil {
+					slog.Error("unexpected error", "error", err)
+				}
 				raw = nil
 			}
 			if err := backend.Notify(method, raw); err != nil {
-				logging.GetLogger(ctx).Debug("lsp sync notify", "server", backend.ServerID, "method", method, "error", err)
+				slog.Debug("lsp sync notify", "server", backend.ServerID, "method", method, "error", err)
 			}
 		}(backend)
 	}
@@ -330,14 +334,16 @@ func (p *Proxy) fanoutNotifyAll(ctx context.Context, msg *Message) error {
 	p.mu.Unlock()
 	var raw any
 	if unmarshalErr := json.Unmarshal(msg.Params, &raw); unmarshalErr != nil {
-		logging.ReportError(ctx, unmarshalErr)
+		if err := unmarshalErr; err != nil {
+			slog.Error("unexpected error", "error", err)
+		}
 		raw = nil
 	}
 	for _, b := range backends {
 		backend := b
 		go func() {
 			if err := backend.Notify(msg.Method, raw); err != nil {
-				logging.GetLogger(ctx).Debug("lsp notify all", "server", backend.ServerID, "error", err)
+				slog.Debug("lsp notify all", "server", backend.ServerID, "error", err)
 			}
 		}()
 	}
@@ -360,7 +366,7 @@ func (p *Proxy) forwardRequest(ctx context.Context, msg *Message) error {
 	var targets []*Backend
 	if lang != "" {
 		if err := p.ensureLanguage(ctx, lang); err != nil {
-			logging.GetLogger(ctx).Warn("lsp ensure language", "language", lang, "error", err)
+			slog.Warn("lsp ensure language", "language", lang, "error", err)
 		}
 		for _, b := range p.bindingsLive(lang) {
 			if !b.HasCapability(cap) {
@@ -394,7 +400,9 @@ func (p *Proxy) forwardRequest(ctx context.Context, msg *Message) error {
 	var rawParams any
 	if len(msg.Params) > 0 {
 		if unmarshalErr := json.Unmarshal(msg.Params, &rawParams); unmarshalErr != nil {
-			logging.ReportError(ctx, unmarshalErr)
+			if err := unmarshalErr; err != nil {
+				slog.Error("unexpected error", "error", err)
+			}
 			rawParams = nil
 		}
 	}
@@ -507,7 +515,9 @@ func (p *Proxy) ensureLanguage(ctx context.Context, lang string) error {
 					"text":       doc.Text,
 				},
 			}); notifyErr != nil {
-				logging.ReportError(ctx, notifyErr, "server", b.ServerID, "op", "didOpen replay")
+				if err := notifyErr; err != nil {
+					slog.Error("unexpected error", "server", b.ServerID, "op", "didOpen replay", "error", err)
+				}
 			}
 		}
 		p.mu.Lock()
@@ -526,7 +536,9 @@ func (p *Proxy) initializeBackend(ctx context.Context, backend *Backend) error {
 	var base map[string]any
 	if len(p.initParams) > 0 {
 		if unmarshalErr := json.Unmarshal(p.initParams, &base); unmarshalErr != nil {
-			logging.ReportError(ctx, unmarshalErr)
+			if err := unmarshalErr; err != nil {
+				slog.Error("unexpected error", "error", err)
+			}
 			base = nil
 		}
 	}
@@ -565,12 +577,16 @@ func (p *Proxy) onBackendMessage(serverID string, msg *Message) {
 					Items []json.RawMessage `json:"items"`
 				}
 				if unmarshalErr := json.Unmarshal(msg.Params, &params); unmarshalErr != nil {
-					logging.ReportError(p.ctx, unmarshalErr)
+					if err := unmarshalErr; err != nil {
+						slog.Error("unexpected error", "error", err)
+					}
 				}
 				result := make([]any, len(params.Items))
 				raw, marshalErr := json.Marshal(result)
 				if marshalErr != nil {
-					logging.ReportError(p.ctx, marshalErr)
+					if err := marshalErr; err != nil {
+						slog.Error("unexpected error", "error", err)
+					}
 					raw = json.RawMessage("null")
 				}
 				p.mu.Lock()
@@ -582,7 +598,9 @@ func (p *Proxy) onBackendMessage(serverID string, msg *Message) {
 						ID:      msg.ID,
 						Result:  raw,
 					}); writeErr != nil {
-						logging.ReportError(p.ctx, writeErr, "server", serverID)
+						if err := writeErr; err != nil {
+							slog.Error("unexpected error", "server", serverID, "error", err)
+						}
 					}
 				}
 				return
@@ -597,7 +615,9 @@ func (p *Proxy) onBackendMessage(serverID string, msg *Message) {
 						ID:      msg.ID,
 						Result:  json.RawMessage("null"),
 					}); writeErr != nil {
-						logging.ReportError(p.ctx, writeErr, "server", serverID)
+						if err := writeErr; err != nil {
+							slog.Error("unexpected error", "server", serverID, "error", err)
+						}
 					}
 				}
 				return
@@ -613,18 +633,22 @@ func (p *Proxy) onBackendMessage(serverID string, msg *Message) {
 						ID:      msg.ID,
 						Result:  json.RawMessage("null"),
 					}); writeErr != nil {
-						logging.ReportError(p.ctx, writeErr, "server", serverID)
+						if err := writeErr; err != nil {
+							slog.Error("unexpected error", "server", serverID, "error", err)
+						}
 					}
 				}
 				return
 			}
-			logging.GetLogger(p.ctx).Debug("lsp ignoring backend request", "server", serverID, "method", msg.Method)
+			slog.Debug("lsp ignoring backend request", "server", serverID, "method", msg.Method)
 		}()
 		return
 	}
 	// Notifications (diagnostics, logMessage, …)
 	if writeErr := p.client.WriteMessage(msg); writeErr != nil {
-		logging.ReportError(p.ctx, writeErr)
+		if err := writeErr; err != nil {
+			slog.Error("unexpected error", "error", err)
+		}
 	}
 }
 
@@ -648,10 +672,14 @@ func (p *Proxy) closeAll(ctx context.Context) {
 	for id, b := range p.backends {
 		// best-effort shutdown
 		if _, reqErr := b.Request(shutdownCtx, "shutdown", nil); reqErr != nil {
-			logging.ReportError(shutdownCtx, reqErr, "server", id, "op", "shutdown")
+			if err := reqErr; err != nil {
+				slog.Error("unexpected error", "server", id, "op", "shutdown", "error", err)
+			}
 		}
 		if notifyErr := b.Notify("exit", nil); notifyErr != nil {
-			logging.ReportError(shutdownCtx, notifyErr, "server", id, "op", "exit")
+			if err := notifyErr; err != nil {
+				slog.Error("unexpected error", "server", id, "op", "exit", "error", err)
+			}
 		}
 		b.Close()
 		delete(p.backends, id)

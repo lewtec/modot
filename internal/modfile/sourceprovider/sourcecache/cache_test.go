@@ -10,12 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/lewtec/modot/internal/cmdctx"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 func testCtx(t *testing.T) context.Context {
 	t.Helper()
-	return logging.NewWriterContext(t.Output())
+	return t.Context()
 }
 
 func TestEnsureCachedDirHitAndNoCache(t *testing.T) {

@@ -3,11 +3,11 @@ package svc
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	lewdriver "github.com/lewtec/lewkit/x/driver"
 	"github.com/lewtec/modot/internal/driver/battery"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type Osmardetector struct{}
@@ -20,8 +20,7 @@ func (*Osmardetector) Run(ctx context.Context) error {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
-	logger := logging.GetLogger(ctx)
-	logger.Info("osmardetector started")
+	slog.Info("osmardetector started")
 	drv, err := lewdriver.Get[battery.Driver](ctx)
 	if err != nil {
 		return err
@@ -34,7 +33,7 @@ func (*Osmardetector) Run(ctx context.Context) error {
 		case <-ticker.C:
 			status, err := drv.BatteryStatus(ctx)
 			if err != nil {
-				logger.Error("failed to get battery status", "error", err)
+				slog.Error("failed to get battery status", "error", err)
 				continue
 			}
 			if status == battery.Discharging {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"image"
 	"image/color"
+	"log/slog"
 
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/palette/api"
 )
 
@@ -24,7 +24,6 @@ func (d *Driver) Description() string {
 }
 
 func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options) (*api.Palette, error) {
-	logger := logging.GetLogger(ctx)
 
 	colors := api.SampleImage(img, opts.MaxSamples)
 	if len(colors) == 0 {
@@ -44,7 +43,7 @@ func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options)
 	}
 	baseColor := api.ToHex(color.RGBA(minColor))
 	// Debug: one-liner for CLI -d; avoid Info so default runs and tests stay quiet.
-	logger.Debug("selected base color for Material You", "hex", "#"+baseColor)
+	slog.Debug("selected base color for Material You", "hex", "#"+baseColor)
 
 	scheme := GenerateColorscheme("#"+baseColor, nil)
 

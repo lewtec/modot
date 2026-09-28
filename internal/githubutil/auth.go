@@ -3,6 +3,7 @@ package githubutil
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"time"
 
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 // githubTokenStop is a legacy re-entry sentinel formerly planted as
@@ -83,19 +83,18 @@ func probeEnvActive() bool {
 }
 
 func resolveToken(ctx context.Context) string {
-	logger := logging.GetLogger(ctx)
 	if envToken := strings.TrimSpace(os.Getenv("GITHUB_TOKEN")); envToken != "" {
 		if envToken == githubTokenStop {
-			logger.Info("github token unavailable: re-entered during gh token probe (legacy STOP), using anonymous requests")
+			slog.Info("github token unavailable: re-entered during gh token probe (legacy STOP), using anonymous requests")
 			return ""
 		}
-		logger.Info("using github token from environment")
+		slog.Info("using github token from environment")
 		return envToken
 	}
 
 	ghBin, err := resolveGHBinary(ctx)
 	if err != nil || ghBin == "" {
-		logger.Warn("github token unavailable: gh not available, using anonymous requests", "error", err)
+		slog.Warn("github token unavailable: gh not available, using anonymous requests", "error", err)
 		return ""
 	}
 
@@ -104,7 +103,7 @@ func resolveToken(ctx context.Context) string {
 
 	cmd, err := execdriver.Run(ghCtx, ghBin, "auth", "token")
 	if err != nil {
-		logger.Warn("github token unavailable: failed to create gh auth token command, using anonymous requests", "error", err)
+		slog.Warn("github token unavailable: failed to create gh auth token command, using anonymous requests", "error", err)
 		return ""
 	}
 	// Probe env only — do not set GITHUB_TOKEN=STOP; that makes real gh report
@@ -116,26 +115,25 @@ func resolveToken(ctx context.Context) string {
 	)
 	out, err := cmd.Output()
 	if err != nil {
-		logger.Warn("github token unavailable: gh auth token failed, using anonymous requests", "error", err)
+		slog.Warn("github token unavailable: gh auth token failed, using anonymous requests", "error", err)
 		return ""
 	}
 	got := strings.TrimSpace(string(out))
 	if got == "" {
-		logger.Warn("github token unavailable: gh auth token returned empty output, using anonymous requests")
+		slog.Warn("github token unavailable: gh auth token returned empty output, using anonymous requests")
 		return ""
 	}
 	if got == githubTokenStop {
-		logger.Warn("github token unavailable: gh auth token returned probe sentinel, using anonymous requests")
+		slog.Warn("github token unavailable: gh auth token returned probe sentinel, using anonymous requests")
 		return ""
 	}
-	logger.Info("using github token from gh auth token", "gh", ghBin)
+	slog.Info("using github token from gh auth token", "gh", ghBin)
 	return got
 }
 
 // resolveGHBinary finds a gh executable: PATH first, then the optional tool
 // locator (lazy_tools.gh) when PATH has no gh.
 func resolveGHBinary(ctx context.Context) (string, error) {
-	logger := logging.GetLogger(ctx)
 	if execdriver.IsBinaryAvailable(ctx, "gh") {
 		return "gh", nil
 	}
@@ -143,7 +141,7 @@ func resolveGHBinary(ctx context.Context) (string, error) {
 	if fn == nil {
 		return "", errGHNotFound
 	}
-	logger.Info("gh not on PATH; ensuring via tool locator")
+	slog.Info("gh not on PATH; ensuring via tool locator")
 	path, err := fn(ctx)
 	if err != nil {
 		return "", err

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,7 +18,6 @@ import (
 	githubprov "github.com/lewtec/lewkit/x/tool/github"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/miseutil"
 	"github.com/lewtec/modot/internal/selfbin"
 	"github.com/lewtec/modot/internal/version"
@@ -72,8 +72,7 @@ func runSelfUpdate(ctx context.Context, force bool, s *taskgroup.Status) error {
 		return err
 	}
 	if srcPath != "" {
-		logger := logging.GetLogger(ctx)
-		logger.Info("building from source (always rebuilds)", "path", srcPath)
+		slog.Info("building from source (always rebuilds)", "path", srcPath)
 		return buildAndInstallFromSource(ctx, srcPath, s)
 	}
 
@@ -113,16 +112,21 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string, s *taskgroup
 	if err := tmpOut.Close(); err != nil {
 		return err
 	}
-	defer logging.RunCleanup(ctx, "remove", func() error {
-		if err := os.Remove(tmpPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
+	defer func() {
+		if err := func() error {
+			if err := os.Remove(tmpPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
+			return nil
+		}(); err != nil {
+			slog.Error("unexpected error", "op", "remove",
+
+				"path", tmpPath, "error", err)
 		}
-		return nil
-	}, "path", tmpPath)
+	}()
 
 	goSpec := fmt.Sprintf("go@%s", goVersion)
-	logger := logging.GetLogger(ctx)
-	logger.Info("building from source", "path", srcPath, "go", goSpec)
+	slog.Info("building from source", "path", srcPath, "go", goSpec)
 
 	prog := newBuildProgress(s)
 	if s != nil {
@@ -156,7 +160,7 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string, s *taskgroup
 		return fmt.Errorf("install built binary: %w", err)
 	}
 
-	logger.Info("build completed", "path", installPath)
+	slog.Info("build completed", "path", installPath)
 	return selfbin.EnsureModotShim(ctx, installPath)
 }
 
@@ -191,16 +195,13 @@ func updateFromGitHub(ctx context.Context, force bool, s *taskgroup.Status) erro
 		currentVersion := version.Version()
 
 		if currentVersion == normalizedLatest {
-			logger := logging.GetLogger(ctx)
-			logger.Info("already at latest version", "version", currentVersion)
+			slog.Info("already at latest version", "version", currentVersion)
 			return nil
 		}
 
-		logger := logging.GetLogger(ctx)
-		logger.Info("updating", "current", currentVersion, "latest", normalizedLatest)
+		slog.Info("updating", "current", currentVersion, "latest", normalizedLatest)
 	} else {
-		logger := logging.GetLogger(ctx)
-		logger.Info("forcing update", "version", latestVersion)
+		slog.Info("forcing update", "version", latestVersion)
 	}
 
 	// Use ArtifactTool + the shared SelectArtifact for platform selection.
@@ -236,10 +237,13 @@ func updateFromGitHub(ctx context.Context, force bool, s *taskgroup.Status) erro
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return err
 	}
-	defer logging.RunCleanup(ctx, "remove_all", func() error { return os.RemoveAll(tmpDir) }, "path", tmpDir)
+	defer func() {
+		if err := func() error { return os.RemoveAll(tmpDir) }(); err != nil {
+			slog.Error("unexpected error", "op", "remove_all", "path", tmpDir, "error", err)
+		}
+	}()
 
-	logger := logging.GetLogger(ctx)
-	logger.Info("downloading from GitHub", "version", latestVersion, "os", artifact.OS, "arch", artifact.Arch)
+	slog.Info("downloading from GitHub", "version", latestVersion, "os", artifact.OS, "arch", artifact.Arch)
 	if s != nil {
 		s.Update("downloading")
 	}
@@ -269,7 +273,7 @@ func updateFromGitHub(ctx context.Context, force bool, s *taskgroup.Status) erro
 		return fmt.Errorf("set permissions: %w", err)
 	}
 
-	logger.Info("download completed", "path", installPath)
+	slog.Info("download completed", "path", installPath)
 	return selfbin.EnsureModotShim(ctx, installPath)
 }
 

@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/atomicfile"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/miseutil"
 	"github.com/lewtec/modot/internal/selfbin"
 	"github.com/lewtec/modot/internal/version"
@@ -53,15 +53,13 @@ func runSelfInstall(ctx context.Context, force bool) error {
 	if !force {
 		if _, err := os.Stat(installPath); err == nil {
 			alreadyInstalled = true
-			logger := logging.GetLogger(ctx)
-			logger.Info("already installed", "path", installPath)
+			slog.Info("already installed", "path", installPath)
 		}
 	}
 
 	// Copy binary (unless already installed and not forcing)
 	if !alreadyInstalled {
-		logger := logging.GetLogger(ctx)
-		logger.Info("installing modot", "version", currentVersion, "path", installPath, "force", force)
+		slog.Info("installing modot", "version", currentVersion, "path", installPath, "force", force)
 
 		if err := os.MkdirAll(installDir, 0755); err != nil {
 			return fmt.Errorf("create install directory: %w", err)
@@ -75,25 +73,24 @@ func runSelfInstall(ctx context.Context, force bool) error {
 			return fmt.Errorf("set permissions: %w", err)
 		}
 
-		logger.Info("binary installed", "path", installPath)
+		slog.Info("binary installed", "path", installPath)
 	}
 
 	// Always regenerate shims (even if binary already installed)
-	logger := logging.GetLogger(ctx)
-	logger.Info("regenerating shims")
+	slog.Info("regenerating shims")
 
 	if err := selfbin.EnsureModotShim(ctx, installPath); err != nil {
 		return fmt.Errorf("create shim: %w", err)
 	}
 	if err := createMiseShim(ctx); err != nil {
-		logger.Warn("failed to create mise shim", "error", err)
+		slog.Warn("failed to create mise shim", "error", err)
 	}
 
-	logger.Info("modot installed successfully", "version", currentVersion)
+	slog.Info("modot installed successfully", "version", currentVersion)
 	if alreadyInstalled {
-		logger.Info("shims regenerated (use --force to reinstall binary)")
+		slog.Info("shims regenerated (use --force to reinstall binary)")
 	}
-	logger.Info("add ~/.local/bin to your PATH if not already added")
+	slog.Info("add ~/.local/bin to your PATH if not already added")
 
 	return nil
 }
@@ -113,7 +110,7 @@ func createMiseShim(ctx context.Context) error {
 	if err := miseutil.EnsureLocalBinWrapper(ctx, modotBin); err != nil {
 		return err
 	}
-	logging.GetLogger(ctx).Info("created mise wrapper", "target", "open lazy --home mise")
+	slog.Info("created mise wrapper", "target", "open lazy --home mise")
 	return nil
 }
 
@@ -122,13 +119,23 @@ func copyFile(ctx context.Context, src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer logging.Close(ctx, source, "path", src)
+	defer func() {
+		if closer := source; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.Error("unexpected error", "op", "close", "path", src, "error", err)
+			}
+		}
+	}()
 
 	f, err := atomicfile.Create(dst, 0o755)
 	if err != nil {
 		return err
 	}
-	defer logging.RunCleanup(ctx, "atomicfile.Abort", f.Abort)
+	defer func() {
+		if err := f.Abort(); err != nil {
+			slog.Error("unexpected error", "op", "atomicfile.Abort", "error", err)
+		}
+	}()
 	if _, err := io.Copy(f, source); err != nil {
 		return err
 	}

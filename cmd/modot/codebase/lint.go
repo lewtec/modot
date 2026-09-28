@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"text/tabwriter"
@@ -15,7 +16,6 @@ import (
 	"github.com/lewtec/modot/internal/checks/lint"
 	"github.com/lewtec/modot/internal/checks/review"
 	"github.com/lewtec/modot/internal/cmdarg"
-	"github.com/lewtec/modot/internal/logging"
 
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/owenrumney/go-sarif/v2/sarif"
@@ -62,18 +62,17 @@ func (c *Lint) Run(ctx context.Context) error {
 }
 
 func saveSarifToCI(ctx context.Context, report *sarif.Report) {
-	logger := logging.GetLogger(ctx)
 	sarifEnvVars := []string{"MISE_CI_SARIF_OUTPUT_DIR"}
 	for _, envVar := range sarifEnvVars {
 		if outputDir := os.Getenv(envVar); outputDir != "" {
 			if err := os.MkdirAll(outputDir, 0755); err != nil {
-				logger.Warn("failed to create SARIF output directory", "output_dir", outputDir, "error", err)
+				slog.Warn("failed to create SARIF output directory", "output_dir", outputDir, "error", err)
 				continue
 			}
 
 			sarifPath := filepath.Join(outputDir, "lint.sarif")
 			if err := writeSarifAtomic(sarifPath, report); err != nil {
-				logger.Warn("failed to write SARIF report", "sarif_path", sarifPath, "error", err)
+				slog.Warn("failed to write SARIF report", "sarif_path", sarifPath, "error", err)
 			}
 		}
 	}

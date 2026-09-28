@@ -10,7 +10,6 @@ import (
 	lewtool "github.com/lewtec/lewkit/x/tool"
 	"github.com/lewtec/modot/internal/configcue"
 	_ "github.com/lewtec/modot/internal/driver/env/native"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/modfile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,7 +55,7 @@ lazy_tools: {
 	writeTestFile(t, binPath, "#!/bin/sh\nexit 0\n")
 	require.NoError(t, os.Chmod(binPath, 0o755))
 
-	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
+	g, ctx := taskgroup.New(t.Context(), taskgroup.DefaultLimits())
 	t.Cleanup(func() {
 		if err := g.Wait(); err != nil && !t.Failed() {
 			assert.NoError(t, err, "group wait")

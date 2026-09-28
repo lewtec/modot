@@ -2,9 +2,9 @@ package mod
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/modfile"
 )
 
@@ -31,7 +31,6 @@ func (c *Tidy) Run(ctx context.Context) error {
 func runModLock(ctx context.Context) error {
 	taskgroup.Go(ctx, "mod:lock", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update("refreshing lockfile")
-		logger := logging.GetLogger(ctx)
 		ws, err := modfile.DetectWorkspace(ctx, "")
 		if err != nil {
 			return err
@@ -41,9 +40,9 @@ func runModLock(ctx context.Context) error {
 			return err
 		}
 		if result.Changed {
-			logger.Info("wrote lockfile", "path", ws.SumPath(), "sources", result.Sources)
+			slog.Info("wrote lockfile", "path", ws.SumPath(), "sources", result.Sources)
 		} else {
-			logger.Info("lockfile up to date", "path", ws.SumPath(), "sources", result.Sources)
+			slog.Info("lockfile up to date", "path", ws.SumPath(), "sources", result.Sources)
 		}
 		return nil
 	})

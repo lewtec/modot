@@ -6,13 +6,11 @@ import (
 	"testing"
 
 	"github.com/lewtec/modot/internal/deployer"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/source"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestLogApplyResult(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		name        string
@@ -155,12 +153,13 @@ func TestLogApplyResult(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			var buf bytes.Buffer
 			h := slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo})
-			ctx := logging.ContextWithLogger(t.Context(), slog.New(h))
+			prev := slog.Default()
+			slog.SetDefault(slog.New(h))
+			t.Cleanup(func() { slog.SetDefault(prev) })
 
-			LogApplyResult(ctx, tt.result, tt.opts)
+			LogApplyResult(t.Context(), tt.result, tt.opts)
 
 			got := buf.String()
 			for _, want := range tt.wantContain {

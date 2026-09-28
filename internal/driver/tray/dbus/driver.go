@@ -3,6 +3,7 @@ package dbus
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"sync"
 
@@ -12,7 +13,6 @@ import (
 
 	"github.com/lewtec/modot/internal/driver"
 	"github.com/lewtec/modot/internal/driver/tray"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 func init() {
@@ -95,20 +95,21 @@ func (d *Driver) Run(ctx context.Context) error {
 	}
 
 	// Emit NewMenu signal to let watcher know we have a menu
-	logger := logging.GetLogger(ctx)
 	if err := d.conn.Emit("/StatusNotifierItem", "org.kde.StatusNotifierItem.NewMenu"); err != nil {
-		logger.Warn("failed to emit NewMenu signal", "error", err)
+		slog.Warn("failed to emit NewMenu signal", "error", err)
 	}
 
 	if err := d.conn.Emit("/StatusNotifierItem", "org.kde.StatusNotifierItem.NewStatus", "Active"); err != nil {
-		logger.Warn("failed to emit NewStatus signal", "error", err)
+		slog.Warn("failed to emit NewStatus signal", "error", err)
 	}
 
 	// Register with watcher
 	watcher := d.conn.Object("org.kde.StatusNotifierWatcher", "/StatusNotifierWatcher")
 	call := watcher.Call("org.kde.StatusNotifierWatcher.RegisterStatusNotifierItem", 0, serviceName)
 	if call.Err != nil {
-		logging.ReportError(ctx, fmt.Errorf("register with watcher: %w", call.Err))
+		if err := fmt.Errorf("register with watcher: %w", call.Err); err != nil {
+			slog.Error("unexpected error", "error", err)
+		}
 	}
 
 	<-ctx.Done()
@@ -120,7 +121,9 @@ func (d *Driver) Close() {
 		d.cancel()
 		if d.conn != nil {
 			if err := d.conn.Close(); err != nil {
-				logging.ReportError(d.ctx, err)
+				if err != nil {
+					slog.Error("unexpected error", "error", err)
+				}
 			}
 		}
 	})

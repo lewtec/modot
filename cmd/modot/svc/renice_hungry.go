@@ -2,11 +2,11 @@ package svc
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 	"time"
 
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type ReniceHungry struct{}
@@ -19,8 +19,7 @@ func (*ReniceHungry) Run(ctx context.Context) error {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
-	logger := logging.GetLogger(ctx)
-	logger.Info("renice-hungry started")
+	slog.Info("renice-hungry started")
 
 	for {
 		select {
@@ -29,16 +28,16 @@ func (*ReniceHungry) Run(ctx context.Context) error {
 		case <-ticker.C:
 			pid, cmdline, err := getHungryPID(ctx)
 			if err != nil {
-				logger.Error("failed to get hungry PID", "error", err)
+				slog.Error("failed to get hungry PID", "error", err)
 				continue
 			}
 			if pid == "" {
 				continue
 			}
 
-			logger.Info("renicing process", "pid", pid, "cmd", cmdline)
+			slog.Info("renicing process", "pid", pid, "cmd", cmdline)
 			if err := execdriver.MustRun(ctx, "renice", "7", pid).Run(); err != nil {
-				logger.Error("failed to renice process", "pid", pid, "cmd", cmdline, "error", err)
+				slog.Error("failed to renice process", "pid", pid, "cmd", cmdline, "error", err)
 				continue
 			}
 		}

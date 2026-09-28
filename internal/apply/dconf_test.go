@@ -7,13 +7,12 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestWriteTempDconfIni_UniqueAndContents(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	const body = "[org/gnome/desktop/interface]\ncolor-scheme='prefer-dark'\n\n"
 	p1, err := writeTempDconfIni(ctx, body)
 	require.NoError(t, err)
@@ -41,7 +40,7 @@ func TestWriteTempDconfIni_UniqueAndContents(t *testing.T) {
 }
 
 func TestWriteTempDconfIni_ConcurrentNoCollision(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	const n = 16
 	paths := make([]string, n)
 	var wg sync.WaitGroup

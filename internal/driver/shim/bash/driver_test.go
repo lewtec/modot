@@ -8,13 +8,12 @@ import (
 
 	_ "github.com/lewtec/modot/internal/driver/prelude"
 	"github.com/lewtec/modot/internal/driver/shim"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateWritesViaTempRename(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "tool")
 
@@ -40,7 +39,7 @@ func TestGenerateWritesViaTempRename(t *testing.T) {
 }
 
 func TestGeneratePreservesExistingOnTempWriteFailure(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "tool")
 

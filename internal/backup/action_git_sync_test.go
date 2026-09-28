@@ -3,12 +3,11 @@ package backup
 import (
 	"testing"
 
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGitRepoSyncActionHasHEAD(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	action := GitRepoSyncAction{Src: t.TempDir()}
 
 	require.NoError(t, action.run(ctx, "init", "--quiet"), "git init")

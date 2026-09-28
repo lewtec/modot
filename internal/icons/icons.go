@@ -11,6 +11,7 @@ import (
 	"image/draw"
 	_ "image/gif"
 	_ "image/jpeg"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -21,7 +22,6 @@ import (
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/atomicfile"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 var ErrBadHTTPStatus = errors.New("unexpected HTTP status")
@@ -57,8 +57,7 @@ func GetIconPath(ctx context.Context, url string) (string, error) {
 	faviconURL := fmt.Sprintf("https://www.google.com/s2/favicons?sz=128&domain=%s", domain)
 
 	perform := func(ctx context.Context) error {
-		logger := logging.GetLogger(ctx)
-		logger.Info("downloading favicon", "url", normalized, "target", path)
+		slog.Info("downloading favicon", "url", normalized, "target", path)
 
 		req, err := http.NewRequestWithContext(ctx, "GET", faviconURL, nil)
 		if err != nil {
@@ -73,7 +72,13 @@ func GetIconPath(ctx context.Context, url string) (string, error) {
 		if err != nil {
 			return err
 		}
-		defer logging.Close(ctx, resp.Body)
+		defer func() {
+			if closer := resp.Body; closer != nil {
+				if err := closer.Close(); err != nil {
+					slog.Error("unexpected error", "op", "close", "error", err)
+				}
+			}
+		}()
 
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("%w: %s", ErrBadHTTPStatus, resp.Status)

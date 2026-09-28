@@ -3,6 +3,7 @@ package deployer
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,7 +11,6 @@ import (
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/atomicfile"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/source"
 )
 
@@ -105,7 +105,6 @@ func applyPatch(state *State, p statePatch) {
 // With a taskgroup in ctx, filesystem work is mapped in parallel; state patches
 // are reduced in input order afterward (no mutex on the live state map).
 func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) error {
-	logger := logging.GetLogger(ctx)
 	orderedActions := SortActions(actions)
 
 	work := make([]Action, 0, len(orderedActions))
@@ -121,7 +120,7 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 	applyFS := func(ctx context.Context, action Action) (statePatch, error) {
 		switch action.Type {
 		case ActionDelete:
-			logger.Info("pruning orphaned file", "target", PrettyPath(action.Target))
+			slog.Info("pruning orphaned file", "target", PrettyPath(action.Target))
 			if _, err := os.Lstat(action.Target); err == nil {
 				if err := os.Remove(action.Target); err != nil {
 					return statePatch{}, fmt.Errorf("remove orphaned file %s: %w", action.Target, err)
@@ -131,9 +130,9 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 
 		case ActionCreate, ActionUpdate:
 			if action.Type == ActionCreate {
-				logger.Info("creating", "target", PrettyPath(action.Target), "source", action.Desired.File.SourceInfo())
+				slog.Info("creating", "target", PrettyPath(action.Target), "source", action.Desired.File.SourceInfo())
 			} else {
-				logger.Info("updating", "target", PrettyPath(action.Target), "source", action.Desired.File.SourceInfo())
+				slog.Info("updating", "target", PrettyPath(action.Target), "source", action.Desired.File.SourceInfo())
 			}
 
 			if err := os.MkdirAll(filepath.Dir(action.Target), 0755); err != nil {
@@ -172,7 +171,11 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 				return statePatch{}, fmt.Errorf("get reader for %s: %w", action.Desired.File.SourceInfo(), err)
 			}
 			writeErr := atomicfile.Write(action.Target, reader, action.Desired.File.Mode())
-			logging.Close(ctx, reader)
+			if closer := reader; closer != nil {
+				if err := closer.Close(); err != nil {
+					slog.Error("unexpected error", "op", "close", "error", err)
+				}
+			}
 			if writeErr != nil {
 				return statePatch{}, fmt.Errorf("write content to %s: %w", action.Target, writeErr)
 			}

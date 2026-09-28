@@ -1,17 +1,15 @@
 package githubutil
 
 import (
-	"io"
 	"net/http"
 	"testing"
 
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewAPIRequestHeaders(t *testing.T) {
 	t.Setenv(githubTokenProbeEnv, githubTokenProbeVal)
-	ctx := logging.NewWriterContext(io.Discard)
+	ctx := t.Context()
 	req, err := NewAPIRequest(ctx, http.MethodGet, "https://api.github.com/repos/o/r/releases")
 	require.NoError(t, err)
 	require.Equal(t, UserAgent, req.Header.Get("User-Agent"))
@@ -20,5 +18,5 @@ func TestNewAPIRequestHeaders(t *testing.T) {
 }
 
 func TestApplyAPIHeadersNilSafe(t *testing.T) {
-	ApplyAPIHeaders(logging.NewWriterContext(io.Discard), nil)
+	ApplyAPIHeaders(t.Context(), nil)
 }

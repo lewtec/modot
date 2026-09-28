@@ -18,7 +18,6 @@ import (
 	"github.com/lewtec/modot/internal/configcue"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	_ "github.com/lewtec/modot/internal/driver/prelude"
-	"github.com/lewtec/modot/internal/logging"
 	_ "github.com/lewtec/modot/internal/palette/prelude"
 	_ "github.com/lewtec/modot/internal/tool/prelude"
 	"github.com/lewtec/modot/internal/version"
@@ -41,7 +40,7 @@ func main() {
 		Level: level,
 	}))
 	slog.SetDefault(processLogger)
-	rootCtx := logging.NewRootContext(processLogger)
+	rootCtx := context.Background() //nolint:forbidigo // process root
 
 	configcue.WarnLegacyEnv(rootCtx)
 
@@ -55,24 +54,29 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		defer logging.Close(rootCtx, f, "path", exe)
+		defer func() {
+			if closer := f; closer != nil {
+				if err := closer.Close(); err != nil {
+					slog.Error("unexpected error", "op", "close", "path", exe, "error", err)
+				}
+			}
+		}()
 		if _, err = io.Copy(h, f); err != nil {
 			panic(err)
 		}
-		logging.GetLogger(rootCtx).Info("build time", "t", h.Sum(nil))
+		slog.Info("build time", "t", h.Sum(nil))
 	}
 	if _, err := configcue.LoadHome(rootCtx); err != nil {
-		logging.GetLogger(rootCtx).Debug("failed to load config", "error", err)
+		slog.Debug("failed to load config", "error", err)
 	}
 
 	pkg_daemon.ExecuteCLI = executeCLI
 
 	if err := run(rootCtx, level); err != nil {
-		logger := logging.GetLogger(rootCtx)
 		if details := cueerrors.Details(err, nil); details != "" {
-			logger.Error("error", "err", err, "details", "\n"+details)
+			slog.Error("error", "err", err, "details", "\n"+details)
 		} else {
-			logger.Error("error", "err", err)
+			slog.Error("error", "err", err)
 		}
 		os.Exit(1)
 	}
@@ -111,7 +115,7 @@ func run(ctx context.Context, level *slog.LevelVar) error {
 	}
 	cancel()
 	if runErr != nil {
-		logging.GetLogger(ctx).Error("task group error", "err", runErr)
+		slog.Error("task group error", "err", runErr)
 	}
 	return runErr
 }
@@ -131,7 +135,7 @@ func setup(ctx context.Context, app cmd.App[cli]) (context.Context, *taskgroup.S
 	armedNoCache := app.Args.NoCache.Value()
 	ctx = cmdctx.WithNoCache(ctx, armedNoCache)
 	if armedNoCache {
-		logging.GetLogger(ctx).Info("no-cache enabled (flag or MODOT_NO_CACHE)")
+		slog.Info("no-cache enabled (flag or MODOT_NO_CACHE)")
 	}
 
 	base := taskgroup.DefaultLimits()

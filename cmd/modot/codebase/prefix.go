@@ -1,14 +1,13 @@
 package codebase
 
 import (
-	"log/slog"
+	"context"
 
 	"github.com/lewtec/lewkit/x/cmd"
 	lewpath "github.com/lewtec/lewkit/x/path"
 	"github.com/lewtec/modot/internal/cmdarg"
 	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/filespine"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/modfile"
 )
 
@@ -21,7 +20,7 @@ type Prefix struct {
 
 func (Prefix) ArgDefault() string {
 	// Flag defaults run during parse, before the command context exists.
-	ctx := logging.NewRootContext(slog.Default())
+	ctx := context.Background() //nolint:forbidigo // flag default runs before a command context exists
 	if cue, err := configcue.ResolveWorkspaceCuePath(ctx, ""); err == nil && cue != "" {
 		if dir, err := parentDir(cue); err == nil {
 			return dir

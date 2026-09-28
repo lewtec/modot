@@ -3,6 +3,7 @@ package apply
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,7 +17,6 @@ import (
 	"github.com/lewtec/modot/internal/dotfiles"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/modfile"
 	_ "github.com/lewtec/modot/internal/modfile/sourceprovider/prelude"
 	"github.com/lewtec/modot/internal/source"
@@ -55,8 +55,6 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 	taskgroup.Go(ctx, taskName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update(updateMsg)
 		// Nested plan/apply Maps own aggregate bars; no Unit shell here.
-
-		logger := logging.GetLogger(ctx)
 
 		cfg, err := configcue.LoadHome(ctx)
 		if err != nil {
@@ -140,7 +138,7 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 					home, err := os.UserHomeDir()
 					if err != nil {
 						// Best-effort hook: skip GTK reload rather than fail apply.
-						logger.Warn("failed to get home directory for gtk theme reload", "error", err)
+						slog.Warn("failed to get home directory for gtk theme reload", "error", err)
 						return nil
 					}
 					dummyTheme := filepath.Join(home, ".local", "share", "themes", "dummy")
@@ -156,12 +154,12 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 						// Switch to dummy and back to force GTK reload
 						if cmd, err := execdriver.Run(ctx, "dconf", "write", "/org/gnome/desktop/interface/gtk-theme", "'dummy'"); err == nil {
 							if err := cmd.Run(); err != nil {
-								logger.Warn("failed to switch to dummy theme", "error", err)
+								slog.Warn("failed to switch to dummy theme", "error", err)
 							}
 						}
 						if cmd, err := execdriver.Run(ctx, "dconf", "write", "/org/gnome/desktop/interface/gtk-theme", fmt.Sprintf("'%s'", targetTheme)); err == nil {
 							if err := cmd.Run(); err != nil {
-								logger.Warn("failed to restore gtk theme", "theme", targetTheme, "error", err)
+								slog.Warn("failed to restore gtk theme", "theme", targetTheme, "error", err)
 							}
 						}
 					}

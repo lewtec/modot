@@ -3,11 +3,11 @@ package demo
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	"github.com/lewtec/modot/internal/driver/notification"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type Progress struct{}
@@ -15,7 +15,6 @@ type Progress struct{}
 func (Progress) Description() string { return "Demo progress notification" }
 
 func (*Progress) Run(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
 	n := &notification.Notification{
 		Title: "Progress Demo",
 		Icon:  "utilities-terminal",
@@ -27,14 +26,14 @@ func (*Progress) Run(ctx context.Context) error {
 		n.ID = 69
 		n.Progress = float64(percent) / 100.0
 		if err := lewnotify.Notify(ctx, *n); err != nil {
-			logger.Error("error sending progress notification", "error", err)
+			slog.Error("error sending progress notification", "error", err)
 		}
 		time.Sleep(time.Second)
 	}
 	n.Message = "Demo complete!"
 	n.Progress = 1.0
 	if err := lewnotify.Notify(ctx, *n); err != nil {
-		logger.Error("error sending final notification", "error", err)
+		slog.Error("error sending final notification", "error", err)
 	}
 	return nil
 }

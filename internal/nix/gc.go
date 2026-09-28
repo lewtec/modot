@@ -3,20 +3,20 @@ package nix
 import (
 	"context"
 	"fmt"
-	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/executil"
-	"github.com/lewtec/modot/internal/logging"
-	"github.com/lewtec/modot/internal/sudo"
-	"github.com/lewtec/modot/internal/types"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/executil"
+	"github.com/lewtec/modot/internal/sudo"
+	"github.com/lewtec/modot/internal/types"
 )
 
 func CleanupProfiles(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
-	logger.Info("Searching for old Nix profiles to cleanup...")
+	slog.Info("Searching for old Nix profiles to cleanup...")
 
 	baseDir := "/nix/var/nix/profiles"
 
@@ -42,7 +42,7 @@ func CleanupProfiles(ctx context.Context) error {
 
 		entries, err := os.ReadDir(dir)
 		if err != nil {
-			logger.Error("failed to read directory", "dir", dir, "error", err)
+			slog.Error("failed to read directory", "dir", dir, "error", err)
 			continue
 		}
 
@@ -77,13 +77,13 @@ func CleanupProfiles(ctx context.Context) error {
 	}
 
 	if len(filesToRemove) == 0 {
-		logger.Info("No old profiles found to cleanup.")
+		slog.Info("No old profiles found to cleanup.")
 		return nil
 	}
 
 	sort.Strings(filesToRemove)
 
-	logger.Info(fmt.Sprintf("Found %d old profile links to remove.", len(filesToRemove)))
+	slog.Info(fmt.Sprintf("Found %d old profile links to remove.", len(filesToRemove)))
 
 	if os.Getuid() != 0 {
 		return sudo.Enqueue(ctx, &types.SudoCommand{

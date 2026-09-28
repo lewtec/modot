@@ -7,14 +7,13 @@ import (
 	"github.com/lewtec/modot/internal/driver"
 	_ "github.com/lewtec/modot/internal/driver/exec/native"
 	"github.com/lewtec/modot/internal/driver/shell"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 
 func TestWhichDriverExposesPathOnly(t *testing.T) {
 	shell.RegisterWhich("shell_test_which", "Test sh", "sh")
 
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	// Force the test registration regardless of weights.
 	t.Setenv("LEWKIT_FORCE_SHELL_DRIVER", "shell_test_which")
 

@@ -8,7 +8,6 @@ import (
 
 	_ "github.com/lewtec/modot/internal/driver/prelude"
 	"github.com/lewtec/modot/internal/driver/shim"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,7 +18,7 @@ func TestGenerateInLocalBin(t *testing.T) {
 	t.Setenv("TERMUX_APP_PACKAGE", "")
 	t.Setenv("MODOT_IN_PROOT", "")
 	t.Setenv("PREFIX", "")
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	target := filepath.Join(home, "opt", "modot")
 
 	shimPath, err := shim.GenerateInLocalBin(ctx, "modot", []string{target})
@@ -41,7 +40,7 @@ func TestGenerateInLocalBin(t *testing.T) {
 func TestGenerateInLocalBinValidation(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 
 	_, err := shim.GenerateInLocalBin(ctx, "", []string{"/bin/true"})
 	require.ErrorIs(t, err, shim.ErrEmptyName)
@@ -81,7 +80,7 @@ func TestGenerateInLocalBinKeepsNormalHomePaths(t *testing.T) {
 
 	target := filepath.Join(home, ".local", "share", "modot", "bin", "modot")
 	require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755))
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	shimPath, err := shim.GenerateInLocalBin(ctx, "modot", []string{target})
 	require.NoError(t, err)
 	content, err := os.ReadFile(shimPath)

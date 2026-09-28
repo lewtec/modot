@@ -8,6 +8,7 @@ import (
 	"image"
 	imagedraw "image/draw"
 	"image/png"
+	"log/slog"
 	"math"
 	"os"
 	"path/filepath"
@@ -21,7 +22,6 @@ import (
 	"github.com/lewtec/modot/internal/configcue"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/driver/svgraster"
-	"github.com/lewtec/modot/internal/logging"
 
 	xdraw "golang.org/x/image/draw"
 )
@@ -181,7 +181,11 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 						return nil, err
 					}
 					if err := fastPNGEncoder.Encode(f, final); err != nil {
-						logging.Close(ctx, f)
+						if closer := f; closer != nil {
+							if err := closer.Close(); err != nil {
+								slog.Error("unexpected error", "op", "close", "error", err)
+							}
+						}
 						if rerr := os.Remove(targetPNG); rerr != nil && !errors.Is(rerr, os.ErrNotExist) {
 							return nil, errors.Join(err, rerr)
 						}
@@ -216,12 +220,11 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 	}
 
 	if opts.UpdateCache && execdriver.IsBinaryAvailable(ctx, "gtk-update-icon-cache") {
-		logger := logging.GetLogger(ctx)
 		cacheCmd, err := execdriver.Run(ctx, "gtk-update-icon-cache", "-f", "-q", outputDir)
 		if err != nil {
-			logger.Warn("failed to prepare gtk-update-icon-cache", "dir", outputDir, "error", err)
+			slog.Warn("failed to prepare gtk-update-icon-cache", "dir", outputDir, "error", err)
 		} else if err := cacheCmd.Run(); err != nil {
-			logger.Warn("gtk-update-icon-cache failed", "dir", outputDir, "error", err)
+			slog.Warn("gtk-update-icon-cache failed", "dir", outputDir, "error", err)
 		}
 	}
 

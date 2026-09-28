@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/lewtec/modot/internal/deployer"
-	"github.com/lewtec/modot/internal/logging"
-	"github.com/lewtec/modot/internal/source"
+	"log/slog"
 	"time"
+
+	"github.com/lewtec/modot/internal/deployer"
+	"github.com/lewtec/modot/internal/source"
 )
 
 var (
@@ -90,13 +91,12 @@ type ApplyResult struct {
 
 // Apply runs the full deployment cycle.
 func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, error) {
-	logger := logging.GetLogger(ctx)
 	result := &ApplyResult{}
 
 	files := m.tree.Files()
 	result.Warnings = append([]string{}, m.tree.Warnings...)
 
-	logger.Info("applying dest tree", "files", len(files))
+	slog.Info("applying dest tree", "files", len(files))
 
 	// Convert source.File to deployer.DesiredState
 	desired := make([]deployer.DesiredState, len(files))
@@ -106,7 +106,7 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 		}
 	}
 
-	logger.Info("loading state", "store", m.stateStore.Path())
+	slog.Info("loading state", "store", m.stateStore.Path())
 	state, err := m.stateStore.Load()
 	if err != nil {
 		result.Error = err
@@ -116,17 +116,17 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 	dropped := deployer.DropIgnored(state, m.ignore)
 	result.StateDropped = dropped
 	if dropped > 0 {
-		logger.Info("dropping gitignored paths from state", "count", dropped)
+		slog.Info("dropping gitignored paths from state", "count", dropped)
 	}
 
-	logger.Info("planning actions")
+	slog.Info("planning actions")
 	planStart := time.Now()
 	actions, err := m.planner.Plan(ctx, desired, state)
 	if err != nil {
 		result.Error = err
 		return result, fmt.Errorf("plan: %w", err)
 	}
-	logger.Info("plan calculated", "duration", time.Since(planStart).String(), "actions", len(actions))
+	slog.Info("plan calculated", "duration", time.Since(planStart).String(), "actions", len(actions))
 
 	result.Actions = actions
 
@@ -147,7 +147,7 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 	hasChanges := result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0
 
 	if !hasChanges {
-		logger.Info("no changes needed")
+		slog.Info("no changes needed")
 		if dropped > 0 && !opts.DryRun {
 			if err := m.stateStore.Save(state); err != nil {
 				result.Error = err
@@ -157,7 +157,7 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 		return result, nil
 	}
 
-	logger.Info("changes planned",
+	slog.Info("changes planned",
 		"create", result.FilesCreated,
 		"update", result.FilesUpdated,
 		"delete", result.FilesDeleted,
@@ -165,7 +165,7 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 
 	// Dry-run: stop here
 	if opts.DryRun {
-		logger.Info("dry-run: skipping execution")
+		slog.Info("dry-run: skipping execution")
 		return result, nil
 	}
 
@@ -178,13 +178,13 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 	}
 
 	// 6. Execute actions
-	logger.Info("executing actions")
+	slog.Info("executing actions")
 	execErr := m.executor.Execute(ctx, actions, state)
 
 	// 7. Execute After hooks (even if there was an error)
 	for _, hook := range m.hooks {
 		if err := hook.After(ctx, actions, execErr); err != nil {
-			logger.Error("hook after failed", "error", err)
+			slog.Error("hook after failed", "error", err)
 			// Continue executing other hooks
 		}
 	}
@@ -195,13 +195,13 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 	}
 
 	// 8. Save state
-	logger.Info("saving state")
+	slog.Info("saving state")
 	if err := m.stateStore.Save(state); err != nil {
 		result.Error = err
 		return result, fmt.Errorf("save state: %w", err)
 	}
 
-	logger.Info("apply completed successfully")
+	slog.Info("apply completed successfully")
 	return result, nil
 }
 

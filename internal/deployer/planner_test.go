@@ -1,14 +1,12 @@
 package deployer
 
 import (
-	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/cmdctx"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/source"
 	"github.com/stretchr/testify/require"
 )
@@ -34,7 +32,7 @@ func TestPlannerDetectsCommentOnlyContentChange(t *testing.T) {
 		target: {SourceInfo: "source:config-tree (.local/bin/_index.tmpl) (multi:rg)"},
 	}}
 
-	g, ctx := taskgroup.New(logging.ContextWithLogger(t.Context(), slog.Default()), taskgroup.DefaultLimits())
+	g, ctx := taskgroup.New(t.Context(), taskgroup.DefaultLimits())
 	_ = g
 	actions, err := NewPlanner().Plan(ctx, desired, state)
 	require.NoError(t, err, "plan")
@@ -65,7 +63,7 @@ func TestPlannerNoCacheForcesUpdateOnIdenticalContent(t *testing.T) {
 		target: {SourceInfo: srcInfo},
 	}}
 
-	base := logging.ContextWithLogger(t.Context(), slog.Default())
+	base := t.Context()
 
 	// Warm path: identical managed bundle → noop
 	// (taskgroup tasks use Group's root ctx; set flags before New.)
@@ -106,7 +104,7 @@ func TestPlannerIgnoredEqualIsNoop(t *testing.T) {
 	p := NewPlanner()
 	p.Ignore = func(path string) bool { return path == target }
 
-	g, ctx := taskgroup.New(logging.ContextWithLogger(t.Context(), slog.Default()), taskgroup.DefaultLimits())
+	g, ctx := taskgroup.New(t.Context(), taskgroup.DefaultLimits())
 	_ = g
 	actions, err := p.Plan(ctx, desired, state)
 	require.NoError(t, err)
@@ -132,7 +130,7 @@ func TestPlannerIgnoredMissingIsCreate(t *testing.T) {
 	p := NewPlanner()
 	p.Ignore = func(path string) bool { return path == target }
 
-	g, ctx := taskgroup.New(logging.ContextWithLogger(t.Context(), slog.Default()), taskgroup.DefaultLimits())
+	g, ctx := taskgroup.New(t.Context(), taskgroup.DefaultLimits())
 	_ = g
 	actions, err := p.Plan(ctx, desired, &State{Files: map[string]ManagedInfo{}})
 	require.NoError(t, err)
@@ -157,7 +155,7 @@ func TestPlannerUnmanagedEqualStillAdopts(t *testing.T) {
 			Content: content,
 		},
 	}}
-	g, ctx := taskgroup.New(logging.ContextWithLogger(t.Context(), slog.Default()), taskgroup.DefaultLimits())
+	g, ctx := taskgroup.New(t.Context(), taskgroup.DefaultLimits())
 	_ = g
 	actions, err := NewPlanner().Plan(ctx, desired, &State{Files: map[string]ManagedInfo{}})
 	require.NoError(t, err)

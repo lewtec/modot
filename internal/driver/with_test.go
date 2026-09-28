@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/lewtec/modot/internal/driver"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,7 +27,7 @@ func (probeImpl) ID() string { return "probe_test" }
 func TestWithAndWithResult(t *testing.T) {
 	driver.Register[probe](probeFactory{})
 	t.Setenv("MODOT_FORCE_DRIVER_TEST_PROBE_DRIVER", "probe_test")
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 
 	err := driver.With(ctx, func(p probe) error {
 		if p.ID() != "probe_test" {

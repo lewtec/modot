@@ -3,20 +3,19 @@ package git
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
 	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/driver/notification"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 // QuickSync walks repoDir for git checkouts and SyncRepo's each one.
 // Callers load modot quicksync.repo_dir (or pass any directory of repos).
 // Repository root lookup is github.com/lewtec/lewkit/x/git.
 func QuickSync(ctx context.Context, repoDir string) error {
-	logger := logging.GetLogger(ctx)
 	entries, err := os.ReadDir(repoDir)
 	if err != nil {
 		return fmt.Errorf("read repo dir %s: %w", repoDir, err)
@@ -50,24 +49,30 @@ func QuickSync(ctx context.Context, repoDir string) error {
 		repoPath := filepath.Join(repoDir, repoName)
 		n.Message = fmt.Sprintf("Syncing %s...", repoName)
 		n.Progress = float64(i) / float64(total)
-		logging.ReportError(ctx, lewnotify.Notify(ctx, *n))
+		if err := lewnotify.Notify(ctx, *n); err != nil {
+			slog.Error("unexpected error", "error", err)
+		}
 
-		logger.Info("syncing repository", "repo", repoName)
+		slog.Info("syncing repository", "repo", repoName)
 		if err := SyncRepo(ctx, repoPath); err != nil {
-			logger.Error("failed to sync repo", "repo", repoName, "error", err)
+			slog.Error("failed to sync repo", "repo", repoName, "error", err)
 			errN := &notification.Notification{
 				Title:   "Sync Failed",
 				Message: fmt.Sprintf("Conflict or error in %s. Manual intervention required.", repoName),
 				Urgency: "critical",
 				Icon:    "dialog-warning",
 			}
-			logging.ReportError(ctx, lewnotify.Notify(ctx, *errN))
+			if err := lewnotify.Notify(ctx, *errN); err != nil {
+				slog.Error("unexpected error", "error", err)
+			}
 		}
 	}
 
 	n.Message = "Sync completed."
 	n.Progress = 1.0
-	logging.ReportError(ctx, lewnotify.Notify(ctx, *n))
+	if err := lewnotify.Notify(ctx, *n); err != nil {
+		slog.Error("unexpected error", "error", err)
+	}
 
 	return nil
 }
@@ -77,9 +82,8 @@ func SyncRepo(ctx context.Context, path string) error {
 	if err != nil {
 		hostname = "unknown"
 	}
-	logger := logging.GetLogger(ctx)
 
-	logger.Info("git add", "path", path)
+	slog.Info("git add", "path", path)
 	if err := execdriver.MustRun(ctx, "git", "-C", path, "add", "-A").Run(); err != nil {
 		return fmt.Errorf("git add failed: %w", err)
 	}
@@ -87,21 +91,23 @@ func SyncRepo(ctx context.Context, path string) error {
 	// Check if there are changes to commit
 	if err := execdriver.MustRun(ctx, "git", "-C", path, "diff-index", "HEAD", "--exit-code").Run(); err != nil {
 		commitMsg := fmt.Sprintf("backup checkpoint %s", hostname)
-		logger.Info("git commit", "path", path, "msg", commitMsg)
+		slog.Info("git commit", "path", path, "msg", commitMsg)
 		if err := execdriver.MustRun(ctx, "git", "-C", path, "commit", "-sm", commitMsg).Run(); err != nil {
 			return fmt.Errorf("git commit failed: %w", err)
 		}
 	}
 
-	logger.Info("git pull --rebase", "path", path)
+	slog.Info("git pull --rebase", "path", path)
 	if err := execdriver.MustRun(ctx, "git", "-C", path, "pull", "--rebase").Run(); err != nil {
 		if abortErr := execdriver.MustRun(ctx, "git", "-C", path, "rebase", "--abort").Run(); abortErr != nil {
-			logging.ReportError(ctx, abortErr, "op", "git rebase --abort", "path", path)
+			if err := abortErr; err != nil {
+				slog.Error("unexpected error", "op", "git rebase --abort", "path", path, "error", err)
+			}
 		}
 		return fmt.Errorf("git pull rebase failed (conflict?): %w", err)
 	}
 
-	logger.Info("git push", "path", path)
+	slog.Info("git push", "path", path)
 	if err := execdriver.MustRun(ctx, "git", "-C", path, "push").Run(); err != nil {
 		return fmt.Errorf("git push failed: %w", err)
 	}

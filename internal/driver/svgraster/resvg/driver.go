@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"image/png"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/driver/svgraster"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/tool"
 )
 
@@ -72,7 +72,11 @@ func (d *Driver) RasterizeSVG(ctx context.Context, svg string, width int, height
 	if err != nil {
 		return nil, err
 	}
-	defer logging.RunCleanup(ctx, "remove_all", func() error { return os.RemoveAll(tmpDir) })
+	defer func() {
+		if err := func() error { return os.RemoveAll(tmpDir) }(); err != nil {
+			slog.Error("unexpected error", "op", "remove_all", "error", err)
+		}
+	}()
 
 	inSVG := filepath.Join(tmpDir, "input.svg")
 	outPNG := filepath.Join(tmpDir, "output.png")
@@ -102,7 +106,13 @@ func (d *Driver) RasterizeSVG(ctx context.Context, svg string, width int, height
 	if err != nil {
 		return nil, err
 	}
-	defer logging.Close(ctx, f)
+	defer func() {
+		if closer := f; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.Error("unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 
 	img, err := png.Decode(f)
 	if err != nil {

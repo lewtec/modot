@@ -2,12 +2,12 @@ package svc
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"strings"
 	"syscall"
 
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type Vncd struct{}
@@ -24,8 +24,7 @@ func (*Vncd) Run(ctx context.Context) error {
 }
 
 func runWaylandVNC(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
-	logger.Info("Starting wayvnc")
+	slog.Info("Starting wayvnc")
 	host := os.Getenv("WAYVNC_HOST")
 	if host == "" {
 		tsIP, err := getTailscaleIP(ctx)
@@ -41,13 +40,12 @@ func runWaylandVNC(ctx context.Context) error {
 		return err
 	}
 
-	logger.Info("executing wayvnc", "host", host)
+	slog.Info("executing wayvnc", "host", host)
 	return syscall.Exec(bin, []string{"wayvnc", host}, os.Environ())
 }
 
 func runXorgVNC(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
-	logger.Info("Starting x0vncserver")
+	slog.Info("Starting x0vncserver")
 	bin, err := execdriver.Which(ctx, "x0vncserver")
 	if err != nil {
 		return err
@@ -61,7 +59,7 @@ func runXorgVNC(ctx context.Context) error {
 		"-RawKeyboard=1",
 	}
 
-	logger.Info("executing x0vncserver")
+	slog.Info("executing x0vncserver")
 	return syscall.Exec(bin, args, os.Environ())
 }
 

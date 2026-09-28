@@ -7,7 +7,6 @@ import (
 	lewpath "github.com/lewtec/lewkit/x/path"
 	"github.com/lewtec/modot/internal/configcue"
 	_ "github.com/lewtec/modot/internal/driver/exec/native"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/modfile"
 	"github.com/stretchr/testify/require"
 )
@@ -32,7 +31,7 @@ func TestPrefixDefaultIsWorkspaceRoot(t *testing.T) {
 	}
 	got, err := cmd.Parse[args]()
 	require.NoError(t, err)
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	cue, err := configcue.ResolveWorkspaceCuePath(ctx, "")
 	require.NoError(t, err)
 	if cue != "" {

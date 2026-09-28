@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"os"
 	"os/exec"
 	"sync"
 	"sync/atomic"
 
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/tool"
 )
 
@@ -41,7 +41,6 @@ type Backend struct {
 
 // StartBackend ensures tools, spawns the server, and runs a read loop.
 func StartBackend(ctx context.Context, root string, serverID string, srv Server, onNotification func(serverID string, msg *Message)) (*Backend, error) {
-	logger := logging.GetLogger(ctx)
 	if len(srv.Cmd) == 0 {
 		return nil, fmt.Errorf("%w: server %q", ErrEmptyCmd, serverID)
 	}
@@ -72,7 +71,11 @@ func StartBackend(ctx context.Context, root string, serverID string, srv Server,
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		cancel()
-		logging.Close(ctx, stdin)
+		if closer := stdin; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.Error("unexpected error", "op", "close", "error", err)
+			}
+		}
 		return nil, err
 	}
 
@@ -80,7 +83,7 @@ func StartBackend(ctx context.Context, root string, serverID string, srv Server,
 		cancel()
 		return nil, fmt.Errorf("server %q: start: %w", serverID, err)
 	}
-	logger.Info("lsp backend started", "server", serverID, "cmd", argv, "pid", cmd.Process.Pid)
+	slog.Info("lsp backend started", "server", serverID, "cmd", argv, "pid", cmd.Process.Pid)
 
 	b := &Backend{
 		ID:             serverID,
@@ -96,7 +99,7 @@ func StartBackend(ctx context.Context, root string, serverID string, srv Server,
 	go b.readLoop(ctx)
 	go func() {
 		err := cmd.Wait()
-		logger.Info("lsp backend exited", "server", serverID, "error", err)
+		slog.Info("lsp backend exited", "server", serverID, "error", err)
 		b.failPending(fmt.Errorf("server %q exited: %w", serverID, err))
 	}()
 	return b, nil
@@ -107,12 +110,11 @@ func resolveServerCmd(ctx context.Context, root string, srv Server) (argv []stri
 }
 
 func (b *Backend) readLoop(ctx context.Context) {
-	logger := logging.GetLogger(ctx)
 	for {
 		msg, err := b.conn.ReadMessage()
 		if err != nil {
 			if err != io.EOF && !errors.Is(err, fs.ErrClosed) && !errors.Is(err, io.ErrClosedPipe) {
-				logger.Debug("backend read ended", "server", b.ServerID, "error", err)
+				slog.Debug("backend read ended", "server", b.ServerID, "error", err)
 			}
 			b.failPending(err)
 			return

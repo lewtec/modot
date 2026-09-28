@@ -7,10 +7,10 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
+	"log/slog"
 	"os"
 	"strings"
 
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/palette/api"
 )
 
@@ -43,7 +43,13 @@ func ExtractFromFile(ctx context.Context, path string, driver string, opts api.O
 	if err != nil {
 		return nil, fmt.Errorf("open image: %w", err)
 	}
-	defer logging.Close(ctx, f)
+	defer func() {
+		if closer := f; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.Error("unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 
 	img, _, err := image.Decode(f)
 	if err != nil {

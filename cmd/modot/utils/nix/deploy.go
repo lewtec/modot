@@ -3,6 +3,7 @@ package nix
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
@@ -12,7 +13,6 @@ import (
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/driver/notification"
 	"github.com/lewtec/modot/internal/executil"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/nix"
 
 	"github.com/lewtec/lewkit/x/cmd"
@@ -56,10 +56,9 @@ func (d *Deploy) Run(ctx context.Context) error {
 		TaskName: func(_ int, node string) string { return "deploy:" + node },
 		Fn: func(ctx context.Context, s *taskgroup.Status, node string) error {
 			s.Update(node)
-			logger := logging.GetLogger(ctx).With("node", node)
-			logger.Info("Deploying to node")
+			slog.Info("Deploying to node", "node", node)
 			if err := deployNode(ctx, flake, node, action); err != nil {
-				logger.Error("Failed to deploy to node", "error", err)
+				slog.Error("Failed to deploy to node", "node", node, "error", err)
 				return err
 			}
 			return nil
@@ -77,7 +76,7 @@ func (d *Deploy) Run(ctx context.Context) error {
 			Icon:    "nix-snowflake",
 		}
 		if err := lewnotify.Notify(ctx, n); err != nil {
-			logging.GetLogger(ctx).Error("failed to send notification", "error", err)
+			slog.Error("failed to send notification", "error", err)
 		}
 		return nil
 	})
@@ -85,10 +84,8 @@ func (d *Deploy) Run(ctx context.Context) error {
 }
 
 func deployNode(ctx context.Context, flake, node, action string) error {
-	logger := logging.GetLogger(ctx)
-	logger = logger.With("node", node)
 	// 1. Build outputs
-	logger.Info("Building configuration for node")
+	slog.Info("Building configuration for node", "node", node)
 	toplevelPath := fmt.Sprintf("nixosConfigurations.%s.config.system.build.toplevel", node)
 	toplevel, err := nix.GetFlakeOutput(ctx, flake, toplevelPath)
 	if err != nil {
@@ -96,7 +93,7 @@ func deployNode(ctx context.Context, flake, node, action string) error {
 	}
 
 	// 2. Copy closures
-	logger.Info("Copying closures to node")
+	slog.Info("Copying closures to node", "node", node)
 	if err := nix.CopyClosure(ctx, node, toplevel, nix.To); err != nil {
 		return fmt.Errorf("copy toplevel to %s: %w", node, err)
 	}
@@ -118,12 +115,12 @@ func deployNode(ctx context.Context, flake, node, action string) error {
 	}
 
 	// 4. Switch system configuration
-	logger.Info("Switching system configuration on node", "action", action)
+	slog.Info("Switching system configuration on node", "node", node, "action", action)
 	currentSystemOut, err := execdriver.MustRun(ctx, "ssh", node, "realpath /run/current-system").Output()
 	if err == nil {
 		currentSystem := strings.TrimSpace(string(currentSystemOut))
 		if currentSystem == toplevel {
-			logger.Info("Node already running the same configuration")
+			slog.Info("Node already running the same configuration", "node", node)
 			return nil
 		}
 	}

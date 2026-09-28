@@ -2,10 +2,10 @@ package demo
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type MapCmd struct{}
@@ -31,7 +31,6 @@ orchestrator tracks completed/total automatically.`
 }
 
 func (*MapCmd) Run(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
 
 	items := []string{
 		"src/main.go",
@@ -46,7 +45,7 @@ func (*MapCmd) Run(ctx context.Context) error {
 		"README.md",
 	}
 
-	logger.Info("demonstrating taskgroup.Map.Run", "item_count", len(items))
+	slog.Info("demonstrating taskgroup.Map.Run", "item_count", len(items))
 
 	results, err := taskgroup.Map[string, string]{
 		Name:     "demo-map",
@@ -54,11 +53,10 @@ func (*MapCmd) Run(ctx context.Context) error {
 		PoolKind: taskgroup.IO,
 		TaskName: func(_ int, path string) string { return "item:" + path },
 		Fn: func(ctx context.Context, st *taskgroup.Status, path string) (string, error) {
-			logger := logging.GetLogger(ctx)
 			st.Update("starting " + path)
 			work := 60*time.Millisecond + time.Duration(len(path)%4)*35*time.Millisecond
 			time.Sleep(work)
-			logger.Info("processed item", "path", path, "result", "ok")
+			slog.Info("processed item", "path", path, "result", "ok")
 			st.Update("done " + path)
 			return "processed:" + path, nil
 		},
@@ -66,6 +64,6 @@ func (*MapCmd) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	logger.Info("map finished", "count", len(results), "first", results[0], "last", results[len(results)-1])
+	slog.Info("map finished", "count", len(results), "first", results[0], "last", results[len(results)-1])
 	return nil
 }

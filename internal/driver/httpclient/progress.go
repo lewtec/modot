@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 // progressTransport is an http.RoundTripper that, when a taskgroup.Session is
@@ -41,8 +41,7 @@ func (t *progressTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	bodyComplete := make(chan struct{})
 
 	taskgroup.Go(req.Context(), name, taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
-		l := logging.GetLogger(ctx)
-		l.Debug("http request promoted to internet task", "name", name, "url", req.URL.String())
+		slog.Debug("http request promoted to internet task", "name", name, "url", req.URL.String())
 
 		// Title is the task name (from Go); subtitle is phase / size detail only.
 		// Never put the name or a percent in the subtitle — the bar already

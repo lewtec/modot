@@ -2,9 +2,9 @@ package history
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/lewtec/modot/internal/db"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/types"
 )
 
@@ -54,9 +54,9 @@ func ingestEvents(ctx context.Context, load func(context.Context) ([]types.Histo
 		return err
 	}
 	if len(events) == 0 {
-		logging.GetLogger(ctx).Info("No events to ingest")
+		slog.Info("No events to ingest")
 		return nil
 	}
-	logging.GetLogger(ctx).Info("Ingesting events...", "amount", len(events))
+	slog.Info("Ingesting events...", "amount", len(events))
 	return database.BatchRecordHistory(ctx, events)
 }

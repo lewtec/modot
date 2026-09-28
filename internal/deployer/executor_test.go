@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/source"
 	"github.com/stretchr/testify/require"
 )
@@ -62,7 +61,7 @@ func TestExecuteKeepsExistingOnCopyError(t *testing.T) {
 		target: {SourceInfo: "test:old"},
 	}}
 
-	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
+	g, ctx := taskgroup.New(t.Context(), taskgroup.DefaultLimits())
 	_ = g
 	err := NewExecutor().Execute(ctx, actions, state)
 	require.Error(t, err, "expected copy error")
@@ -96,7 +95,7 @@ func TestExecuteRemovesEmptyFileOnReaderError(t *testing.T) {
 	}}
 	state := &State{Files: map[string]ManagedInfo{}}
 
-	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
+	g, ctx := taskgroup.New(t.Context(), taskgroup.DefaultLimits())
 	_ = g
 	err := NewExecutor().Execute(ctx, actions, state)
 	require.Error(t, err, "expected reader error")
@@ -129,7 +128,7 @@ func TestExecuteWritesRegularFile(t *testing.T) {
 	}}
 	state := &State{Files: map[string]ManagedInfo{}}
 
-	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
+	g, ctx := taskgroup.New(t.Context(), taskgroup.DefaultLimits())
 	_ = g
 	require.NoError(t, NewExecutor().Execute(ctx, actions, state))
 	got, err := os.ReadFile(target)
@@ -168,7 +167,7 @@ func TestExecuteIgnoredCreateOmitsState(t *testing.T) {
 		target: {SourceInfo: "old"},
 	}}
 
-	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
+	g, ctx := taskgroup.New(t.Context(), taskgroup.DefaultLimits())
 	_ = g
 	require.NoError(t, ex.Execute(ctx, actions, state))
 	got, err := os.ReadFile(target)

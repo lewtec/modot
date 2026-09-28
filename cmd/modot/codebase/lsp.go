@@ -3,9 +3,9 @@ package codebase
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/lsp"
 )
 
@@ -16,8 +16,7 @@ func (Lsp) Description() string {
 }
 
 func (*Lsp) Run(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
-	logger.Info("codebase lsp starting (stdio)")
+	slog.Info("codebase lsp starting (stdio)")
 	err := lsp.Run(ctx, os.Stdin, os.Stdout)
 	if err != nil {
 		return fmt.Errorf("lsp: %w", err)

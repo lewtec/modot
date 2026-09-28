@@ -6,12 +6,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateConfigAtomicWrite(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "modot.cue")
 
@@ -32,7 +31,7 @@ func TestGenerateConfigAtomicWrite(t *testing.T) {
 }
 
 func TestGenerateConfigRemovesTempOnSuccess(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "modot.cue")
 

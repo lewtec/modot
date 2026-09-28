@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -14,7 +15,6 @@ import (
 	lewtool "github.com/lewtec/lewkit/x/tool"
 	"github.com/lewtec/modot/internal/configcue"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/modfile"
 )
 
@@ -47,14 +47,13 @@ func ResolveLazyTool(ctx context.Context, toolName, binName string) (string, err
 // working directory to anchor workspace detection. If the localized workspace lacks
 // the tool, it cascades resolution to the global dotfiles/home workspace context.
 func ResolveLazyToolAt(ctx context.Context, wd, toolName, binName string) (string, error) {
-	logger := logging.GetLogger(ctx)
 	currentWS, currentErr := selectLazyToolWorkspaceFrom(ctx, false, wd)
 	if currentErr == nil {
 		binPath, err := resolveLazyToolInWorkspace(ctx, currentWS, toolName, binName)
 		if err == nil {
 			return binPath, nil
 		}
-		logger.Debug("lazy tool resolution in current workspace failed; trying home workspace", "tool", toolName, "workspace", workspaceRootOrEmpty(currentWS), "error", err)
+		slog.Debug("lazy tool resolution in current workspace failed; trying home workspace", "tool", toolName, "workspace", workspaceRootOrEmpty(currentWS), "error", err)
 		currentErr = err
 	}
 
@@ -68,7 +67,7 @@ func ResolveLazyToolAt(ctx context.Context, wd, toolName, binName string) (strin
 	if workspaceRootOrEmpty(currentWS) == workspaceRootOrEmpty(homeWS) {
 		return "", currentErr
 	}
-	logger.Debug("resolving lazy tool in home workspace fallback", "tool", toolName, "workspace", workspaceRootOrEmpty(homeWS))
+	slog.Debug("resolving lazy tool in home workspace fallback", "tool", toolName, "workspace", workspaceRootOrEmpty(homeWS))
 	return resolveLazyToolInWorkspace(ctx, homeWS, toolName, binName)
 }
 
@@ -110,7 +109,6 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 	sort.Strings(names)
 
 	updated := 0
-	logger := logging.GetLogger(ctx)
 
 	// Collect tools that actually need work (no good version locked yet).
 	needsWork := make([]string, 0, len(names))
@@ -149,8 +147,7 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 			version := spec.Version
 			if version == "" || version == "latest" {
 				s.Update("resolving latest for " + name)
-				l := logging.GetLogger(ctx)
-				l.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
+				slog.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
 				v, err := latestVersion(ctx, spec)
 				if err != nil {
 					return update{}, fmt.Errorf("resolve latest for %q: %w", name, err)
@@ -181,7 +178,7 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 			return 0, err
 		}
 		if changed {
-			logger.Info("updating lazy tool lock", "tool", name, "ref", lockRef, "version", version)
+			slog.Info("updating lazy tool lock", "tool", name, "ref", lockRef, "version", version)
 			updated++
 			// Mirror the local sum copy so it reflects the write (harmless at end of function,
 			// kept for behavioral parity with the original sequential implementation).
@@ -208,7 +205,6 @@ func RefreshWorkspaceLocks(ctx context.Context, ws *modfile.Workspace, cfg *conf
 	if cfg == nil {
 		return LockRefreshResult{}, ErrNilConfig
 	}
-	logger := logging.GetLogger(ctx)
 
 	lockResult, err := modfile.GenerateLockWithConfig(ctx, ws, cfg, false)
 	if err != nil {
@@ -225,9 +221,9 @@ func RefreshWorkspaceLocks(ctx context.Context, ws *modfile.Workspace, cfg *conf
 		Changed: lockResult.Changed || toolLocks > 0,
 	}
 	if result.Changed {
-		logger.Info("workspace lockfile updated", "path", ws.SumPath(), "sources", result.Sources, "tools", result.Tools)
+		slog.Info("workspace lockfile updated", "path", ws.SumPath(), "sources", result.Sources, "tools", result.Tools)
 	} else {
-		logger.Info("workspace lockfile unchanged", "path", ws.SumPath(), "sources", result.Sources, "tools", result.Tools)
+		slog.Info("workspace lockfile unchanged", "path", ws.SumPath(), "sources", result.Sources, "tools", result.Tools)
 	}
 	return result, nil
 }
@@ -273,7 +269,6 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	if ws == nil {
 		return "", ErrNilWorkspace
 	}
-	logger := logging.GetLogger(ctx)
 
 	cfg, err := configcue.LoadForWorkspace(ctx, ws.Root)
 	if err != nil {
@@ -311,7 +306,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	if err != nil {
 		return "", err
 	}
-	logger.Debug("resolving lazy tool", "tool", toolName, "workspace", ws.Root, "lockfile", ws.SumPath())
+	slog.Debug("resolving lazy tool", "tool", toolName, "workspace", ws.Root, "lockfile", ws.SumPath())
 
 	if locked, ok := sum.Tool(lockRef); ok && strings.TrimSpace(locked.Ref) == lockRef && strings.TrimSpace(locked.Version) != "" {
 		spec.Version = strings.TrimSpace(locked.Version)
@@ -349,9 +344,9 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	}); err != nil {
 		return "", fmt.Errorf("update tool lock: %w", err)
 	} else if changed {
-		logger.Debug("updating lazy tool lock entry", "tool", toolName, "workspace", ws.Root, "ref", lockRef, "version", spec.Version)
+		slog.Debug("updating lazy tool lock entry", "tool", toolName, "workspace", ws.Root, "ref", lockRef, "version", spec.Version)
 	} else {
-		logger.Debug("lazy tool lock already up to date", "tool", toolName, "workspace", ws.Root, "ref", lockRef, "version", spec.Version)
+		slog.Debug("lazy tool lock already up to date", "tool", toolName, "workspace", ws.Root, "ref", lockRef, "version", spec.Version)
 	}
 
 	dir, err := GetToolsDir()

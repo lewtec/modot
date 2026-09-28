@@ -3,10 +3,10 @@ package sync
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type Command struct{}
@@ -21,8 +21,7 @@ func (c *Command) Run(ctx context.Context) error {
 		return fmt.Errorf("get dotfiles root: %w", err)
 	}
 
-	logger := logging.GetLogger(ctx)
-	logger.Info("==> Pulling dotfiles changes...")
+	slog.Info("==> Pulling dotfiles changes...")
 	pullCmd := execdriver.MustRun(ctx, "git", "-C", root, "pull")
 	pullCmd.Stdout = pullCmd.Stderr
 	if err := pullCmd.Run(); err != nil {

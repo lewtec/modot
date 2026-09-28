@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	_ "github.com/lewtec/modot/internal/driver/prelude"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/types"
 	"github.com/stretchr/testify/require"
 )
@@ -44,7 +43,7 @@ func TestQueuePathAcceptsSimpleSlug(t *testing.T) {
 func TestEnqueueJailsSlugAndMode(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 
 	// Malicious slug must not write outside queue dir.
 	err := Enqueue(ctx, &types.SudoCommand{

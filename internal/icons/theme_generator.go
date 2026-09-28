@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/lewtec/modot/internal/cmdctx"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 var ErrIconSourceDirNotFound = errors.New("icon source directory not found")
@@ -98,11 +98,11 @@ func RunThemeGenerate(ctx context.Context, opts ThemeGenerateOptions) error {
 			}
 		} else if cmdctx.IsDryRun(ctx) {
 			if _, err := os.Stat(indexPath); err == nil {
-				logging.GetLogger(ctx).Debug("no-cache: would regenerate icons (dry-run)", "output", outputDir)
+				slog.Debug("no-cache: would regenerate icons (dry-run)", "output", outputDir)
 				return nil
 			}
 		} else {
-			logging.GetLogger(ctx).Debug("no-cache: regenerating icons", "output", outputDir)
+			slog.Debug("no-cache: regenerating icons", "output", outputDir)
 		}
 		if err := runThemeGenerateEngine(ctx, opts, inputDir, outputDir); err != nil {
 			return err

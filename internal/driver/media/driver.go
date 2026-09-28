@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,7 +14,6 @@ import (
 	lewhttp "github.com/lewtec/lewkit/x/driver/httpclient"
 	lewmedia "github.com/lewtec/lewkit/x/driver/media"
 	"github.com/lewtec/modot/internal/atomicfile"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type PlaybackStatus = lewmedia.PlaybackStatus
@@ -60,7 +60,13 @@ func GetArtCachePath(ctx context.Context, url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer logging.Close(ctx, resp.Body)
+	defer func() {
+		if closer := resp.Body; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.Error("unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("GET %s: %s", url, resp.Status)

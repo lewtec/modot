@@ -7,14 +7,13 @@ import (
 
 	lewtest "github.com/lewtec/lewkit/x/test"
 	"github.com/lewtec/modot/internal/backup"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 
 func TestArchiveAction_RunValidation(t *testing.T) {
 	t.Parallel()
 
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 
 	tests := []struct {
 		name    string
@@ -49,7 +48,7 @@ func TestArchiveAction_RunValidation(t *testing.T) {
 func TestArchiveAction_WritesFinalOnlyOnSuccess(t *testing.T) {
 	lewtest.Need(t, "tar")
 
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	inDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(inDir, "note.txt"), []byte("hello"), 0o644))
 
@@ -71,7 +70,7 @@ func TestArchiveAction_WritesFinalOnlyOnSuccess(t *testing.T) {
 func TestArchiveAction_FailureKeepsExistingOutput(t *testing.T) {
 	lewtest.Need(t, "tar")
 
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	outDir := t.TempDir()
 	outPath := filepath.Join(outDir, "backup.tar")
 	sentinel := []byte("previous-good-archive")
@@ -93,7 +92,7 @@ func TestArchiveAction_FailureKeepsExistingOutput(t *testing.T) {
 func TestRsyncAction_RunValidation(t *testing.T) {
 	t.Parallel()
 
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	err := backup.RsyncAction{}.Run(ctx, nil)
 	require.ErrorIs(t, err, backup.ErrRsyncNeedsSrcAndDst)
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/lewtec/modot/internal/cmdarg"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/module"
 )
 
@@ -33,7 +32,7 @@ func TestResolvePresetBases(t *testing.T) {
 	home, err := os.UserHomeDir()
 	require.NoError(t, err)
 
-	got, err := (&Provider{}).Resolve(logging.NewWriterContext(t.Output()), module.ResolveRequest{
+	got, err := (&Provider{}).Resolve(t.Context(), module.ResolveRequest{
 		Ref:            modPath,
 		ModulesBaseDir: modulesDir,
 	})
@@ -78,7 +77,7 @@ func TestResolveUnknownPreset(t *testing.T) {
 		"modot.cue":     "package module\n\nmodule: { config: {} }\n",
 	})
 
-	_, err := (&Provider{}).Resolve(logging.NewWriterContext(t.Output()), module.ResolveRequest{
+	_, err := (&Provider{}).Resolve(t.Context(), module.ResolveRequest{
 		Ref:            modPath,
 		ModulesBaseDir: modulesDir,
 	})

@@ -3,11 +3,11 @@ package media
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	lewmedia "github.com/lewtec/lewkit/x/driver/media"
 	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 func RunAction(ctx context.Context, action string) error {
@@ -45,8 +45,7 @@ func ShowStatus(ctx context.Context) error {
 func Notify(ctx context.Context, meta *Metadata) error {
 	note, ok := lewmedia.StatusNotification(meta)
 	if !ok {
-		logger := logging.GetLogger(ctx)
-		logger.Warn("no active player with title found")
+		slog.Warn("no active player with title found")
 		return nil
 	}
 	iconPath := ""
@@ -54,13 +53,14 @@ func Notify(ctx context.Context, meta *Metadata) error {
 		var err error
 		iconPath, err = GetArtCachePath(ctx, meta.ArtUrl)
 		if err != nil {
-			logging.ReportError(ctx, err)
+			if err != nil {
+				slog.Error("unexpected error", "error", err)
+			}
 		}
 	}
 	note.Icon = iconPath
 
-	logger := logging.GetLogger(ctx)
-	logger.Info("sending media notification",
+	slog.Info("sending media notification",
 		"player", meta.Player,
 		"title", note.Title,
 		"artist", note.Message,
@@ -74,11 +74,12 @@ func Notify(ctx context.Context, meta *Metadata) error {
 func Watch(ctx context.Context) {
 	err := lewmedia.Watch(ctx, func(meta *Metadata) {
 		if err := Notify(ctx, meta); err != nil {
-			logging.ReportError(ctx, err)
+			if err != nil {
+				slog.Error("unexpected error", "error", err)
+			}
 		}
 	})
 	if err != nil {
-		logger := logging.GetLogger(ctx)
-		logger.Error("media watch failed", "error", err)
+		slog.Error("media watch failed", "error", err)
 	}
 }
