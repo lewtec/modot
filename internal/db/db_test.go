@@ -6,14 +6,13 @@ import (
 
 	"github.com/lewtec/lewkit/x/cmd"
 	lewtest "github.com/lewtec/lewkit/x/test"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestOpenURLMigratesAndQueries(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	path := filepath.Join(t.TempDir(), "modot.db")
 	d, err := OpenURL(ctx, path)
 	require.NoError(t, err)
@@ -34,7 +33,7 @@ func TestOpenURLMigratesAndQueries(t *testing.T) {
 }
 
 func TestOpenArgUsesParsedFlag(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	path := filepath.Join(t.TempDir(), "flag.db")
 	var a Arg
 	require.NoError(t, a.Parse(path))
@@ -54,7 +53,7 @@ func TestArgDefaultIsUserDataFile(t *testing.T) {
 }
 
 func TestOpenURLRejectsUnknownScheme(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	_, err := OpenURL(ctx, "postgres://localhost/app")
 	require.Error(t, err)
 }

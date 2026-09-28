@@ -7,14 +7,13 @@ import (
 	"testing"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestInheritContextWritersDoesNotUseProcessStreams(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	cmd := exec.Command("true")
 	InheritContextWriters(ctx, cmd)
 	require.False(t, cmd.Stderr == os.Stderr, "stderr is os.Stderr")
@@ -24,7 +23,7 @@ func TestInheritContextWritersDoesNotUseProcessStreams(t *testing.T) {
 
 func TestInheritContextWritersKeepsExistingStderr(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	cmd := exec.Command("true")
 	live := taskgroup.LineWriterFrom(ctx)
 	t.Cleanup(func() {
@@ -39,7 +38,7 @@ func TestInheritContextWritersKeepsExistingStderr(t *testing.T) {
 func TestInheritContextWritersHonorsContextWriters(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	ctx = WithStdout(ctx, &stdout)
 	ctx = WithStderr(ctx, &stderr)
 	cmd := exec.Command("true")

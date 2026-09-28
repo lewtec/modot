@@ -22,7 +22,6 @@ import (
 	"github.com/lewtec/modot/internal/driver/tray"
 	"github.com/lewtec/modot/internal/executil"
 	"github.com/lewtec/modot/internal/icons"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/types"
 
 	"github.com/coreos/go-systemd/v22/activation"
@@ -81,8 +80,12 @@ func (c *Command) Run(ctx context.Context) error {
 		socketPath := types.DaemonSocketPath()
 		conn, err := net.DialTimeout("unix", socketPath, 200*time.Millisecond)
 		if err == nil {
-			logging.Close(ctx, conn)
-			logging.GetLogger(ctx).Info("daemon already running, exiting")
+			if closer := conn; closer != nil {
+				if err := closer.Close(); err != nil {
+					slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+				}
+			}
+			slog.InfoContext(ctx, "daemon already running, exiting")
 			os.Exit(0)
 		}
 	}
@@ -90,11 +93,11 @@ func (c *Command) Run(ctx context.Context) error {
 	var err error
 	initialMtime, err = executil.GetBinaryMtime()
 	if err != nil {
-		logging.GetLogger(ctx).Warn("failed to get initial binary mtime", "error", err)
+		slog.WarnContext(ctx, "failed to get initial binary mtime", "error", err)
 	}
 
 	if err := RunDaemon(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		logging.GetLogger(ctx).Error("daemon failure", "error", err)
+		slog.ErrorContext(ctx, "daemon failure", "error", err)
 		os.Exit(1)
 	}
 	return nil
@@ -108,7 +111,7 @@ func RunDaemon(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	logger.Info("daemon starting", "pid", os.Getpid())
 
 	if _, err := configcue.LoadHome(ctx); err != nil {
@@ -121,12 +124,18 @@ func RunDaemon(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer logging.Close(ctx, database)
+	defer func() {
+		if closer := database; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 
 	go media.Watch(ctx)
 
 	go func() {
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 		t, err := tray.GetDefault(ctx)
 		if err != nil {
 			logger.Debug("no tray driver found, skipping", "error", err)
@@ -138,7 +147,13 @@ func RunDaemon(ctx context.Context) error {
 		if err == nil {
 			f, err := os.Open(iconPath)
 			if err == nil {
-				defer logging.Close(ctx, f, "path", iconPath)
+				defer func() {
+					if closer := f; closer != nil {
+						if err := closer.Close(); err != nil {
+							slog.ErrorContext(ctx, "unexpected error", "op", "close", "path", iconPath, "error", err)
+						}
+					}
+				}()
 				icon, _, err = image.Decode(f)
 				if err != nil {
 					logger.Debug("failed to decode tray icon", "path", iconPath, "error", err)
@@ -153,7 +168,7 @@ func RunDaemon(ctx context.Context) error {
 				{
 					Label: "Apply",
 					Callback: func() {
-						logger := logging.GetLogger(ctx)
+						logger := slog.Default()
 						logger.Info("tray: triggering apply")
 						_, err := ExecuteCLIRequest(ctx, types.Request{Command: "apply", Args: []string{}}, os.Stdout, os.Stderr)
 						if err != nil {
@@ -169,7 +184,7 @@ func RunDaemon(ctx context.Context) error {
 				{
 					Label: "Sync",
 					Callback: func() {
-						logger := logging.GetLogger(ctx)
+						logger := slog.Default()
 						logger.Info("tray: triggering sync")
 						_, err := ExecuteCLIRequest(ctx, types.Request{Command: "sync", Args: []string{}}, os.Stdout, os.Stderr)
 						if err != nil {
@@ -198,16 +213,24 @@ func RunDaemon(ctx context.Context) error {
 		listener = listeners[0]
 	} else {
 		socketPath := types.DaemonSocketPath()
-		logging.RunCleanup(ctx, "remove", func() error { return os.Remove(socketPath) }, "path", socketPath)
+		if err := func() error { return os.Remove(socketPath) }(); err != nil {
+			slog.ErrorContext(ctx, "unexpected error", "op", "remove", "path", socketPath, "error", err)
+		}
 		l, err := net.Listen("unix", socketPath)
 		if err != nil {
 			return fmt.Errorf("listen on socket: %w", err)
 		}
 		listener = l
 	}
-	defer logging.Close(ctx, listener)
+	defer func() {
+		if closer := listener; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 
-	l := logging.GetLogger(ctx)
+	l := slog.Default()
 	l.Info("listening", "address", listener.Addr())
 
 	server := &http.Server{
@@ -223,9 +246,13 @@ func RunDaemon(ctx context.Context) error {
 
 	go func() {
 		<-ctx.Done()
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 		logger.Info("context cancelled, shutting down server")
-		logging.Close(ctx, server)
+		if closer := server; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+			}
+		}
 	}()
 
 	return server.Serve(listener)
@@ -244,11 +271,17 @@ var upgrader = websocket.Upgrader{
 func handleWS(w http.ResponseWriter, r *http.Request, database *db.DB) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		logger := logging.GetLogger(r.Context())
+		logger := slog.Default()
 		logger.Error("ws upgrade error", "error", err)
 		return
 	}
-	defer logging.Close(r.Context(), conn)
+	defer func() {
+		if closer := conn; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(r.Context(), "unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
@@ -259,7 +292,7 @@ func handleWS(w http.ResponseWriter, r *http.Request, database *db.DB) {
 
 	// Pump goroutine: channel -> websocket
 	go func() {
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 		defer close(done)
 		for packet := range outCh {
 			if err := conn.WriteJSON(packet); err != nil {
@@ -271,7 +304,7 @@ func handleWS(w http.ResponseWriter, r *http.Request, database *db.DB) {
 	}()
 
 	go func() {
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 		for {
 			var packet types.StreamPacket
 			if err := conn.ReadJSON(&packet); err != nil {
@@ -308,7 +341,7 @@ func handleWS(w http.ResponseWriter, r *http.Request, database *db.DB) {
 
 	// If binary changed, exec ourselves to restart
 	if shouldRestartDaemon {
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 		logger.Info("restarting daemon with new binary")
 		exePath, err := os.Executable()
 		if err != nil {
@@ -319,7 +352,7 @@ func handleWS(w http.ResponseWriter, r *http.Request, database *db.DB) {
 		// Exec ourselves with daemon argument
 		err = syscall.Exec(exePath, []string{exePath, "daemon"}, os.Environ())
 		if err != nil {
-			logger := logging.GetLogger(ctx)
+			logger := slog.Default()
 			logger.Error("failed to exec daemon", "error", err)
 		}
 	}
@@ -328,7 +361,7 @@ func handleWS(w http.ResponseWriter, r *http.Request, database *db.DB) {
 func handleRequest(ctx context.Context, req types.Request, outCh chan types.StreamPacket, database *db.DB) {
 	// Check if binary changed (mtime) - if so, signal restart needed
 	if HasBinaryChanged() {
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 		logger.Warn("binary mtime mismatch, daemon will exec itself",
 			"initial_mtime", initialMtime)
 
@@ -340,7 +373,9 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 		payload, marshalErr := json.Marshal(resp)
 		if marshalErr != nil {
 			payload = []byte(`{}`)
-			logging.ReportError(ctx, marshalErr)
+			if err := marshalErr; err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "error", err)
+			}
 		}
 		outCh <- types.StreamPacket{
 			Type:    "result",
@@ -353,7 +388,7 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 	if req.BinaryHash != "" {
 		daemonHash, err := executil.GetBinaryHash(ctx)
 		if err == nil && daemonHash != req.BinaryHash {
-			logger := logging.GetLogger(ctx)
+			logger := slog.Default()
 			logger.Warn("binary hash mismatch, daemon will exec itself",
 				"daemon_hash", daemonHash[:16],
 				"client_hash", req.BinaryHash[:16])
@@ -367,7 +402,9 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 			payload, marshalErr := json.Marshal(resp)
 			if marshalErr != nil {
 				payload = []byte(`{}`)
-				logging.ReportError(ctx, marshalErr)
+				if err := marshalErr; err != nil {
+					slog.ErrorContext(ctx, "unexpected error", "error", err)
+				}
 			}
 			outCh <- types.StreamPacket{
 				Type:    "result",
@@ -377,20 +414,12 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 		}
 	}
 
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	logger.Info("executing command", "command", req.Command, "args", req.Args)
-
-	handler := &logging.ChannelLogHandler{
-		Out:    outCh,
-		Parent: logger.Handler(),
-		Ctx:    ctx,
-	}
-	reqLogger := slog.New(handler)
 
 	stdout := &StreamPacketWriter{Out: outCh, Type: "stdout"}
 	stderr := &StreamPacketWriter{Out: outCh, Type: "stderr"}
 
-	ctx = logging.ContextWithLogger(ctx, reqLogger)
 	ctx = executil.WithStdout(ctx, stdout)
 	ctx = executil.WithStderr(ctx, stderr)
 	env := append(req.Env, "MODOT_DAEMON=1")
@@ -402,7 +431,7 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 
 	resp := types.Response{Output: output}
 	if err != nil {
-		logger = logging.GetLogger(ctx)
+		logger = slog.Default()
 		logger.Error("command failed", "command", req.Command, "error", err)
 		resp.Error = err.Error()
 	}
@@ -410,7 +439,9 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 	payload, marshalErr := json.Marshal(resp)
 	if marshalErr != nil {
 		payload = []byte(`{}`)
-		logging.ReportError(ctx, marshalErr)
+		if err := marshalErr; err != nil {
+			slog.ErrorContext(ctx, "unexpected error", "error", err)
+		}
 	}
 	outCh <- types.StreamPacket{
 		Type:    "result",

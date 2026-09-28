@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 // Generator is a function that generates shell code
@@ -57,7 +57,7 @@ func Generate(ctx context.Context) (string, error) {
 
 	var errs []error
 	if profile {
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 		for i, key := range keys {
 			if outs[i].err != nil {
 				continue

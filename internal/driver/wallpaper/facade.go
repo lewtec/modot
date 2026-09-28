@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"net/http"
 	"os"
@@ -17,11 +18,10 @@ import (
 	"github.com/lewtec/modot/internal/atomicfile"
 	"github.com/lewtec/modot/internal/configcue"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 func SetStatic(ctx context.Context, path string) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	if path == "" {
 		cfg, err := configcue.LoadForWorkspace(ctx, "")
 		if err != nil {
@@ -55,7 +55,9 @@ func SetStatic(ctx context.Context, path string) error {
 			!strings.Contains(msg, "could not be found") &&
 			!strings.Contains(msg, "not loaded") &&
 			!strings.Contains(msg, "exit status 5") {
-			logging.ReportError(ctx, err, "op", "systemctl --user stop wallpaper-change.service")
+			if err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "systemctl --user stop wallpaper-change.service", "error", err)
+			}
 		}
 	}
 
@@ -75,7 +77,7 @@ type APODResponse struct {
 }
 
 func SetAPOD(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	apiKey := os.Getenv("NASA_API_KEY")
 	if apiKey == "" {
 		apiKey = "DEMO_KEY"
@@ -93,7 +95,13 @@ func SetAPOD(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer logging.Close(ctx, resp.Body)
+	defer func() {
+		if closer := resp.Body; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("GET %s: %s", apiURL, resp.Status)
 	}
@@ -125,7 +133,13 @@ func SetAPOD(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer logging.Close(ctx, imgResp.Body)
+	defer func() {
+		if closer := imgResp.Body; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 	if imgResp.StatusCode != http.StatusOK {
 		return fmt.Errorf("GET %s: %s", url, imgResp.Status)
 	}

@@ -3,6 +3,7 @@ package apply
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,7 +17,6 @@ import (
 	"github.com/lewtec/modot/internal/dotfiles"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/modfile"
 	_ "github.com/lewtec/modot/internal/modfile/sourceprovider/prelude"
 	"github.com/lewtec/modot/internal/source"
@@ -56,7 +56,7 @@ func Schedule(ctx context.Context, dryRun, showNoop bool) func() error {
 		s.Update(updateMsg)
 		// Nested plan/apply Maps own aggregate bars; no Unit shell here.
 
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 
 		cfg, err := configcue.LoadHome(ctx)
 		if err != nil {

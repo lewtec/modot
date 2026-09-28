@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -21,7 +22,6 @@ import (
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	"github.com/lewtec/modot/internal/filespine"
 	"github.com/lewtec/modot/internal/icons"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/module"
 )
 
@@ -125,14 +125,16 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 	if warm && !noCache {
 		// cache hit
 	} else if noCache && cmdctx.IsDryRun(ctx) && warm {
-		logging.GetLogger(ctx).Debug("no-cache: would regenerate icons (dry-run)", "cache_dir", cacheDir)
+		slog.DebugContext(ctx, "no-cache: would regenerate icons (dry-run)", "cache_dir", cacheDir)
 	} else {
 		if noCache {
-			logging.GetLogger(ctx).Debug("no-cache: regenerating icons", "cache_dir", cacheDir)
+			slog.DebugContext(ctx, "no-cache: regenerating icons", "cache_dir", cacheDir)
 		}
 		workDir := cacheDir + ".tmp"
 		if rmErr := os.RemoveAll(workDir); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
-			logging.ReportError(ctx, rmErr, "path", workDir)
+			if err := rmErr; err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "path", workDir, "error", err)
+			}
 		}
 		if err := os.MkdirAll(workDir, 0755); err != nil {
 			return module.ResolveResult{}, err
@@ -155,13 +157,17 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 		})
 		if err != nil {
 			if rmErr := os.RemoveAll(workDir); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
-				logging.ReportError(ctx, rmErr, "path", workDir)
+				if err := rmErr; err != nil {
+					slog.ErrorContext(ctx, "unexpected error", "path", workDir, "error", err)
+				}
 			}
 			return module.ResolveResult{}, err
 		}
 		if err := atomicReplaceDir(cacheDir, workDir); err != nil {
 			if rmErr := os.RemoveAll(workDir); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
-				logging.ReportError(ctx, rmErr, "path", workDir)
+				if err := rmErr; err != nil {
+					slog.ErrorContext(ctx, "unexpected error", "path", workDir, "error", err)
+				}
 			}
 			return module.ResolveResult{}, err
 		}

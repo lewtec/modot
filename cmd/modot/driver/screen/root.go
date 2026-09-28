@@ -2,9 +2,9 @@ package screen
 
 import (
 	"context"
+	"log/slog"
 
 	lewscreen "github.com/lewtec/lewkit/x/driver/screen"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type Command struct {
@@ -22,7 +22,7 @@ type On struct{}
 
 func (On) Description() string { return "Turn on the screen (DPMS)" }
 func (*On) Run(ctx context.Context) error {
-	logging.GetLogger(ctx).Info("setting DPMS", "on", true)
+	slog.InfoContext(ctx, "setting DPMS", "on", true)
 	return lewscreen.SetDPMS(ctx, true)
 }
 
@@ -30,7 +30,7 @@ type Off struct{}
 
 func (Off) Description() string { return "Turn off the screen (DPMS)" }
 func (*Off) Run(ctx context.Context) error {
-	logging.GetLogger(ctx).Info("setting DPMS", "on", false)
+	slog.InfoContext(ctx, "setting DPMS", "on", false)
 	return lewscreen.SetDPMS(ctx, false)
 }
 
@@ -45,6 +45,6 @@ type Reset struct{}
 
 func (Reset) Description() string { return "Reset screen resolution based on host" }
 func (*Reset) Run(ctx context.Context) error {
-	logging.GetLogger(ctx).Info("resetting screen layout")
+	slog.InfoContext(ctx, "resetting screen layout")
 	return lewscreen.Reset(ctx)
 }

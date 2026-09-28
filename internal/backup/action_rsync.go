@@ -5,13 +5,13 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"strings"
 	"time"
 
 	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	"github.com/lewtec/modot/internal/driver/notification"
 	"github.com/lewtec/modot/internal/driver/rsync"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 func init() {
@@ -31,7 +31,7 @@ var (
 )
 
 func (a RsyncAction) Run(ctx context.Context, n *notification.Notification) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 
 	if strings.TrimSpace(a.Src) == "" || strings.TrimSpace(a.Dst) == "" {
 		return ErrRsyncNeedsSrcAndDst
@@ -62,7 +62,9 @@ func (a RsyncAction) Run(ctx context.Context, n *notification.Notification) erro
 			}
 			if time.Since(lastUpdate) > time.Second {
 				if (*notification.Notification)(n) != nil {
-					logging.ReportError(ctx, lewnotify.Notify(ctx, *n))
+					if err := lewnotify.Notify(ctx, *n); err != nil {
+						slog.ErrorContext(ctx, "unexpected error", "error", err)
+					}
 				}
 				lastUpdate = time.Now()
 			}
@@ -71,9 +73,14 @@ func (a RsyncAction) Run(ctx context.Context, n *notification.Notification) erro
 	}()
 
 	err := rsync.Sync(ctx, a.Src, a.Dst, opts)
+	if closer :=
 
-	// Close write side so the scanner goroutine drains and exits.
-	logging.Close(ctx, pw)
+		// Close write side so the scanner goroutine drains and exits.
+		pw; closer != nil {
+		if err := closer.Close(); err != nil {
+			slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+		}
+	}
 	scanErr := <-scanDone
 
 	return errors.Join(err, scanErr)

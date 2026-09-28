@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,7 +16,6 @@ import (
 	"github.com/lewtec/lewkit/x/taskgroup"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/driver/notification"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 var (
@@ -125,7 +125,11 @@ func (a GitRepoSyncAction) hasHEAD(ctx context.Context) (bool, error) {
 	cmd.Stderr = io.MultiWriter(live, &stderr)
 	err := cmd.Run()
 	if c, ok := live.(io.Closer); ok {
-		logging.Close(ctx, c)
+		if closer := c; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+			}
+		}
 	}
 	if err != nil {
 		var exitErr *exec.ExitError
@@ -243,7 +247,9 @@ func (a GitRepoSyncAction) remoteHasBranch(ctx context.Context, remoteName, bran
 func (a GitRepoSyncAction) pullRebase(ctx context.Context, remoteName, branch string) error {
 	if err := a.run(ctx, "pull", "--rebase", remoteName, branch); err != nil {
 		if abortErr := a.run(ctx, "rebase", "--abort"); abortErr != nil {
-			logging.ReportError(ctx, abortErr, "op", "git rebase --abort", "path", a.Src)
+			if err := abortErr; err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "git rebase --abort", "path", a.Src, "error", err)
+			}
 		}
 		return fmt.Errorf("git pull --rebase failed for %s: %w", a.Src, err)
 	}

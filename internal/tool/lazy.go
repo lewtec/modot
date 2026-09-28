@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -14,7 +15,6 @@ import (
 	lewtool "github.com/lewtec/lewkit/x/tool"
 	"github.com/lewtec/modot/internal/configcue"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/modfile"
 )
 
@@ -47,7 +47,7 @@ func ResolveLazyTool(ctx context.Context, toolName, binName string) (string, err
 // working directory to anchor workspace detection. If the localized workspace lacks
 // the tool, it cascades resolution to the global dotfiles/home workspace context.
 func ResolveLazyToolAt(ctx context.Context, wd, toolName, binName string) (string, error) {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	currentWS, currentErr := selectLazyToolWorkspaceFrom(ctx, false, wd)
 	if currentErr == nil {
 		binPath, err := resolveLazyToolInWorkspace(ctx, currentWS, toolName, binName)
@@ -110,7 +110,7 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 	sort.Strings(names)
 
 	updated := 0
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 
 	// Collect tools that actually need work (no good version locked yet).
 	needsWork := make([]string, 0, len(names))
@@ -149,7 +149,7 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 			version := spec.Version
 			if version == "" || version == "latest" {
 				s.Update("resolving latest for " + name)
-				l := logging.GetLogger(ctx)
+				l := slog.Default()
 				l.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
 				v, err := latestVersion(ctx, spec)
 				if err != nil {
@@ -208,7 +208,7 @@ func RefreshWorkspaceLocks(ctx context.Context, ws *modfile.Workspace, cfg *conf
 	if cfg == nil {
 		return LockRefreshResult{}, ErrNilConfig
 	}
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 
 	lockResult, err := modfile.GenerateLockWithConfig(ctx, ws, cfg, false)
 	if err != nil {
@@ -273,7 +273,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	if ws == nil {
 		return "", ErrNilWorkspace
 	}
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 
 	cfg, err := configcue.LoadForWorkspace(ctx, ws.Root)
 	if err != nil {

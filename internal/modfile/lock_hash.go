@@ -3,11 +3,11 @@ package modfile
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type sourceLockHashUpdate struct {
@@ -19,7 +19,7 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 	if modFile == nil || len(entries) == 0 {
 		return nil
 	}
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 
 	needsWork := make([]string, 0, len(entries))
 	for alias, entry := range entries {
@@ -49,7 +49,7 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 		Fn: func(ctx context.Context, s *taskgroup.Status, alias string) (sourceLockHashUpdate, error) {
 			entry := entries[alias]
 			s.Update(alias)
-			logger := logging.GetLogger(ctx)
+			logger := slog.Default()
 			logger.Info("computing source lock hash", "source", alias, "provider", entry.Provider)
 
 			src, ok := modFile.Sources[alias]

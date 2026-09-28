@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,7 +22,6 @@ import (
 	"github.com/lewtec/modot/internal/driver/notification"
 	"github.com/lewtec/modot/internal/executil"
 	"github.com/lewtec/modot/internal/icons"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/sudo"
 	"github.com/lewtec/modot/internal/types"
 )
@@ -126,7 +126,7 @@ func GetRemoteCacheDir(ctx context.Context, target string) (string, error) {
 }
 
 func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) (string, error) {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 
 	if target == "" {
 		target = os.Getenv("NIX_RBUILD_TARGET")
@@ -147,7 +147,9 @@ func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) 
 	updateProgress := func(msg string, prog float64) {
 		n.Message = msg
 		n.Progress = prog
-		logging.ReportError(ctx, lewnotify.Notify(ctx, *n))
+		if err := lewnotify.Notify(ctx, *n); err != nil {
+			slog.ErrorContext(ctx, "unexpected error", "error", err)
+		}
 		logger.Info(msg, "progress", prog)
 	}
 
@@ -205,7 +207,7 @@ func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) 
 }
 
 func Build(ctx context.Context, ref string, useCache bool) (string, error) {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 
 	repo, item := parseFlakeRef(ref)
 

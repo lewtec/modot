@@ -3,11 +3,11 @@ package power
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	lewpower "github.com/lewtec/lewkit/x/driver/power"
 	"github.com/lewtec/modot/internal/api"
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 func Wake(ctx context.Context, host string) error {
@@ -32,6 +32,6 @@ func Wake(ctx context.Context, host string) error {
 	if err := lewpower.Wake(ctx, hostCfg.MAC); err != nil {
 		return err
 	}
-	logging.GetLogger(ctx).Info("sent Wake-on-LAN magic packet", "host", host, "mac", hostCfg.MAC)
+	slog.InfoContext(ctx, "sent Wake-on-LAN magic packet", "host", host, "mac", hostCfg.MAC)
 	return nil
 }

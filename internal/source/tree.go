@@ -3,9 +3,9 @@ package source
 import (
 	"context"
 	"io/fs"
+	"log/slog"
 
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/template"
 )
 
@@ -78,6 +78,6 @@ func (b Builder) Tree(ctx context.Context) (*Tree, error) {
 		return nil, err
 	}
 	tree.Warnings = warnings
-	logging.GetLogger(ctx).Debug("dest composed", "files", len(tree.files))
+	slog.DebugContext(ctx, "dest composed", "files", len(tree.files))
 	return tree, nil
 }

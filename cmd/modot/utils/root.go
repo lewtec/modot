@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/lewtec/modot/internal/executil"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/types"
 
 	"github.com/gorilla/websocket"
@@ -23,7 +22,7 @@ func (Command) Description() string {
 
 func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, bool, error) {
 	socketPath := types.DaemonSocketPath()
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	logger.Info("connecting to daemon", "socket", socketPath, "cmd", cmdName, "args", args)
 
 	dialer := websocket.Dialer{
@@ -37,9 +36,17 @@ func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, b
 		logger.Info("daemon not reachable, running locally", "error", err)
 		return "", false, nil
 	}
-	defer logging.Close(ctx, conn, "socket", socketPath)
+	defer func() {
+		if closer := conn; closer != nil {
+			if err := closer.
 
-	// Best-effort: daemon skips mismatch detection when BinaryHash is empty.
+				// Best-effort: daemon skips mismatch detection when BinaryHash is empty.
+				Close(); err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "close", "socket", socketPath, "error", err)
+			}
+		}
+	}()
+
 	clientHash, err := executil.GetBinaryHash(ctx)
 	if err != nil {
 		logger.Warn("failed to hash client binary; daemon mismatch check skipped", "error", err)

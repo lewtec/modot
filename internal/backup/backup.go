@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
@@ -12,7 +13,6 @@ import (
 	"github.com/lewtec/modot/internal/cmdctx"
 	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/driver/notification"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 var (
@@ -52,7 +52,7 @@ type backupConfig struct {
 }
 
 func RunFullBackup(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	rawCfg, err := configcue.LoadHome(ctx)
 	if err != nil {
 		return err
@@ -124,7 +124,7 @@ func RunFullBackup(ctx context.Context) error {
 			name, kind := actionLabel(item.Idx, item.Action)
 			out := actionOutcome{Name: name, Kind: kind}
 
-			logger := logging.GetLogger(ctx)
+			logger := slog.Default()
 			s.Update(name)
 			logger.Info("backup action started", "index", item.Idx+1, "total", len(actions), "name", name, "kind", kind)
 
@@ -142,10 +142,13 @@ func RunFullBackup(ctx context.Context) error {
 				Message:     name,
 				Progress:    float64(item.Idx+1) / float64(len(actions)),
 			}
-			logging.ReportError(ctx, lewnotify.Notify(ctx, *n2))
+			if err := lewnotify.Notify(ctx, *n2); err != nil {
 
-			// Nested rsync leaves report errors to the group. Isolate so one
-			// failed action does not cancel siblings (first-error-wins).
+				// Nested rsync leaves report errors to the group. Isolate so one
+				// failed action does not cancel siblings (first-error-wins).
+				slog.ErrorContext(ctx, "unexpected error", "error", err)
+			}
+
 			if err := taskgroup.Isolate(ctx, func(ctx context.Context) error {
 				return item.Action.Run(ctx, n2)
 			}); err != nil {
@@ -174,13 +177,17 @@ func RunFullBackup(ctx context.Context) error {
 		n.Message = strings.Join(failures, "\n")
 		n.Urgency = "critical"
 		n.Progress = 1.0
-		logging.ReportError(ctx, lewnotify.Notify(ctx, *n))
+		if err := lewnotify.Notify(ctx, *n); err != nil {
+			slog.ErrorContext(ctx, "unexpected error", "error", err)
+		}
 		return fmt.Errorf("backup finished with %d failure(s): %s", len(failures), strings.Join(failures, "; "))
 	}
 
 	n.Title = "Backup finalizado"
 	n.Progress = 1.0
-	logging.ReportError(ctx, lewnotify.Notify(ctx, *n))
+	if err := lewnotify.Notify(ctx, *n); err != nil {
+		slog.ErrorContext(ctx, "unexpected error", "error", err)
+	}
 	logger.Info("backup finished successfully")
 	return nil
 }

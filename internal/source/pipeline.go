@@ -3,9 +3,9 @@ package source
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/template"
 )
 
@@ -36,7 +36,7 @@ func (p *Pipeline) AddPlugin(plugin Plugin) {
 
 // Run executes the full pipeline.
 func (p *Pipeline) Run(ctx context.Context, initial []File) ([]File, error) {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	current := initial
 
 	for i, plugin := range p.plugins {

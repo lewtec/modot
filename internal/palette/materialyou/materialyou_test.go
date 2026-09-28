@@ -5,7 +5,6 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/palette/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,7 +18,7 @@ func TestMaterialYouDriver(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
 	img.SetRGBA(0, 0, color.RGBA{66, 133, 244, 255}) // #4285F4
 
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 
 	pal, err := d.Extract(ctx, img, api.Options{Polarity: api.PolarityDark, ColorCount: 16})
 	require.NoError(t, err)

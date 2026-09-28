@@ -3,9 +3,9 @@ package genetic
 import (
 	"context"
 	"image"
+	"log/slog"
 	"math/rand"
 
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/palette/api"
 )
 
@@ -31,7 +31,7 @@ func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options)
 	if len(colors) == 0 {
 		return nil, ctx.Err()
 	}
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	logger.Info("sampled colors from image", "unique_colors", len(colors))
 
 	labColors := make([]api.LAB, len(colors))

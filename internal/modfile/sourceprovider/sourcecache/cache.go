@@ -4,13 +4,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
 
 	"github.com/lewtec/modot/internal/atomicfile"
 	"github.com/lewtec/modot/internal/cmdctx"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 var (
@@ -30,7 +30,7 @@ func EnsureCachedDir(ctx context.Context, provider string, key string, fetch fun
 
 	hash := sha256.Sum256([]byte(key))
 	dest := filepath.Join(cacheRoot, hex.EncodeToString(hash[:]))
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	noCache := cmdctx.IsNoCache(ctx)
 
 	if st, err := os.Stat(dest); err == nil && st.IsDir() && !noCache {
@@ -61,7 +61,9 @@ func EnsureCachedDir(ctx context.Context, provider string, key string, fetch fun
 		logger.Info("source cache miss", "provider", provider, "cache_dir", dest)
 	}
 	tmpDest := dest + ".tmp"
-	logging.RunCleanup(ctx, "remove_all", func() error { return os.RemoveAll(tmpDest) }, "path", tmpDest)
+	if err := func() error { return os.RemoveAll(tmpDest) }(); err != nil {
+		slog.ErrorContext(ctx, "unexpected error", "op", "remove_all", "path", tmpDest, "error", err)
+	}
 	if err := os.RemoveAll(tmpDest); err != nil {
 		return "", err
 	}
@@ -70,11 +72,15 @@ func EnsureCachedDir(ctx context.Context, provider string, key string, fetch fun
 	}
 	logger.Info("source fetch start", "provider", provider, "tmp_dir", tmpDest)
 	if err := fetch(tmpDest); err != nil {
-		logging.RunCleanup(ctx, "remove_all", func() error { return os.RemoveAll(tmpDest) }, "path", tmpDest)
+		if err := func() error { return os.RemoveAll(tmpDest) }(); err != nil {
+			slog.ErrorContext(ctx, "unexpected error", "op", "remove_all", "path", tmpDest, "error", err)
+		}
 		return "", err
 	}
 	if err := atomicReplaceDir(dest, tmpDest); err != nil {
-		logging.RunCleanup(ctx, "remove_all", func() error { return os.RemoveAll(tmpDest) }, "path", tmpDest)
+		if err := func() error { return os.RemoveAll(tmpDest) }(); err != nil {
+			slog.ErrorContext(ctx, "unexpected error", "op", "remove_all", "path", tmpDest, "error", err)
+		}
 		return "", err
 	}
 	logger.Info("source fetch done", "provider", provider, "cache_dir", dest)

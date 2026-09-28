@@ -4,17 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	envdriver "github.com/lewtec/modot/internal/driver/env"
-	shimdriver "github.com/lewtec/modot/internal/driver/shim"
-	"github.com/lewtec/modot/internal/icons"
-	"github.com/lewtec/modot/internal/logging"
-	"github.com/lewtec/modot/internal/modfile"
-	"github.com/lewtec/modot/internal/text"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"text/template"
+
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	shimdriver "github.com/lewtec/modot/internal/driver/shim"
+	"github.com/lewtec/modot/internal/icons"
+	"github.com/lewtec/modot/internal/modfile"
+	"github.com/lewtec/modot/internal/text"
 )
 
 // ErrFileSkipped is returned when a template calls {{ skip }}.
@@ -171,7 +172,7 @@ func makeLockLookups(ctx context.Context) (func(string) map[string]any, func(str
 func getFavicon(ctx context.Context, url string) (string, error) {
 	iconPath, err := icons.GetIconPath(ctx, url)
 	if err != nil {
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 		logger.Error("failed to get favicon", "url", url, "error", err)
 		// Return fallback icon
 		return "applications-internet", nil

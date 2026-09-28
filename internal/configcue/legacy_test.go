@@ -2,14 +2,14 @@ package configcue
 
 import (
 	"bytes"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 
+	lewlog "github.com/lewtec/lewkit/x/logging"
 	"github.com/stretchr/testify/require"
-
-	"github.com/lewtec/modot/internal/logging"
 )
 
 func TestLegacyFileIsWarnedAndNotLoaded(t *testing.T) {
@@ -23,7 +23,8 @@ func TestLegacyFileIsWarnedAndNotLoaded(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "workspaced.lock.json"), []byte("{}\n"), 0o644))
 
 	var logs bytes.Buffer
-	ctx := logging.NewWriterContext(&logs)
+	captureLog(t, &logs)
+	ctx := t.Context()
 	cfg, err := LoadForWorkspace(ctx, root)
 	require.NoError(t, err)
 
@@ -37,9 +38,18 @@ func TestLegacyFileIsWarnedAndNotLoaded(t *testing.T) {
 func TestLegacyEnvIsWarnedAndNotRead(t *testing.T) {
 	t.Setenv("WORKSPACED_NO_CACHE", "secret-value")
 	var logs bytes.Buffer
-	WarnLegacyEnv(logging.NewWriterContext(&logs))
+	captureLog(t, &logs)
+	WarnLegacyEnv(t.Context())
 	text := logs.String()
 	require.Contains(t, text, "WORKSPACED_NO_CACHE")
 	require.Contains(t, text, "MODOT_NO_CACHE")
 	require.NotContains(t, text, "secret-value")
+}
+
+func captureLog(t *testing.T, buf *bytes.Buffer) {
+	t.Helper()
+	prev := slog.Default()
+	h := lewlog.NewHandler(buf, &slog.HandlerOptions{Level: slog.LevelDebug})
+	slog.SetDefault(slog.New(h))
+	t.Cleanup(func() { slog.SetDefault(prev) })
 }

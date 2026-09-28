@@ -7,7 +7,6 @@ import (
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/deployer"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/source"
 	"github.com/stretchr/testify/require"
 )
@@ -67,7 +66,7 @@ func TestApplyPersistsDropOfGitignoredStateOnIdle(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
+	g, ctx := taskgroup.New(t.Context(), taskgroup.DefaultLimits())
 	_ = g
 	result, err := mgr.Apply(ctx, ApplyOptions{})
 	require.NoError(t, err)

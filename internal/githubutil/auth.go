@@ -3,6 +3,7 @@ package githubutil
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"time"
 
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 // githubTokenStop is a legacy re-entry sentinel formerly planted as
@@ -83,7 +83,7 @@ func probeEnvActive() bool {
 }
 
 func resolveToken(ctx context.Context) string {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	if envToken := strings.TrimSpace(os.Getenv("GITHUB_TOKEN")); envToken != "" {
 		if envToken == githubTokenStop {
 			logger.Info("github token unavailable: re-entered during gh token probe (legacy STOP), using anonymous requests")
@@ -135,7 +135,7 @@ func resolveToken(ctx context.Context) string {
 // resolveGHBinary finds a gh executable: PATH first, then the optional tool
 // locator (lazy_tools.gh) when PATH has no gh.
 func resolveGHBinary(ctx context.Context) (string, error) {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	if execdriver.IsBinaryAvailable(ctx, "gh") {
 		return "gh", nil
 	}

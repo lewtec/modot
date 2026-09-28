@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 
 	lewdriver "github.com/lewtec/lewkit/x/driver"
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/executil"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 // BindStreams returns the writer for rsync stdout+stderr. Chatter stays on
@@ -30,13 +30,18 @@ func BindStreams(ctx context.Context, extraOut io.Writer) (io.Writer, func()) {
 	}
 	return out, func() {
 		if closer != nil {
-			logging.Close(ctx, closer)
+			if closer := closer; closer != nil {
+
+				// Sync performs an rsync transfer using the selected driver.
+				// See Driver.Sync for semantics and taskgroup integration.
+				if err := closer.Close(); err != nil {
+					slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+				}
+			}
 		}
 	}
 }
 
-// Sync performs an rsync transfer using the selected driver.
-// See Driver.Sync for semantics and taskgroup integration.
 func Sync(ctx context.Context, src, dst string, opts Options) error {
 	return lewdriver.With(ctx, func(d Driver) error { return d.Sync(ctx, src, dst, opts) })
 }
@@ -52,7 +57,7 @@ func RunWithTaskGroup(
 	opts Options,
 	perform func(ctx context.Context, st *taskgroup.Status, extraOut io.Writer) error,
 ) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	if taskgroup.FromContext(ctx) == nil {
 		// Direct execution (no task tracking). Forward to extra output if provided.
 		return perform(ctx, nil, opts.Output)

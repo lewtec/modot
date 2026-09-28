@@ -52,11 +52,9 @@ linters:
       forbid:
         # Logging
         - pattern: ^fmt\.Print(f|ln)?$
-          msg: "use structured logging from pkg/logging instead of fmt.Print*"
+          msg: "use slog instead of fmt.Print*"
         - pattern: ^log\.(Print|Fatal|Panic)
-          msg: "use pkg/logging instead of the standard log package"
-        - pattern: ^slog\.(New|SetDefault|Default)
-          msg: "use pkg/logging (GetLogger, ContextWithLogger, NewRootContext, etc.) instead of direct slog logger creation/manipulation (see AGENTS.md). slog.String/Int/etc helpers are fine as arguments to logging helpers."
+          msg: "use slog instead of the standard log package"
 
         # Context
         - pattern: ^context\.Background$

@@ -3,7 +3,7 @@ package modfile
 import (
 	"context"
 	"encoding/json"
-	"github.com/lewtec/modot/internal/logging"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,7 +67,11 @@ func writeSumFile(ctx context.Context, path string, sum *SumFile) error {
 	if err != nil {
 		return err
 	}
-	defer logging.RunCleanup(ctx, "atomicfile.Abort", f.Abort)
+	defer func() {
+		if err := f.Abort(); err != nil {
+			slog.ErrorContext(ctx, "unexpected error", "op", "atomicfile.Abort", "error", err)
+		}
+	}()
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(onDisk); err != nil {

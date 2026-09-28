@@ -11,13 +11,12 @@ import (
 
 	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/filespine"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/placestep"
 )
 
 func TestFileSpineLowersDotD(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	home := t.TempDir()
 	p := NewFileSpinePlugin(&configcue.Config{}, home)
 	in := []File{
@@ -44,7 +43,7 @@ func TestFileSpineLowersDotD(t *testing.T) {
 
 func TestFileSpineMergesCueLines(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	home := t.TempDir()
 	cuePath := filepath.Join(t.TempDir(), "modot.cue")
 	src := `package modot
@@ -76,7 +75,7 @@ file: home: ".bashrc": {
 
 func TestFileSpineTypeConflict(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	home := t.TempDir()
 	dir := t.TempDir()
 	cuePath := filepath.Join(dir, "modot.cue")
@@ -97,7 +96,7 @@ file: home: "x": {type: "lines", values: {a: "1"}}
 
 func TestFileSpineStaticRef(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	home := t.TempDir()
 	src := filepath.Join(t.TempDir(), "gitconfig")
 	require.NoError(t, os.WriteFile(src, []byte("[user]\n"), 0o644))
@@ -123,7 +122,7 @@ func TestFileSpineStaticRef(t *testing.T) {
 
 func TestPlainFileKeepsBundleInfo(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	home := t.TempDir()
 	src := filepath.Join(t.TempDir(), "icon.svg")
 	require.NoError(t, os.WriteFile(src, []byte("<svg/>"), 0o644))
@@ -148,7 +147,7 @@ func TestPlainFileKeepsBundleInfo(t *testing.T) {
 
 func TestComposeApplyStopsWhenCancelled(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := context.WithCancel(logging.NewWriterContext(t.Output()))
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	home := t.TempDir()
 	_, err := composeApply(ctx, destRequest{
@@ -165,7 +164,7 @@ func TestComposeApplyStopsWhenCancelled(t *testing.T) {
 
 func TestFileMountMergesIntoCodebaseProfile(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	src := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(src, "include"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(src, "parser.c"), []byte("int x;"), 0o644))
@@ -204,7 +203,7 @@ file: codebase: {
 
 func TestFileMountStepsRequireAndMove(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	src := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("# skill"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(src, "notes.md"), []byte("n"), 0o644))
@@ -246,7 +245,7 @@ file: codebase: {
 
 func TestFileMountMergesSeveralSources(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	left := t.TempDir()
 	right := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(left, "a.md"), []byte("a"), 0o644))
@@ -286,7 +285,7 @@ file: home: {
 
 func TestFileMountRequireRejectsTree(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	src := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(src, "README.md"), []byte("x"), 0o644))
 	cuePath := filepath.Join(t.TempDir(), "modot.cue")
@@ -311,7 +310,7 @@ file: codebase: {
 
 func TestFileSpineNestedTargetStaysInHome(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	home := t.TempDir()
 	p := NewFileSpinePlugin(&configcue.Config{}, home)
 	out, err := p.Process(ctx, []File{
@@ -332,7 +331,7 @@ func TestFileSpineNestedTargetStaysInHome(t *testing.T) {
 
 func TestFileSpineKeepsSymlink(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	home := t.TempDir()
 	dir := t.TempDir()
 	target := filepath.Join(dir, "real")
@@ -356,7 +355,7 @@ func TestFileSpineKeepsSymlink(t *testing.T) {
 
 func TestFileSpineEtcUsesFixedBase(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	src := filepath.Join(t.TempDir(), "hosts")
 	require.NoError(t, os.WriteFile(src, []byte("127.0.0.1 localhost\n"), 0o644))
 	p := NewFileSpinePlugin(systemConfig(t), "/")
@@ -374,7 +373,7 @@ func TestFileSpineEtcUsesFixedBase(t *testing.T) {
 
 func TestFileSpineSameRelPathOnTwoProfiles(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	prefix := t.TempDir()
 	etcBase := filespine.ApplyDir("etc", prefix)
 	homeSrc := filepath.Join(t.TempDir(), "hosts-home")
@@ -412,14 +411,14 @@ func systemConfig(t *testing.T) *configcue.Config {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "modot.cue")
 	require.NoError(t, os.WriteFile(path, []byte("package modot\n"), 0o644))
-	cfg, err := configcue.LoadFilesMode(logging.NewWriterContext(t.Output()), []string{path}, filespine.ModeSystem)
+	cfg, err := configcue.LoadFilesMode(t.Context(), []string{path}, filespine.ModeSystem)
 	require.NoError(t, err)
 	return cfg
 }
 
 func TestFileSpineRejectsNestedDotD(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	home := t.TempDir()
 	p := NewFileSpinePlugin(&configcue.Config{}, home)
 	_, err := p.Process(ctx, []File{

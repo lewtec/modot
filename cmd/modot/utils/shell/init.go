@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -17,7 +18,6 @@ import (
 	"github.com/lewtec/modot/internal/cmdctx"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/shellgen"
 	"github.com/lewtec/modot/internal/version"
 )
@@ -36,7 +36,7 @@ Uses caching for performance - regenerates only when source files change.`
 }
 
 func (i *Init) Run(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	startTime := time.Now()
 	defer func() {
 		if i.Profile.Value() {
@@ -290,7 +290,7 @@ func executeSourceFiles(ctx context.Context, sourceFiles map[string]string) (map
 			return "source:" + item.key
 		},
 		Fn: func(ctx context.Context, s *taskgroup.Status, item sourceItem) (sourceOutput, error) {
-			logger := logging.GetLogger(ctx)
+			logger := slog.Default()
 			cmd, err := execdriver.Run(ctx, "bash", item.path)
 			if err != nil {
 				logger.Warn("failed to execute .source.sh", "source", item.key+".source.sh", "error", err)

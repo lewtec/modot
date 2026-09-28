@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"strings"
 
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/modfile"
 	"github.com/lewtec/modot/internal/modfile/sourceprovider/sourcecache"
 )
@@ -130,7 +130,7 @@ func ensureGithubSource(ctx context.Context, alias string, src modfile.SourceCon
 		return "", fmt.Errorf("source alias %q (github) requires repo", alias)
 	}
 
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	logger.Info("resolving github source", "alias", s.Alias, "repo", s.Repo(), "ref", s.Ref(), "url", s.Config.URL)
 	return sourcecache.EnsureCachedDir(ctx, "github", s.CacheKey(), func(tmpDir string) error {
 		meta, err := downloadAndExtractTarball(ctx, s, tmpDir, "")

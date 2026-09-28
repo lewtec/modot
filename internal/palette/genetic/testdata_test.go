@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/palette/api"
 	"github.com/lewtec/modot/internal/palette/palettetest"
 	"github.com/stretchr/testify/require"
@@ -55,7 +54,7 @@ func TestGeneticExtractFromTestdata(t *testing.T) {
 	}
 	// Prefer real wallpaper when available; MaxSamples matches CLI default.
 	img := palettetest.LoadImage(t, "bliss.jpg")
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	d := &Driver{}
 	pal, err := d.Extract(ctx, img, api.Options{
 		Polarity:   api.PolarityDark,
@@ -73,7 +72,7 @@ func BenchmarkGeneticExtract(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping full genetic extract benchmark in short mode")
 	}
-	ctx := logging.NewWriterContext(b.Output())
+	ctx := b.Context()
 	d := &Driver{}
 
 	b.Run("blocks_64", func(b *testing.B) {

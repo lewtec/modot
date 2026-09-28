@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 
@@ -69,7 +68,7 @@ func registerStubHashProvider(t *testing.T, id string) *stubHashProvider {
 
 func testGroupCtx(t *testing.T) (*taskgroup.Session, context.Context) {
 	t.Helper()
-	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
+	g, ctx := taskgroup.New(t.Context(), taskgroup.DefaultLimits())
 	t.Cleanup(func() {
 		if err := g.Wait(); err != nil {
 			t.Logf("group wait (may be expected in error tests): %v", err)
@@ -136,7 +135,7 @@ func TestPopulateSourceLockHashesNestedInternetDoesNotDeadlock(t *testing.T) {
 	// One Internet slot + more items than slots: the old PoolKind=Internet
 	// Map held every slot while nested fetch waited → runtime deadlock.
 	// Timeout must wrap New so acquire(g.ctx) unblocks instead of hanging the test.
-	ctx, cancel := context.WithTimeout(logging.NewWriterContext(t.Output()), 2*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 	t.Cleanup(cancel)
 	g, ctx := taskgroup.New(ctx, taskgroup.Limits{IO: 1, CPU: 1, Internet: 1})
 	t.Cleanup(func() {

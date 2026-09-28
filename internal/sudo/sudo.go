@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,7 +15,6 @@ import (
 	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	"github.com/lewtec/modot/internal/atomicfile"
 	"github.com/lewtec/modot/internal/driver/notification"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/types"
 )
 
@@ -110,7 +110,11 @@ func Enqueue(ctx context.Context, cmd *types.SudoCommand) error {
 	if err != nil {
 		return err
 	}
-	defer logging.RunCleanup(ctx, "atomicfile.Abort", f.Abort)
+	defer func() {
+		if err := f.Abort(); err != nil {
+			slog.ErrorContext(ctx, "unexpected error", "op", "atomicfile.Abort", "error", err)
+		}
+	}()
 	if _, err := f.Write(data); err != nil {
 		return err
 	}
@@ -123,7 +127,9 @@ func Enqueue(ctx context.Context, cmd *types.SudoCommand) error {
 		Message: fmt.Sprintf("Command '%s' (slug: %s) pending approval.", cmd.Command, cmd.Slug),
 		Icon:    "dialog-password",
 	}
-	logging.ReportError(ctx, lewnotify.Notify(ctx, *n))
+	if err := lewnotify.Notify(ctx, *n); err != nil {
+		slog.ErrorContext(ctx, "unexpected error", "error", err)
+	}
 
 	return nil
 }
@@ -144,12 +150,16 @@ func List(ctx context.Context) ([]*types.SudoCommand, error) {
 		if filepath.Ext(entry.Name()) == ".json" {
 			data, err := os.ReadFile(filepath.Join(dir, entry.Name()))
 			if err != nil {
-				logging.ReportError(ctx, err)
+				if err != nil {
+					slog.ErrorContext(ctx, "unexpected error", "error", err)
+				}
 				continue
 			}
 			var cmd types.SudoCommand
 			if err := json.Unmarshal(data, &cmd); err != nil {
-				logging.ReportError(ctx, err)
+				if err != nil {
+					slog.ErrorContext(ctx, "unexpected error", "error", err)
+				}
 				continue
 			}
 			cmds = append(cmds, &cmd)

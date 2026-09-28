@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	_ "github.com/lewtec/modot/internal/driver/prelude"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/miseutil"
 	"github.com/stretchr/testify/require"
 )
@@ -15,7 +14,7 @@ import (
 func TestEnsureMiseWrapperAtomicWrite(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 
 	wrapperDir := filepath.Join(home, ".local", "bin")
 	require.NoError(t, os.MkdirAll(wrapperDir, 0o755))

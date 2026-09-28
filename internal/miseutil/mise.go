@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,7 +14,6 @@ import (
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/driver/shim/bash"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/tool"
 )
 
@@ -97,7 +97,7 @@ func ResolveBinPath(ctx context.Context, binName, toolSpec string) (string, erro
 // modotBin is the absolute path to the modot binary; when empty,
 // the default under the user data dir is used.
 func EnsureLocalBinWrapper(ctx context.Context, modotBin string) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	home, err := envdriver.ResolveHomeDir()
 	if err != nil {
 		return fmt.Errorf("get home directory: %w", err)

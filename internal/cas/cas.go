@@ -5,11 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	envdriver "github.com/lewtec/modot/internal/driver/env"
-	"github.com/lewtec/modot/internal/logging"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
+
+	envdriver "github.com/lewtec/modot/internal/driver/env"
 )
 
 type CASWriter struct {
@@ -64,7 +65,9 @@ func (c *CASWriter) Seal() (string, error) {
 			return "", err
 		}
 	} else {
-		logging.RunCleanup(c.ctx, "remove", func() error { return os.Remove(c.tempFile.Name()) })
+		if err := func() error { return os.Remove(c.tempFile.Name()) }(); err != nil {
+			slog.ErrorContext(c.ctx, "unexpected error", "op", "remove", "error", err)
+		}
 	}
 
 	return finalPath, nil

@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/lewtec/modot/internal/deployer"
-	"github.com/lewtec/modot/internal/logging"
-	"github.com/lewtec/modot/internal/source"
+	"log/slog"
 	"time"
+
+	"github.com/lewtec/modot/internal/deployer"
+	"github.com/lewtec/modot/internal/source"
 )
 
 var (
@@ -90,7 +91,7 @@ type ApplyResult struct {
 
 // Apply runs the full deployment cycle.
 func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, error) {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	result := &ApplyResult{}
 
 	files := m.tree.Files()

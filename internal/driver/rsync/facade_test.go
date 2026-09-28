@@ -7,13 +7,12 @@ import (
 	"testing"
 
 	"github.com/lewtec/modot/internal/executil"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 
 func TestBindStreamsTeesExtraOut(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	var extra bytes.Buffer
 	w, done := BindStreams(ctx, &extra)
 	t.Cleanup(func() { done() })
@@ -26,7 +25,7 @@ func TestBindStreamsTeesExtraOut(t *testing.T) {
 
 func TestBindStreamsWithoutExtraIsNotProcessStderr(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	w, done := BindStreams(ctx, nil)
 	t.Cleanup(done)
 	require.False(t, w == os.Stderr, "writer is os.Stderr")
@@ -35,7 +34,7 @@ func TestBindStreamsWithoutExtraIsNotProcessStderr(t *testing.T) {
 func TestBindStreamsHonorsContextStderr(t *testing.T) {
 	t.Parallel()
 	var got bytes.Buffer
-	ctx := executil.WithStderr(logging.NewWriterContext(t.Output()), &got)
+	ctx := executil.WithStderr(t.Context(), &got)
 	var extra bytes.Buffer
 	w, done := BindStreams(ctx, &extra)
 	t.Cleanup(done)

@@ -5,13 +5,12 @@ import (
 	"testing"
 
 	lewtest "github.com/lewtec/lewkit/x/test"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/types"
 	"github.com/stretchr/testify/require"
 )
 
 func TestIterHistoryPrefersCwdAndStops(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	path := filepath.Join(t.TempDir(), "modot.db")
 	d, err := OpenURL(ctx, path)
 	require.NoError(t, err)
@@ -47,7 +46,7 @@ func TestIterHistoryPrefersCwdAndStops(t *testing.T) {
 }
 
 func TestListHistoryLimitIsNewest(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	path := filepath.Join(t.TempDir(), "modot.db")
 	d, err := OpenURL(ctx, path)
 	require.NoError(t, err)

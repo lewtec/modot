@@ -2,9 +2,9 @@ package dotfiles
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/lewtec/modot/internal/deployer"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 // LogApplyOptions controls how ApplyResult is reported after plan/apply.
@@ -28,7 +28,7 @@ func LogApplyResult(ctx context.Context, result *ApplyResult, opts LogApplyOptio
 	if result == nil {
 		return
 	}
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	hasChanges := result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 || (opts.ShowNoop && result.FilesNoOp > 0)
 	if result.StateDropped > 0 {
 		msg := "dropped gitignored paths from state"

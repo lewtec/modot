@@ -3,11 +3,11 @@ package demo
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	"github.com/lewtec/modot/internal/driver/notification"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type Progress struct{}
@@ -15,7 +15,7 @@ type Progress struct{}
 func (Progress) Description() string { return "Demo progress notification" }
 
 func (*Progress) Run(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	n := &notification.Notification{
 		Title: "Progress Demo",
 		Icon:  "utilities-terminal",

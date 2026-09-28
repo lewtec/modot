@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"reflect"
 	"sort"
@@ -25,7 +26,6 @@ import (
 	"sync"
 
 	"github.com/lewtec/modot/internal/compat"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 var (
@@ -224,7 +224,7 @@ func Get[T any](ctx context.Context) (T, error) {
 
 	ifaceName := getInterfaceName(t)
 	weights := driverWeights[ifaceName]
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	logger.Debug("loading driver weights", "interface", ifaceName, "weights", weights, "all_weights", driverWeights)
 
 	factories := make([]DriverFactory[T], 0)

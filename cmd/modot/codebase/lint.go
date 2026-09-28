@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"text/tabwriter"
@@ -15,7 +16,6 @@ import (
 	"github.com/lewtec/modot/internal/checks/lint"
 	"github.com/lewtec/modot/internal/checks/review"
 	"github.com/lewtec/modot/internal/cmdarg"
-	"github.com/lewtec/modot/internal/logging"
 
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/owenrumney/go-sarif/v2/sarif"
@@ -62,7 +62,7 @@ func (c *Lint) Run(ctx context.Context) error {
 }
 
 func saveSarifToCI(ctx context.Context, report *sarif.Report) {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	sarifEnvVars := []string{"MISE_CI_SARIF_OUTPUT_DIR"}
 	for _, envVar := range sarifEnvVars {
 		if outputDir := os.Getenv(envVar); outputDir != "" {

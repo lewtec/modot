@@ -3,7 +3,7 @@ package source
 import (
 	"context"
 	"fmt"
-	"github.com/lewtec/modot/internal/logging"
+	"log/slog"
 	"path/filepath"
 )
 
@@ -19,7 +19,7 @@ func (p *StrictConflictResolverPlugin) Name() string {
 }
 
 func (p *StrictConflictResolverPlugin) Process(ctx context.Context, files []File) ([]File, error) {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	logger.Debug("running strict conflict resolution")
 
 	ownedPaths := make(map[string]File) // FinalPath -> File info

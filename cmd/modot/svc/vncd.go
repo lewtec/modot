@@ -2,12 +2,12 @@ package svc
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"strings"
 	"syscall"
 
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type Vncd struct{}
@@ -24,7 +24,7 @@ func (*Vncd) Run(ctx context.Context) error {
 }
 
 func runWaylandVNC(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	logger.Info("Starting wayvnc")
 	host := os.Getenv("WAYVNC_HOST")
 	if host == "" {
@@ -46,7 +46,7 @@ func runWaylandVNC(ctx context.Context) error {
 }
 
 func runXorgVNC(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	logger.Info("Starting x0vncserver")
 	bin, err := execdriver.Which(ctx, "x0vncserver")
 	if err != nil {

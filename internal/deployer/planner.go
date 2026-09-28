@@ -5,12 +5,12 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"strings"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/cmdctx"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/source"
 )
 
@@ -49,7 +49,7 @@ func planOne(ctx context.Context, target string, d DesiredState, current Managed
 
 	// --no-cache: force rewrite of every existing target (noops become updates).
 	if cmdctx.IsNoCache(ctx) {
-		logging.GetLogger(ctx).Debug("no-cache: forcing update", "target", target)
+		slog.DebugContext(ctx, "no-cache: forcing update", "target", target)
 		return Action{Type: ActionUpdate, Target: target, Desired: d, Current: current}, nil
 	}
 
@@ -84,7 +84,11 @@ func planOne(ctx context.Context, target string, d DesiredState, current Managed
 				return Action{}, fmt.Errorf("reader %s: %w", d.File.SourceInfo(), err)
 			}
 			desiredHash, err := calculateHash(reader)
-			logging.Close(ctx, reader)
+			if closer := reader; closer != nil {
+				if err := closer.Close(); err != nil {
+					slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+				}
+			}
 			if err != nil {
 				return Action{}, err
 			}
@@ -94,7 +98,11 @@ func planOne(ctx context.Context, target string, d DesiredState, current Managed
 				needsUpdate = true
 			} else {
 				actualHash, err := calculateHash(targetFile)
-				logging.Close(ctx, targetFile)
+				if closer := targetFile; closer != nil {
+					if err := closer.Close(); err != nil {
+						slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+					}
+				}
 				if err != nil {
 					return Action{}, err
 				}

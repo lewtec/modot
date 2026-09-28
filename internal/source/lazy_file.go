@@ -5,8 +5,8 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/template"
 )
 
@@ -24,7 +24,13 @@ func (f *TemplateFile) Reader() (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer logging.Close(f.Context, srcReader)
+	defer func() {
+		if closer := srcReader; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(f.Context, "unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 
 	srcContent, err := io.ReadAll(srcReader)
 	if err != nil {

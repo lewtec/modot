@@ -7,13 +7,12 @@ import (
 
 	_ "github.com/lewtec/modot/internal/driver/prelude"
 	"github.com/lewtec/modot/internal/driver/shim"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestShimGeneration(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 
 	// Create temp directory for test
 	tmpDir := t.TempDir()
@@ -40,7 +39,7 @@ func TestShimGeneration(t *testing.T) {
 }
 
 func TestShimWithSpecialCharacters(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 
 	tmpDir := t.TempDir()
 	shimPath := filepath.Join(tmpDir, "special-shim")

@@ -9,7 +9,6 @@ import (
 
 	_ "github.com/lewtec/modot/internal/driver/env/native"
 	"github.com/lewtec/modot/internal/filespine"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,7 +25,7 @@ file: {
 }
 `)
 
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	cuePath := filepath.Join(root, "modot.cue")
 	home, err := loadFilesMode(ctx, cuePath, filespine.ModeHome)
 	require.NoError(t, err, "load home")
@@ -56,7 +55,7 @@ func TestFlatFileKeyRejected(t *testing.T) {
 	writeFile(t, filepath.Join(root, "modot.cue"), `package modot
 file: ".bashrc": {type: "lines", values: {"00": "umask 022"}}
 `)
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	_, err := loadFilesMode(ctx, filepath.Join(root, "modot.cue"), filespine.ModeHome)
 	require.Error(t, err, "expected schema error")
 }
@@ -69,7 +68,7 @@ file: home: blob: {
 	values: src: {kind: "ref", ref: "/tmp/x"}
 }
 `)
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	cfg, err := loadFilesMode(ctx, filepath.Join(root, "modot.cue"), filespine.ModeHome)
 	require.NoError(t, err, "load")
 	_, err = cfg.FileProfiles()
@@ -88,7 +87,7 @@ file: home: ".agents/skills": {
 	source: local: "self:skills"
 }
 `)
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	cfg, err := loadFilesMode(ctx, filepath.Join(root, "modot.cue"), filespine.ModeHome)
 	require.NoError(t, err, "load")
 	mounts, err := cfg.FileMounts()

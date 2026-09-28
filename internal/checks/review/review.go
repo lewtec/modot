@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -12,7 +13,6 @@ import (
 
 	lewgit "github.com/lewtec/lewkit/x/git"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
@@ -29,7 +29,7 @@ type AnnotateOptions struct {
 // Outside GHA it logs a warning and returns nil (soft no-op).
 // Exit code is never based on findings.
 func AnnotateIfApplicable(ctx context.Context, report *sarif.Report, opts AnnotateOptions) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	if report == nil {
 		return nil
 	}

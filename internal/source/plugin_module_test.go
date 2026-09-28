@@ -11,7 +11,6 @@ import (
 
 	"github.com/lewtec/modot/internal/configcue"
 	_ "github.com/lewtec/modot/internal/driver/env/native"
-	"github.com/lewtec/modot/internal/logging"
 	_ "github.com/lewtec/modot/internal/module/prelude"
 )
 
@@ -80,7 +79,7 @@ modules: {
 `)
 	writeFile(t, filepath.Join(root, "modot.lock.json"), `{"dependencies":[]}`)
 
-	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
+	g, ctx := taskgroup.New(t.Context(), taskgroup.DefaultLimits())
 	t.Cleanup(func() {
 		err := g.Wait()
 		if !t.Failed() {

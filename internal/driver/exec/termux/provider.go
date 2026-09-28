@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,7 +18,6 @@ import (
 	"github.com/lewtec/modot/internal/driver"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	"github.com/lewtec/modot/internal/executil"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type Factory struct{}
@@ -56,7 +56,7 @@ type Driver struct{}
 func (d *Driver) Command(name string, args ...string) *exec.Cmd {
 	// lewkit exec.Driver.Command does not take a context.
 	ctx := context.Background()
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 
 	prefix := os.Getenv("PREFIX")
 	if prefix == "" {
@@ -96,7 +96,7 @@ func (d *Driver) Command(name string, args ...string) *exec.Cmd {
 
 // runWithProot wraps command execution in proot with termux-chroot-like setup
 func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []string, prefix string) *exec.Cmd {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 
 	// Setup resolv.conf and SSL certs for proot environment
 	if resolvPath, err := ensureResolvConf(ctx); err != nil {
@@ -227,9 +227,12 @@ func setupTermuxEnv(ctx context.Context, prefix string) []string {
 	// Use env driver to get correct home (handles chroot)
 	actualHome, err := envdriver.GetHomeDir(ctx)
 	if err != nil {
-		// Cannot safely fix HOME/mise paths; leave env as-is rather than guess.
-		// Caller still gets a usable command; mise may mis-resolve in chroot.
-		logging.ReportError(ctx, err, "context", "termux exec: GetHomeDir failed")
+		if err :=
+			// Cannot safely fix HOME/mise paths; leave env as-is rather than guess.
+			// Caller still gets a usable command; mise may mis-resolve in chroot.
+			err; err != nil {
+			slog.ErrorContext(ctx, "unexpected error", "context", "termux exec: GetHomeDir failed", "error", err)
+		}
 	} else {
 		envMap["HOME"] = actualHome
 
@@ -257,7 +260,7 @@ func ensureResolvConf(ctx context.Context) (string, error) {
 
 	resolvConfPath := filepath.Join(prefix, "etc", "resolv.conf")
 
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 
 	// Check if resolv.conf exists and has valid content
 	if content, err := os.ReadFile(resolvConfPath); err == nil {
@@ -288,7 +291,9 @@ nameserver 1.1.1.1
 
 	// Verify it was written
 	if content, err := os.ReadFile(resolvConfPath); err != nil {
-		logging.ReportError(ctx, err, "context", "failed to verify resolv.conf after writing")
+		if err != nil {
+			slog.ErrorContext(ctx, "unexpected error", "context", "failed to verify resolv.conf after writing", "error", err)
+		}
 	} else {
 		logger.Info("resolv.conf content verified", "size", len(content))
 	}
@@ -314,7 +319,7 @@ func ensureSSLCerts(ctx context.Context) (string, error) {
 	sslDir := filepath.Join(prefix, "etc", "ssl", "certs")
 	targetCert := filepath.Join(sslDir, "ca-certificates.crt")
 
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 
 	// Check if already linked/copied
 	if _, err := os.Stat(targetCert); err == nil {
@@ -358,7 +363,7 @@ func ensureSSLCerts(ctx context.Context) (string, error) {
 }
 
 func (d *Driver) Which(ctx context.Context, name string) (string, error) {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 
 	// Custom Which implementation to avoid SIGSYS errors on Android/Termux
 	// Do not use os/exec.LookPath as it can trigger SIGSYS on Android with Go 1.24+

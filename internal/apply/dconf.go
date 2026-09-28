@@ -5,15 +5,16 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"github.com/lewtec/modot/internal/cmdarg"
-	"github.com/lewtec/modot/internal/configcue"
-	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
-	"github.com/lewtec/modot/internal/source"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/lewtec/modot/internal/cmdarg"
+	"github.com/lewtec/modot/internal/configcue"
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/source"
 )
 
 // DconfPlugin emits a content-hash marker so dconf changes participate in deploy planning.
@@ -71,7 +72,11 @@ func ApplyHomeDconf(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer logging.RunCleanup(ctx, "remove", func() error { return os.Remove(tmpIni) })
+	defer func() {
+		if err := func() error { return os.Remove(tmpIni) }(); err != nil {
+			slog.ErrorContext(ctx, "unexpected error", "op", "remove", "error", err)
+		}
+	}()
 	return applyDconf(ctx, tmpIni)
 }
 
@@ -83,15 +88,23 @@ func writeTempDconfIni(ctx context.Context, content string) (string, error) {
 	}
 	path := f.Name()
 	if _, err := f.WriteString(content); err != nil {
-		logging.Close(ctx, f)
+		if closer := f; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+			}
+		}
 		if rmErr := os.Remove(path); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
-			logging.ReportError(ctx, rmErr, "path", path)
+			if err := rmErr; err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "path", path, "error", err)
+			}
 		}
 		return "", err
 	}
 	if err := f.Close(); err != nil {
 		if rmErr := os.Remove(path); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
-			logging.ReportError(ctx, rmErr, "path", path)
+			if err := rmErr; err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "path", path, "error", err)
+			}
 		}
 		return "", err
 	}
@@ -162,7 +175,13 @@ func applyDconf(ctx context.Context, iniFile string) error {
 	if err != nil {
 		return err
 	}
-	defer logging.Close(ctx, file)
+	defer func() {
+		if closer := file; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 
 	cmd.Stdin = file
 	return cmd.Run()

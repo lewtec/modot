@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 var ErrSimulated503 = errors.New("simulated 503 from registry (demo failure)")
@@ -49,7 +49,7 @@ func (*Command) Run(ctx context.Context) error {
 }
 
 func runTasksDemo(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 
 	logger.Info("Scheduling work on the session obtained via context.")
 	logger.Info("Tasks use IO / CPU / Internet pools, have dependencies, emit logs, and report progress.")
@@ -58,7 +58,7 @@ func runTasksDemo(ctx context.Context) error {
 	// Layout is "ICON BAR title: subtitle" — subtitle is size/phase only, not
 	// a repeated title or a percent (the bar already shows fraction).
 	download := taskgroup.Go(ctx, "bundle.tar.gz", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 		logger.Info("starting download")
 
 		s.Update("connecting")
@@ -82,7 +82,7 @@ func runTasksDemo(ctx context.Context) error {
 
 	// CPU-bound work that depends on the download.
 	build := taskgroup.Go(ctx, "build", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 		s.Update("preparing sources")
 		time.Sleep(80 * time.Millisecond)
 		for step := 1; step <= 4; step++ {
@@ -98,7 +98,7 @@ func runTasksDemo(ctx context.Context) error {
 
 	// Another CPU task in parallel with build (after download).
 	taskgroup.Go(ctx, "check", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 		s.Update("static analysis")
 		time.Sleep(90 * time.Millisecond)
 		logger.Info("golangci-lint", "issues", 0)
@@ -109,7 +109,7 @@ func runTasksDemo(ctx context.Context) error {
 
 	// IO task that depends on build.
 	taskgroup.Go(ctx, "install", taskgroup.IO, func(ctx context.Context, s *taskgroup.Status) error {
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 		s.Update("installing to $HOME/.local/bin")
 		time.Sleep(60 * time.Millisecond)
 		logger.Info("cp", "src", "./bin/app", "dst", "~/.local/bin/app")
@@ -122,7 +122,7 @@ func runTasksDemo(ctx context.Context) error {
 
 	// Indeterminate task (no Total) running in parallel.
 	taskgroup.Go(ctx, "lint", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 		s.Update("linting workspace")
 		for i := 0; i < 3; i++ {
 			time.Sleep(160 * time.Millisecond)
@@ -135,7 +135,7 @@ func runTasksDemo(ctx context.Context) error {
 
 	// A task that fails so the error UI is visible.
 	taskgroup.Go(ctx, "publish", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 		s.Update("connecting to registry")
 		time.Sleep(140 * time.Millisecond)
 		logger.Info("POST", "path", "/artifacts")

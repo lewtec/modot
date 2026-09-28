@@ -3,13 +3,14 @@ package system
 import (
 	"context"
 	"fmt"
+	"log/slog"
+
 	"github.com/lewtec/modot/internal/cmdarg"
 	"github.com/lewtec/modot/internal/cmdctx"
 	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/deployer"
 	"github.com/lewtec/modot/internal/dotfiles"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/modfile"
 	_ "github.com/lewtec/modot/internal/modfile/sourceprovider/prelude"
 	"github.com/lewtec/modot/internal/nix"
@@ -21,7 +22,7 @@ import (
 )
 
 func RunApply(ctx context.Context, action string) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	dryRun := cmdctx.IsDryRun(ctx)
 	root := cmdarg.PrefixPath(ctx)
 
@@ -71,7 +72,7 @@ func RunApply(ctx context.Context, action string) error {
 }
 
 func applySystemFiles(ctx context.Context, prefix string, cfg *configcue.Config, modulesDir string, dryRun bool) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	builder, err := source.StandardDotfilesOptions{
 		ConfigTreeTarget: prefix,
 		ModulesDir:       modulesDir,

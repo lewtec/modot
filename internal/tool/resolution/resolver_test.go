@@ -7,12 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 
 func TestReadToolVersion_found(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".tool-versions")
 	require.NoError(t, os.WriteFile(path, []byte("# comment\n\ngo 1.22.0\ndeno 1.40.0\n"), 0o644))
@@ -23,7 +22,7 @@ func TestReadToolVersion_found(t *testing.T) {
 }
 
 func TestReadToolVersion_missing(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".tool-versions")
 	require.NoError(t, os.WriteFile(path, []byte("go 1.22.0\n"), 0o644))
@@ -34,7 +33,7 @@ func TestReadToolVersion_missing(t *testing.T) {
 }
 
 func TestReadToolVersion_tokenTooLong(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".tool-versions")
 	// bufio.Scanner default max token size is 64KiB; one line longer than that fails.
@@ -48,7 +47,7 @@ func TestReadToolVersion_tokenTooLong(t *testing.T) {
 }
 
 func TestReadToolVersion_openMissing(t *testing.T) {
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	_, err := readToolVersion(ctx, filepath.Join(t.TempDir(), "nope"), "deno")
 	require.Error(t, err, "expected open error")
 }

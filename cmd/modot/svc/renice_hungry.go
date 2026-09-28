@@ -2,11 +2,11 @@ package svc
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 	"time"
 
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type ReniceHungry struct{}
@@ -19,7 +19,7 @@ func (*ReniceHungry) Run(ctx context.Context) error {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	logger.Info("renice-hungry started")
 
 	for {

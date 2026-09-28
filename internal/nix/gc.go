@@ -3,19 +3,20 @@ package nix
 import (
 	"context"
 	"fmt"
-	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/executil"
-	"github.com/lewtec/modot/internal/logging"
-	"github.com/lewtec/modot/internal/sudo"
-	"github.com/lewtec/modot/internal/types"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/executil"
+	"github.com/lewtec/modot/internal/sudo"
+	"github.com/lewtec/modot/internal/types"
 )
 
 func CleanupProfiles(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	logger.Info("Searching for old Nix profiles to cleanup...")
 
 	baseDir := "/nix/var/nix/profiles"

@@ -10,7 +10,6 @@ import (
 
 	"github.com/lewtec/lewkit/x/fs/compose"
 	_ "github.com/lewtec/modot/internal/driver/env/native"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 )
@@ -40,7 +39,7 @@ modules: greet: {
 }
 greet: name: "ada"
 `), 0o644))
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	cfg, err := LoadFiles(ctx, []string{cuePath})
 	require.NoError(t, err)
 	parsed, err := cfg.FileProfiles()
@@ -84,7 +83,7 @@ file: home: "hello.toml": values: {
 	}
 }
 `), 0o644))
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	cfg, err := LoadFiles(ctx, []string{cuePath})
 	require.NoError(t, err)
 	parsed, err := cfg.FileProfiles()

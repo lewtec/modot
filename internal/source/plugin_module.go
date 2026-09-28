@@ -3,12 +3,12 @@ package source
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"sort"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/modfile"
 	_ "github.com/lewtec/modot/internal/modfile/sourceprovider/prelude"
 	"github.com/lewtec/modot/internal/module"
@@ -39,7 +39,7 @@ type enabledModule struct {
 }
 
 func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File, error) {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	sumFilePath := filepath.Join(filepath.Dir(p.baseDir), "modot.lock.json")
 	modFile, err := modfile.ModFileFromConfig(p.cfg)
 	if err != nil {
@@ -106,7 +106,7 @@ func (p *ModuleScannerPlugin) resolveModule(
 	sumFile *modfile.SumFile,
 	resolver module.SourceRefResolver,
 ) ([]File, error) {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	moduleSource, err := modfile.ResolveModuleFromConfig(p.cfg, m.name, m.entry, p.baseDir, sumFile)
 	if err != nil {
 		return nil, fmt.Errorf("module %q: %w", m.name, err)

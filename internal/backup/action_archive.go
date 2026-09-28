@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"github.com/lewtec/modot/internal/atomicfile"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/driver/notification"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 var (
@@ -56,12 +56,18 @@ func (action ArchiveAction) Run(ctx context.Context, _ *notification.Notificatio
 		}
 		return fmt.Errorf("close archive temp: %w", err)
 	}
-	defer logging.RunCleanup(ctx, "remove", func() error {
-		if err := os.Remove(tmpPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
+	defer func() {
+		if err := func() error {
+			if err := os.Remove(tmpPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
+			return nil
+		}(); err != nil {
+			slog.ErrorContext(ctx, "unexpected error", "op", "remove",
+
+				"path", tmpPath, "error", err)
 		}
-		return nil
-	}, "path", tmpPath)
+	}()
 
 	parent := filepath.Dir(action.InputDir)
 	base := filepath.Base(action.InputDir)

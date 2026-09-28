@@ -2,10 +2,10 @@ package demo
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type Nested struct{}
@@ -21,7 +21,7 @@ Map when you need aggregate progress.`
 }
 
 func (*Nested) Run(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	logger.Info("scheduling bundle with Isolate children")
 
 	taskgroup.Go(ctx, "bundle", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
@@ -29,7 +29,7 @@ func (*Nested) Run(ctx context.Context) error {
 		time.Sleep(60 * time.Millisecond)
 		err := taskgroup.Isolate(ctx, func(ctx context.Context) error {
 			icons := taskgroup.Go(ctx, "bundle:icons", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
-				logger := logging.GetLogger(ctx)
+				logger := slog.Default()
 				s.Update("generating icons")
 				for i := 0; i < 3; i++ {
 					logger.Info("icon", "num", i)
@@ -38,7 +38,7 @@ func (*Nested) Run(ctx context.Context) error {
 				return nil
 			})
 			taskgroup.Go(ctx, "bundle:manifest", taskgroup.IO, func(ctx context.Context, s *taskgroup.Status) error {
-				logger := logging.GetLogger(ctx)
+				logger := slog.Default()
 				s.Update("writing manifest.json")
 				time.Sleep(130 * time.Millisecond)
 				logger.Info("manifest written")
@@ -50,7 +50,7 @@ func (*Nested) Run(ctx context.Context) error {
 			return err
 		}
 		s.Update("bundle complete")
-		logging.GetLogger(ctx).Info("isolate subtree done")
+		slog.InfoContext(ctx, "isolate subtree done")
 		return nil
 	})
 	return nil

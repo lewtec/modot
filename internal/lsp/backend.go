@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"os"
 	"os/exec"
 	"sync"
 	"sync/atomic"
 
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/tool"
 )
 
@@ -41,7 +41,7 @@ type Backend struct {
 
 // StartBackend ensures tools, spawns the server, and runs a read loop.
 func StartBackend(ctx context.Context, root string, serverID string, srv Server, onNotification func(serverID string, msg *Message)) (*Backend, error) {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	if len(srv.Cmd) == 0 {
 		return nil, fmt.Errorf("%w: server %q", ErrEmptyCmd, serverID)
 	}
@@ -72,7 +72,11 @@ func StartBackend(ctx context.Context, root string, serverID string, srv Server,
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		cancel()
-		logging.Close(ctx, stdin)
+		if closer := stdin; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+			}
+		}
 		return nil, err
 	}
 
@@ -107,7 +111,7 @@ func resolveServerCmd(ctx context.Context, root string, srv Server) (argv []stri
 }
 
 func (b *Backend) readLoop(ctx context.Context) {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	for {
 		msg, err := b.conn.ReadMessage()
 		if err != nil {

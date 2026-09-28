@@ -2,10 +2,10 @@ package audio
 
 import (
 	"context"
+	"log/slog"
 
 	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
 	"github.com/lewtec/lewkit/x/driver/volume"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type Command struct {
@@ -70,6 +70,6 @@ func showVolume(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	logging.GetLogger(ctx).Info("volume updated", "level", level, "sink", sink, "muted", muted)
+	slog.InfoContext(ctx, "volume updated", "level", level, "sink", sink, "muted", muted)
 	return lewnotify.Notify(ctx, volume.StatusNotification(level, muted, sink))
 }

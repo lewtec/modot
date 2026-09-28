@@ -3,6 +3,7 @@ package nix
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	lewnotify "github.com/lewtec/lewkit/x/driver/notification"
@@ -12,7 +13,6 @@ import (
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/driver/notification"
 	"github.com/lewtec/modot/internal/executil"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/nix"
 
 	"github.com/lewtec/lewkit/x/cmd"
@@ -56,7 +56,7 @@ func (d *Deploy) Run(ctx context.Context) error {
 		TaskName: func(_ int, node string) string { return "deploy:" + node },
 		Fn: func(ctx context.Context, s *taskgroup.Status, node string) error {
 			s.Update(node)
-			logger := logging.GetLogger(ctx).With("node", node)
+			logger := slog.With("node", node)
 			logger.Info("Deploying to node")
 			if err := deployNode(ctx, flake, node, action); err != nil {
 				logger.Error("Failed to deploy to node", "error", err)
@@ -77,7 +77,7 @@ func (d *Deploy) Run(ctx context.Context) error {
 			Icon:    "nix-snowflake",
 		}
 		if err := lewnotify.Notify(ctx, n); err != nil {
-			logging.GetLogger(ctx).Error("failed to send notification", "error", err)
+			slog.ErrorContext(ctx, "failed to send notification", "error", err)
 		}
 		return nil
 	})
@@ -85,7 +85,7 @@ func (d *Deploy) Run(ctx context.Context) error {
 }
 
 func deployNode(ctx context.Context, flake, node, action string) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	logger = logger.With("node", node)
 	// 1. Build outputs
 	logger.Info("Building configuration for node")

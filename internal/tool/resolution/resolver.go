@@ -5,12 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	lewtool "github.com/lewtec/lewkit/x/tool"
-	"github.com/lewtec/modot/internal/logging"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	lewtool "github.com/lewtec/lewkit/x/tool"
 )
 
 var ErrToolNotFound = errors.New("tool not found")
@@ -165,7 +166,13 @@ func readToolVersion(ctx context.Context, path, toolName string) (string, error)
 	if err != nil {
 		return "", err
 	}
-	defer logging.Close(ctx, f)
+	defer func() {
+		if closer := f; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {

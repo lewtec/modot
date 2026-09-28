@@ -3,10 +3,10 @@ package demo
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 const cpu10kItems = 10_000
@@ -24,7 +24,7 @@ TERM=dumb → plain Wait.`
 }
 
 func (*Cpu10k) Run(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 
 	items := make([]int, cpu10kItems)
 	for i := range items {

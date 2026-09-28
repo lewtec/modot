@@ -4,8 +4,8 @@ import (
 	"context"
 	"image"
 	"image/color"
+	"log/slog"
 
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/palette/api"
 )
 
@@ -24,7 +24,7 @@ func (d *Driver) Description() string {
 }
 
 func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options) (*api.Palette, error) {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 
 	colors := api.SampleImage(img, opts.MaxSamples)
 	if len(colors) == 0 {

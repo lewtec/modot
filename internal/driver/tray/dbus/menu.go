@@ -1,13 +1,12 @@
 package dbus
 
 import (
+	"log/slog"
 	"sync"
 
 	"github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
 	"github.com/godbus/dbus/v5/prop"
-
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type DBusMenu struct {
@@ -274,7 +273,7 @@ func (m *DBusMenu) handleEvent(id int32, eventId string, data dbus.Variant, time
 		if idx >= 0 && idx < len(m.driver.state.Menu) {
 			item := m.driver.state.Menu[idx]
 			if item.Callback != nil {
-				logger := logging.GetLogger(m.driver.ctx)
+				logger := slog.Default()
 				logger.Info("executing menu callback", "label", item.Label)
 				go item.Callback()
 			}
@@ -294,7 +293,9 @@ func (m *DBusMenu) EmitLayoutUpdated() {
 
 	if m.driver.conn != nil {
 		if err := m.driver.conn.Emit("/MenuBar", "com.canonical.dbusmenu.LayoutUpdated", rev, int32(0)); err != nil {
-			logging.ReportError(m.driver.ctx, err)
+			if err != nil {
+				slog.ErrorContext(m.driver.ctx, "unexpected error", "error", err)
+			}
 		}
 	}
 }

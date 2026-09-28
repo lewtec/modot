@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/checks"
 	"github.com/lewtec/modot/internal/checks/codec"
-	"github.com/lewtec/modot/internal/logging"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
@@ -30,16 +30,18 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 			continue
 		}
 		if t.Output == "" {
-			logging.GetLogger(ctx).Warn("lint tool missing output codec; skipping", "tool", t.Name)
+			slog.WarnContext(ctx, "lint tool missing output codec; skipping", "tool", t.Name)
 			continue
 		}
 		det, err := checks.EvaluateDetect(dir, t.Detect)
 		if err != nil {
-			logging.ReportError(ctx, err, "tool", t.Name, "context", "lint detect")
+			if err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "tool", t.Name, "context", "lint detect", "error", err)
+			}
 			continue
 		}
 		if !det.Applicable {
-			logging.GetLogger(ctx).Debug("lint tool not applicable", "tool", t.Name)
+			slog.DebugContext(ctx, "lint tool not applicable", "tool", t.Name)
 			continue
 		}
 		applicable = append(applicable, item{tool: t, detect: det})
@@ -55,11 +57,13 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 		PoolKind: taskgroup.Control,
 		TaskName: func(_ int, it item) string { return "lint:" + it.tool.Name },
 		Fn: func(ctx context.Context, s *taskgroup.Status, it item) (*sarif.Run, error) {
-			l := logging.GetLogger(ctx)
+			l := slog.Default()
 			s.Update("running " + it.tool.Name)
 			run, err := runOne(ctx, dir, it.tool, it.detect)
 			if err != nil {
-				logging.ReportError(ctx, err, "linter", it.tool.Name, "context", "linter failed")
+				if err != nil {
+					slog.ErrorContext(ctx, "unexpected error", "linter", it.tool.Name, "context", "linter failed", "error", err)
+				}
 				return nil, nil
 			}
 			resultCount := 0

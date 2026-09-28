@@ -5,12 +5,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image"
+	"log/slog"
 
 	"github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
 	"github.com/godbus/dbus/v5/prop"
-
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type StatusNotifierItem struct {
@@ -193,7 +192,7 @@ func (s *StatusNotifierItem) SecondaryActivate(x, y int32) *dbus.Error {
 }
 
 func (s *StatusNotifierItem) logPoint(msg string, x, y int32) *dbus.Error {
-	logger := logging.GetLogger(s.driver.ctx)
+	logger := slog.Default()
 	logger.Info(msg, "x", x, "y", y)
 	return nil
 }

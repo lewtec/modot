@@ -5,13 +5,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/lewtec/modot/internal/db"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/types"
 )
 
@@ -37,7 +37,13 @@ func ingestBash(ctx context.Context) ([]types.HistoryEvent, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer logging.Close(ctx, file, "path", path)
+	defer func() {
+		if closer := file; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "close", "path", path, "error", err)
+			}
+		}
+	}()
 
 	var events []types.HistoryEvent
 	scanner := bufio.NewScanner(file)
@@ -77,13 +83,25 @@ func ingestAtuin(ctx context.Context) ([]types.HistoryEvent, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open atuin database: %w", err)
 	}
-	defer logging.Close(ctx, dbConn, "path", dbPath)
+	defer func() {
+		if closer := dbConn; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "close", "path", dbPath, "error", err)
+			}
+		}
+	}()
 
 	rows, err := dbConn.Query("SELECT command, cwd, timestamp, exit, duration FROM history")
 	if err != nil {
 		return nil, fmt.Errorf("query atuin database: %w", err)
 	}
-	defer logging.Close(ctx, rows)
+	defer func() {
+		if closer := rows; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 
 	var events []types.HistoryEvent
 	for rows.Next() {

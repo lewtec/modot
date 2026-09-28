@@ -10,7 +10,6 @@ import (
 	"github.com/lewtec/lewkit/x/driver/terminal"
 	"github.com/lewtec/lewkit/x/driver/volume"
 	"github.com/lewtec/modot/internal/driver"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 
 	_ "github.com/lewtec/modot/internal/driver/audio/prelude"
@@ -27,7 +26,7 @@ func TestApplyLewWeightsTranslatesLegacyKeys(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	err = driver.ApplyLewWeights(map[string]map[string]int{
 		"github.com/lewtec/modot/internal/driver/audio.Driver": {
 			"audio_pulse": 80,

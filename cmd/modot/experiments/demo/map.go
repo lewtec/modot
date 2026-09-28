@@ -2,10 +2,10 @@ package demo
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type MapCmd struct{}
@@ -31,7 +31,7 @@ orchestrator tracks completed/total automatically.`
 }
 
 func (*MapCmd) Run(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 
 	items := []string{
 		"src/main.go",
@@ -54,7 +54,7 @@ func (*MapCmd) Run(ctx context.Context) error {
 		PoolKind: taskgroup.IO,
 		TaskName: func(_ int, path string) string { return "item:" + path },
 		Fn: func(ctx context.Context, st *taskgroup.Status, path string) (string, error) {
-			logger := logging.GetLogger(ctx)
+			logger := slog.Default()
 			st.Update("starting " + path)
 			work := 60*time.Millisecond + time.Duration(len(path)%4)*35*time.Millisecond
 			time.Sleep(work)

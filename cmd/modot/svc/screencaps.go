@@ -2,13 +2,13 @@ package svc
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	lewscreen "github.com/lewtec/lewkit/x/driver/screen"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 type Screencaps struct{}
@@ -28,7 +28,7 @@ func monitorCapsLock(ctx context.Context) {
 
 	matches, err := filepath.Glob("/sys/class/leds/*capslock/brightness")
 	if err != nil || len(matches) == 0 {
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 		logger.Warn("no capslock leds found")
 		return
 	}
@@ -47,7 +47,7 @@ func monitorCapsLock(ctx context.Context) {
 				}
 			}
 
-			logger := logging.GetLogger(ctx)
+			logger := slog.Default()
 			screenActive, err := lewscreen.IsDPMSOn(ctx)
 			if err != nil {
 				logger.Error("on checking if screen is active", "error", err)

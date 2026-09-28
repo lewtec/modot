@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/atomicfile"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/lewtec/modot/internal/miseutil"
 	"github.com/lewtec/modot/internal/selfbin"
 	"github.com/lewtec/modot/internal/version"
@@ -53,14 +53,14 @@ func runSelfInstall(ctx context.Context, force bool) error {
 	if !force {
 		if _, err := os.Stat(installPath); err == nil {
 			alreadyInstalled = true
-			logger := logging.GetLogger(ctx)
+			logger := slog.Default()
 			logger.Info("already installed", "path", installPath)
 		}
 	}
 
 	// Copy binary (unless already installed and not forcing)
 	if !alreadyInstalled {
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 		logger.Info("installing modot", "version", currentVersion, "path", installPath, "force", force)
 
 		if err := os.MkdirAll(installDir, 0755); err != nil {
@@ -79,7 +79,7 @@ func runSelfInstall(ctx context.Context, force bool) error {
 	}
 
 	// Always regenerate shims (even if binary already installed)
-	logger := logging.GetLogger(ctx)
+	logger := slog.Default()
 	logger.Info("regenerating shims")
 
 	if err := selfbin.EnsureModotShim(ctx, installPath); err != nil {
@@ -113,7 +113,7 @@ func createMiseShim(ctx context.Context) error {
 	if err := miseutil.EnsureLocalBinWrapper(ctx, modotBin); err != nil {
 		return err
 	}
-	logging.GetLogger(ctx).Info("created mise wrapper", "target", "open lazy --home mise")
+	slog.InfoContext(ctx, "created mise wrapper", "target", "open lazy --home mise")
 	return nil
 }
 
@@ -122,13 +122,23 @@ func copyFile(ctx context.Context, src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer logging.Close(ctx, source, "path", src)
+	defer func() {
+		if closer := source; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "close", "path", src, "error", err)
+			}
+		}
+	}()
 
 	f, err := atomicfile.Create(dst, 0o755)
 	if err != nil {
 		return err
 	}
-	defer logging.RunCleanup(ctx, "atomicfile.Abort", f.Abort)
+	defer func() {
+		if err := f.Abort(); err != nil {
+			slog.ErrorContext(ctx, "unexpected error", "op", "atomicfile.Abort", "error", err)
+		}
+	}()
 	if _, err := io.Copy(f, source); err != nil {
 		return err
 	}

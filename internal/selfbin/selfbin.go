@@ -3,13 +3,13 @@ package selfbin
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
 
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	"github.com/lewtec/modot/internal/driver/shim"
-	"github.com/lewtec/modot/internal/logging"
 )
 
 // InstallPaths returns the fixed bin dir and modot binary path under the
@@ -41,6 +41,6 @@ func EnsureModotShim(ctx context.Context, modotPath string) error {
 	if err != nil {
 		return err
 	}
-	logging.GetLogger(ctx).Info("modot shim ready", "path", shimPath, "target", modotPath)
+	slog.InfoContext(ctx, "modot shim ready", "path", shimPath, "target", modotPath)
 	return nil
 }

@@ -8,13 +8,12 @@ import (
 
 	"github.com/lewtec/modot/internal/configcue"
 	_ "github.com/lewtec/modot/internal/driver/env/native"
-	"github.com/lewtec/modot/internal/logging"
 	"github.com/stretchr/testify/require"
 )
 
 func TestBuilderTreeRendersTemplateAndStatic(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	src := t.TempDir()
 	dest := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(src, "hello.txt.tmpl"), []byte("hi {{ .runtime.goos }}\n"), 0o644))
@@ -35,7 +34,7 @@ func TestBuilderTreeRendersTemplateAndStatic(t *testing.T) {
 
 func TestBuilderTreeMergesCueLines(t *testing.T) {
 	t.Parallel()
-	ctx := logging.NewWriterContext(t.Output())
+	ctx := t.Context()
 	src := t.TempDir()
 	dest := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(src, ".bashrc.d.tmpl"), 0o755))

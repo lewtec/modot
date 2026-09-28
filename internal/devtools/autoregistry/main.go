@@ -4,14 +4,14 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	lewgit "github.com/lewtec/lewkit/x/git"
-	"github.com/lewtec/modot/internal/logging"
 	"iter"
 	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+
+	lewgit "github.com/lewtec/lewkit/x/git"
 
 	"github.com/lewtec/lewkit/x/cmd"
 	lewlog "github.com/lewtec/lewkit/x/logging"
@@ -28,7 +28,13 @@ func ExtractPackage(ctx context.Context, gofile string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer logging.Close(ctx, f)
+	defer func() {
+		if closer := f; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 	scanner := bufio.NewScanner(f)
 	if !scanner.Scan() {
 		if err := scanner.Err(); err != nil {
@@ -49,7 +55,7 @@ func (r DetectedRoot) Children(ctx context.Context) (iter.Seq[DetectedRoot], err
 		return nil, err
 	}
 	return func(yield func(DetectedRoot) bool) {
-		logger := logging.GetLogger(ctx)
+		logger := slog.Default()
 		for _, item := range items {
 			dirname := path.Base(path.Dir(item))
 			dir := path.Join(r.Dir, dirname)
@@ -98,7 +104,13 @@ func HandleRegistryCodegen(ctx context.Context, r DetectedRoot) error {
 	if err != nil {
 		return err
 	}
-	defer logging.Close(ctx, f)
+	defer func() {
+		if closer := f; closer != nil {
+			if err := closer.Close(); err != nil {
+				slog.ErrorContext(ctx, "unexpected error", "op", "close", "error", err)
+			}
+		}
+	}()
 	if _, err := fmt.Fprintf(f, "package %s\n", r.Package); err != nil {
 		return err
 	}
@@ -213,13 +225,14 @@ func main() {
 	rootLogger := slog.New(lewlog.NewHandler(os.Stderr, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
-	rootCtx := logging.NewRootContext(rootLogger)
+	slog.SetDefault(rootLogger)
+	rootCtx := context.Background() //nolint:forbidigo // process root
 	app, err := cmd.Parse[autoRegistry](os.Args[1:]...)
 	if err != nil {
-		logging.ReportError(rootCtx, err, "context", "fatal error")
+		slog.ErrorContext(rootCtx, "unexpected error", "context", "fatal error", "error", err)
 		return
 	}
 	if err := app.Run(rootCtx); err != nil {
-		logging.ReportError(rootCtx, err, "context", "fatal error")
+		slog.ErrorContext(rootCtx, "unexpected error", "context", "fatal error", "error", err)
 	}
 }
