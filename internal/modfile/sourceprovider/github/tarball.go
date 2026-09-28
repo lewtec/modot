@@ -12,9 +12,10 @@ import (
 	tarfs "github.com/lewtec/lewkit/x/fs/tar"
 	lewpath "github.com/lewtec/lewkit/x/path"
 
+	lewdriver "github.com/lewtec/lewkit/x/driver"
+	httpclientdriver "github.com/lewtec/lewkit/x/driver/httpclient"
+
 	"github.com/lewtec/modot/internal/archive"
-	"github.com/lewtec/modot/internal/driver"
-	httpclientdriver "github.com/lewtec/modot/internal/driver/httpclient"
 	"github.com/lewtec/modot/internal/githubutil"
 	"github.com/lewtec/modot/internal/logging"
 )
@@ -46,7 +47,7 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 	req.Header.Set("User-Agent", githubutil.UserAgent)
 	githubutil.ApplyAuth(ctx, req)
 
-	httpDriver, err := driver.Get[httpclientdriver.Driver](ctx)
+	httpDriver, err := lewdriver.Get[httpclientdriver.Driver](ctx)
 	if err != nil {
 		return "", fmt.Errorf("get http client driver: %w", err)
 	}

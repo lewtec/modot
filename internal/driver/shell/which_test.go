@@ -16,7 +16,7 @@ func TestWhichDriverExposesPathOnly(t *testing.T) {
 
 	ctx := logging.NewWriterContext(t.Output())
 	// Force the test registration regardless of weights.
-	t.Setenv("MODOT_FORCE_SHELL_DRIVER", "shell_test_which")
+	t.Setenv("LEWKIT_FORCE_SHELL_DRIVER", "shell_test_which")
 
 	d, err := shell.Get(ctx)
 	require.NoError(t, err)

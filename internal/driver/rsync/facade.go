@@ -6,8 +6,8 @@ import (
 	"io"
 	"strings"
 
+	lewdriver "github.com/lewtec/lewkit/x/driver"
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/driver"
 	"github.com/lewtec/modot/internal/executil"
 	"github.com/lewtec/modot/internal/logging"
 )
@@ -38,7 +38,7 @@ func BindStreams(ctx context.Context, extraOut io.Writer) (io.Writer, func()) {
 // Sync performs an rsync transfer using the selected driver.
 // See Driver.Sync for semantics and taskgroup integration.
 func Sync(ctx context.Context, src, dst string, opts Options) error {
-	return driver.With(ctx, func(d Driver) error { return d.Sync(ctx, src, dst, opts) })
+	return lewdriver.With(ctx, func(d Driver) error { return d.Sync(ctx, src, dst, opts) })
 }
 
 // RunWithTaskGroup is the helper implementations call from their Sync method.

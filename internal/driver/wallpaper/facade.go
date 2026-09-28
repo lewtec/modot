@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	lewdriver "github.com/lewtec/lewkit/x/driver"
+	lewhttp "github.com/lewtec/lewkit/x/driver/httpclient"
 	lewwall "github.com/lewtec/lewkit/x/driver/wallpaper"
 	"github.com/lewtec/modot/internal/api"
 	"github.com/lewtec/modot/internal/atomicfile"
 	"github.com/lewtec/modot/internal/configcue"
-	"github.com/lewtec/modot/internal/driver"
 	execdriver "github.com/lewtec/modot/internal/driver/exec"
-	"github.com/lewtec/modot/internal/driver/httpclient"
 	"github.com/lewtec/modot/internal/logging"
 )
 
@@ -83,7 +83,7 @@ func SetAPOD(ctx context.Context) error {
 
 	logger.Info("fetching NASA Astronomy Picture of the Day")
 
-	httpDriver, err := driver.Get[httpclient.Driver](ctx)
+	httpDriver, err := lewdriver.Get[lewhttp.Driver](ctx)
 	if err != nil {
 		return err
 	}

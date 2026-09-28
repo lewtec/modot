@@ -16,11 +16,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	lewdriver "github.com/lewtec/lewkit/x/driver"
+	httpclientdriver "github.com/lewtec/lewkit/x/driver/httpclient"
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/atomicfile"
-	"github.com/lewtec/modot/internal/driver"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
-	httpclientdriver "github.com/lewtec/modot/internal/driver/httpclient"
 	"github.com/lewtec/modot/internal/logging"
 )
 
@@ -65,7 +65,7 @@ func GetIconPath(ctx context.Context, url string) (string, error) {
 			return err
 		}
 
-		httpDriver, err := driver.Get[httpclientdriver.Driver](ctx)
+		httpDriver, err := lewdriver.Get[httpclientdriver.Driver](ctx)
 		if err != nil {
 			return fmt.Errorf("get http client driver: %w", err)
 		}

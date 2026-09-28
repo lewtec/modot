@@ -11,7 +11,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/lewtec/modot/internal/driver"
+	lewdriver "github.com/lewtec/lewkit/x/driver"
+
 	"github.com/lewtec/modot/internal/driver/exec"
 	"github.com/lewtec/modot/internal/driver/svgraster"
 	"github.com/lewtec/modot/internal/logging"
@@ -116,6 +117,7 @@ func (f Factory) ID() string { return "resvg" }
 func (f Factory) Name() string {
 	return "resvg"
 }
+func (f Factory) Weight() int { return 100 }
 func (f Factory) CheckCompatibility(ctx context.Context) error {
 	// resvg is installed on demand via lazy_tools.resvg (lockfile pin).
 	return nil
@@ -125,5 +127,5 @@ func (f Factory) New(ctx context.Context) (svgraster.Driver, error) {
 }
 
 func init() {
-	driver.Register[svgraster.Driver](Factory{})
+	lewdriver.Register[svgraster.Driver](Factory{})
 }

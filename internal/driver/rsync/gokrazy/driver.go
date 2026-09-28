@@ -5,8 +5,8 @@ import (
 	"io"
 	"log/slog"
 
+	lewdriver "github.com/lewtec/lewkit/x/driver"
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/driver"
 	rsyncdriver "github.com/lewtec/modot/internal/driver/rsync"
 	"github.com/lewtec/modot/internal/logging"
 
@@ -14,13 +14,14 @@ import (
 )
 
 func init() {
-	driver.Register[rsyncdriver.Driver](&Factory{})
+	lewdriver.Register[rsyncdriver.Driver](&Factory{})
 }
 
 type Factory struct{}
 
 func (f *Factory) ID() string   { return "rsync_gokrazy" }
 func (f *Factory) Name() string { return "gokrazy/rsync (pure Go)" }
+func (f *Factory) Weight() int  { return 40 }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	// Pure Go implementation, always available.
