@@ -46,7 +46,7 @@ Register an impl by importing its package from the central prelude.
 ## When adding things
 
 - New driver category: `internal/driver/<cat>/driver.go` (interface) + `facade.go`, one impl dir, import in `internal/driver/prelude/prelude.go`, CLI under `cmd/modot/driver/<cat>/`.
-- Tool backends, the curated catalog, and tool download drivers (fetchurl, httpclient) live in `github.com/lewtec/lewkit/x/tool` and `x/driver`. Modot keeps the store path, shims, lazy locks, and CLI. Add a backend in lewkit, then blank-import it from `internal/tool/prelude` (which loads `x/tool/prelude`).
+- Tool backends, the curated catalog, and tool download drivers (fetchurl, httpclient) live in `github.com/lewtec/lewkit/x/tool` and `x/driver`. Modot keeps the store path, shims, lazy locks, and CLI. Add a backend in lewkit, then blank-import it from `internal/tool/prelude` (which loads `x/tool/prelude`). The conda backend is the in-repo exception: `internal/tool/conda`, blank-imported from that same prelude.
 - New module source: implement under `internal/modfile/sourceprovider/`.
 - Anything else: `internal/<domain>/` unless another module should import it.
 
