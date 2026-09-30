@@ -10,7 +10,7 @@ require (
 	github.com/gokrazy/rsync v0.3.3
 	github.com/google/go-cmp v0.7.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/klauspost/compress v1.18.5
+	github.com/klauspost/compress v1.20.1
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
 	github.com/lewtec/lewkit v0.0.0-20260927190338-001818778ffe
 	github.com/owenrumney/go-sarif/v2 v2.3.3
