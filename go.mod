@@ -12,7 +12,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/klauspost/compress v1.18.5
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
-	github.com/lewtec/lewkit v0.0.0-20260927190338-001818778ffe
+	github.com/lewtec/lewkit v0.0.0-20261003011929-9c8996501617
 	github.com/owenrumney/go-sarif/v2 v2.3.3
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/pelletier/go-toml/v2 v2.3.1
@@ -25,6 +25,7 @@ require (
 	cel.dev/expr v0.25.2 // indirect
 	charm.land/bubbletea/v2 v2.0.7 // indirect
 	filippo.io/edwards25519 v1.1.1 // indirect
+	github.com/AndroidGoLab/binder v0.0.9 // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/a-h/templ v0.3.1020 // indirect
 	github.com/anchore/go-lzo v0.1.0 // indirect
@@ -43,17 +44,22 @@ require (
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/cubicdaiya/gonp v1.0.4 // indirect
+	github.com/cyphar/filepath-securejoin v0.5.1 // indirect
 	github.com/dave/jennifer v1.7.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/diskfs/go-diskfs v1.9.4 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.11.0 // indirect
 	github.com/emicklei/proto v1.14.3 // indirect
+	github.com/facebookincubator/go-belt v0.0.0-20250308011339-62fb7027b11f // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/fetchurl/fetchurl v0.0.0-20260714002336-2d69880d6c8b // indirect
 	github.com/gdamore/encoding v1.0.1 // indirect
 	github.com/gdamore/tcell/v2 v2.6.0 // indirect
 	github.com/getsentry/sentry-go v0.49.0 // indirect
+	github.com/go-ng/slices v0.0.0-20230703171042-6195d35636a2 // indirect
+	github.com/go-ng/sort v0.0.0-20220617173827-2cc7cd04f7c7 // indirect
+	github.com/go-ng/xsort v0.0.0-20220617174223-1d146907bccc // indirect
 	github.com/go-sql-driver/mysql v1.9.3 // indirect
 	github.com/golang-migrate/migrate/v4 v4.20.1 // indirect
 	github.com/google/cel-go v0.28.0 // indirect
@@ -86,6 +92,7 @@ require (
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/ncruces/julianday v1.0.0 // indirect
 	github.com/nsf/termbox-go v1.1.1 // indirect
+	github.com/opencontainers/selinux v1.13.1 // indirect
 	github.com/pganalyze/pg_query_go/v6 v6.2.2 // indirect
 	github.com/pierrec/lz4/v4 v4.1.26 // indirect
 	github.com/pingcap/errors v0.11.5-0.20250523034308-74f78ae071ee // indirect
