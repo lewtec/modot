@@ -50,6 +50,11 @@ changelog:
       - "^test:"
 
 release:
+  # The git remote may still be the pre-rename lucasew/workspaced URL.
+  # uploads.github.com answers that name with 307 and an empty Location.
+  github:
+    owner: lewtec
+    name: modot
   footer: >-
 
     ---
