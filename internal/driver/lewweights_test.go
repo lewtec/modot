@@ -12,10 +12,11 @@ import (
 	"github.com/lewtec/modot/internal/driver"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/lewtec/modot/internal/driver/audio/prelude"
-	_ "github.com/lewtec/modot/internal/driver/dialog/prelude"
+	_ "github.com/lewtec/modot/internal/driver/audio/lew"
+	_ "github.com/lewtec/modot/internal/driver/dialog/lew"
 	_ "github.com/lewtec/modot/internal/driver/notification/prelude"
-	_ "github.com/lewtec/modot/internal/driver/terminal/prelude"
+	_ "github.com/lewtec/modot/internal/driver/terminal/lew"
+	_ "github.com/lewtec/modot/internal/driver/terminal/termux"
 )
 
 func TestApplyLewWeightsTranslatesLegacyKeys(t *testing.T) {

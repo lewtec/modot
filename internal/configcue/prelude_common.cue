@@ -12,10 +12,6 @@ lazy_tools: {
 		ref:  *"registry:mise" | string
 		bins: *["mise"] | [...string]
 	}
-	gh: {
-		ref:  *"github:cli/cli" | string
-		bins: *["gh"] | [...string]
-	}
 	resvg: {
 		ref:  *"registry:resvg" | string
 		bins: *["resvg"] | [...string]
