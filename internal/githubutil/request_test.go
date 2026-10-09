@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewAPIRequestHeaders(t *testing.T) {
-	t.Setenv(githubTokenProbeEnv, githubTokenProbeVal)
+	t.Setenv("LEWKIT_GITHUB_TOKEN_PROBE", "1")
 	ctx := t.Context()
 	req, err := NewAPIRequest(ctx, http.MethodGet, "https://api.github.com/repos/o/r/releases")
 	require.NoError(t, err)
