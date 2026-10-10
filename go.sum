@@ -399,6 +399,8 @@ github.com/lewtec/lewkit v0.0.0-20261010134257-2cf428d662f4 h1:bt6aGK2ppBRhhBdmh
 github.com/lewtec/lewkit v0.0.0-20261010134257-2cf428d662f4/go.mod h1:8pSsRITY5EXYM9D4wR/Qf+/Rh4GIX6GjWCVGTcg57nk=
 github.com/lewtec/lewkit v0.0.0-20261010134704-86606526abb5 h1:NduLdwLTdV1+jGQLIgQswq+RzQL2ACBT/WvnX5JwjPA=
 github.com/lewtec/lewkit v0.0.0-20261010134704-86606526abb5/go.mod h1:8pSsRITY5EXYM9D4wR/Qf+/Rh4GIX6GjWCVGTcg57nk=
+github.com/lewtec/lewkit v0.0.0-20261010142540-6b6733080794 h1:iJe89fShOp29lBnhrMV83e2FBJBkLNUqH6l30uRrhB8=
+github.com/lewtec/lewkit v0.0.0-20261010142540-6b6733080794/go.mod h1:8pSsRITY5EXYM9D4wR/Qf+/Rh4GIX6GjWCVGTcg57nk=
 github.com/lewtec/wazero-tree-sitter/grammar v0.0.0-20260927175003-766673523e06 h1:qYGqfJ5fiQeRfSxsvcOwVbADQsZy8raGYr6l1EpaaOc=
 github.com/lewtec/wazero-tree-sitter/grammar v0.0.0-20260927175003-766673523e06/go.mod h1:xwgf7PJSOWRAqcuffR314NyyEYgsyeTP/Y1FxvykQBk=
 github.com/lib/pq v1.12.3 h1:tTWxr2YLKwIvK90ZXEw8GP7UFHtcbTtty8zsI+YjrfQ=
