@@ -395,6 +395,10 @@ github.com/lewtec/leaven-tree-sitter/grammar/make v0.0.0-20260927175155-6b7c6c64
 github.com/lewtec/leaven-tree-sitter/grammar/make v0.0.0-20260927175155-6b7c6c643bc9/go.mod h1:XWpUGeAdj1aYHmyRIUXU+xAj9CEqWjmf9ROfPVQh6es=
 github.com/lewtec/lewkit v0.0.0-20261009223042-54ba6c219825 h1:eUkhF+hYe6sFptvsQu42b6gZAGTRjHc6Rj7Vd1shRAo=
 github.com/lewtec/lewkit v0.0.0-20261009223042-54ba6c219825/go.mod h1:8pSsRITY5EXYM9D4wR/Qf+/Rh4GIX6GjWCVGTcg57nk=
+github.com/lewtec/lewkit v0.0.0-20261010134257-2cf428d662f4 h1:bt6aGK2ppBRhhBdmhaXMqrVRJC2st3wqlXtWEPnnp+M=
+github.com/lewtec/lewkit v0.0.0-20261010134257-2cf428d662f4/go.mod h1:8pSsRITY5EXYM9D4wR/Qf+/Rh4GIX6GjWCVGTcg57nk=
+github.com/lewtec/lewkit v0.0.0-20261010134704-86606526abb5 h1:NduLdwLTdV1+jGQLIgQswq+RzQL2ACBT/WvnX5JwjPA=
+github.com/lewtec/lewkit v0.0.0-20261010134704-86606526abb5/go.mod h1:8pSsRITY5EXYM9D4wR/Qf+/Rh4GIX6GjWCVGTcg57nk=
 github.com/lewtec/wazero-tree-sitter/grammar v0.0.0-20260927175003-766673523e06 h1:qYGqfJ5fiQeRfSxsvcOwVbADQsZy8raGYr6l1EpaaOc=
 github.com/lewtec/wazero-tree-sitter/grammar v0.0.0-20260927175003-766673523e06/go.mod h1:xwgf7PJSOWRAqcuffR314NyyEYgsyeTP/Y1FxvykQBk=
 github.com/lib/pq v1.12.3 h1:tTWxr2YLKwIvK90ZXEw8GP7UFHtcbTtty8zsI+YjrfQ=
