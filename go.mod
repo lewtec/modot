@@ -12,7 +12,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/klauspost/compress v1.18.5
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
-	github.com/lewtec/lewkit v0.0.0-20261005202002-5724f0b96c7f
+	github.com/lewtec/lewkit v0.0.0-20261009225305-b47f3201438d
 	github.com/owenrumney/go-sarif/v2 v2.3.3
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/pelletier/go-toml/v2 v2.3.1
@@ -22,6 +22,7 @@ require (
 )
 
 require (
+	al.essio.dev/pkg/shellescape v1.5.1 // indirect
 	cel.dev/expr v0.25.2 // indirect
 	charm.land/bubbletea/v2 v2.0.7 // indirect
 	filippo.io/edwards25519 v1.1.1 // indirect
@@ -44,6 +45,7 @@ require (
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/cubicdaiya/gonp v1.0.4 // indirect
 	github.com/cyphar/filepath-securejoin v0.5.1 // indirect
+	github.com/danieljoos/wincred v1.2.2 // indirect
 	github.com/dave/jennifer v1.7.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/diskfs/go-diskfs v1.9.4 // indirect
@@ -113,6 +115,7 @@ require (
 	github.com/wasilibs/go-pgquery v0.0.0-20250409022910-10ac41983c07 // indirect
 	github.com/wasilibs/wazero-helpers v0.0.0-20240620070341-3dff1577cd52 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
+	github.com/zalando/go-keyring v0.2.6 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
