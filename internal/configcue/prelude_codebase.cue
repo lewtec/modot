@@ -34,6 +34,10 @@ lazy_tools: {
 		ref:  *"mise:go:golang.org/x/vuln/cmd/govulncheck" | string
 		bins: *["govulncheck"] | [...string]
 	}
+	patlint: {
+		ref:  *"registry:patlint" | string
+		bins: *["patlint"] | [...string]
+	}
 }
 
 lint: {
@@ -101,6 +105,18 @@ lint: {
 			}
 			cmd: ["node_modules/.bin/eslint", "-f", "json", "."]
 			output: "eslint_json"
+		}
+		// Pack root is the git repository. patlint loads *.rft and .patlint/*.rft
+		// there (not recursive). --format sarif is one document on stdout; exit 1
+		// still carries that document when findings remain.
+		patlint: {
+			detect: {
+				"00-patlint-dir": {path: ".patlint", enable: true}
+				"10-rft": {glob: "*.rft", enable: true}
+			}
+			needs: {patlint: true}
+			cmd: ["patlint", "run", "--format", "sarif", "--", "."]
+			output: "sarif"
 		}
 	}
 }
