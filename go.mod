@@ -12,7 +12,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/klauspost/compress v1.18.5
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
-	github.com/lewtec/lewkit v0.0.0-20261010142540-6b6733080794
+	github.com/lewtec/lewkit v0.0.0-20261014225239-82e0bf6d08f3
 	github.com/owenrumney/go-sarif/v2 v2.3.3
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/pelletier/go-toml/v2 v2.3.1
@@ -161,7 +161,7 @@ require (
 	github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3 // indirect
 	github.com/lewtec/leaven v0.0.0-20260814142252-666e23083398 // indirect
 	github.com/lewtec/leaven-tree-sitter/grammar v0.0.0-20260927175155-6b7c6c643bc9 // indirect
-	github.com/lewtec/leaven-tree-sitter/grammar/make v0.0.0-20260927175155-6b7c6c643bc9 // indirect
+	github.com/lewtec/leaven-tree-sitter/grammar/make v0.0.0-20260927191427-b55c533d023c // indirect
 	github.com/lewtec/wazero-tree-sitter/grammar v0.0.0-20260927175003-766673523e06 // indirect
 	github.com/lib/pq v1.12.3 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
