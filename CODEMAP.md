@@ -8,7 +8,7 @@ CUE config (`modot.cue`) drives everything.
 
 - Drivers (`pkg/driver`): OS features (audio, clipboard, WM, …). One impl per interface, chosen by weights and compatibility checks.
 - Modules + source pipeline (`internal/module`, `internal/source`): config and templates become real files, streamed in memory.
-- Tools: `github.com/lewtec/lewkit/x/tool` (github, mise, registry) plus lewkit fetchurl/httpclient drivers. The conda backend lives in `internal/tool/conda` and registers from `internal/tool/prelude`. Modot `internal/tool` owns the store path, shims, and lock rows.
+- Tools: `github.com/lewtec/lewkit/x/tool` (conda, github, mise, registry) plus lewkit fetchurl/httpclient drivers. Modot `internal/tool` owns the store path, shims, and lock rows.
 - Checks (`internal/checks`): CUE-defined linters/formatters (`lint`/`formatter` tools + codecs); `lint --review` → GHA workflow annotations.
 - CLI packages under `cmd/modot/` are small x/cmd structs.
 
@@ -36,7 +36,7 @@ Never import driver prelude except from `cmd/modot/root.go`. Tool/check preludes
 ## Common tasks
 
 - New driver capability: `pkg/driver/newthing/` (interface + facade + impl), then add to prelude.
-- Curated tool: `github.com/lewtec/lewkit/x/tool/registry/applications/`
+- Curated tool: `github.com/lewtec/lewkit/x/tool/registry/`
 - Change how a tool locks: that tool's `Pin` method. Modot copies `Pin` onto the lock row.
 - CUE schema changes: `internal/configcue/schema.cue`
 
