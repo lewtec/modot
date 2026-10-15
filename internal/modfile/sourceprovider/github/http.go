@@ -7,23 +7,22 @@ import (
 	"log/slog"
 	"net/http"
 
-	lewdriver "github.com/lewtec/lewkit/x/driver"
 	httpclientdriver "github.com/lewtec/lewkit/x/driver/httpclient"
-	"github.com/lewtec/modot/internal/githubutil"
+	githubprov "github.com/lewtec/lewkit/x/tool/github"
 )
 
 func (s Source) GetJSON(ctx context.Context, url string, out any) error {
-	httpDriver, err := lewdriver.Get[httpclientdriver.Driver](ctx)
+	client, err := httpclientdriver.Client(ctx)
 	if err != nil {
 		return fmt.Errorf("get http client driver: %w", err)
 	}
 
-	req, err := githubutil.NewAPIRequest(ctx, http.MethodGet, url)
+	req, err := githubprov.NewAPIRequest(ctx, http.MethodGet, url)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	resp, err := httpDriver.Client().Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -37,7 +36,7 @@ func (s Source) GetJSON(ctx context.Context, url string, out any) error {
 	if resp.StatusCode != http.StatusOK {
 		hint := ""
 		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusForbidden {
-			if githubutil.Token(ctx) == "" {
+			if githubprov.Token(ctx) == "" {
 				hint = " (private repos require GITHUB_TOKEN or 'gh auth login')"
 			}
 		}

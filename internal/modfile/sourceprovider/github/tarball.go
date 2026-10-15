@@ -9,15 +9,13 @@ import (
 	"log/slog"
 	"net/http"
 
+	httpclientdriver "github.com/lewtec/lewkit/x/driver/httpclient"
 	lewfs "github.com/lewtec/lewkit/x/fs"
 	tarfs "github.com/lewtec/lewkit/x/fs/tar"
 	lewpath "github.com/lewtec/lewkit/x/path"
-
-	lewdriver "github.com/lewtec/lewkit/x/driver"
-	httpclientdriver "github.com/lewtec/lewkit/x/driver/httpclient"
+	githubprov "github.com/lewtec/lewkit/x/tool/github"
 
 	"github.com/lewtec/modot/internal/archive"
-	"github.com/lewtec/modot/internal/githubutil"
 )
 
 func downloadAndExtractTarball(ctx context.Context, source Source, destDir string, expectedHash string) (sourceMeta, error) {
@@ -40,18 +38,16 @@ func downloadAndExtractTarball(ctx context.Context, source Source, destDir strin
 // request, and fetchurl has no ConfigureRequest hook. Hash is verified locally
 // when expectedHash is set.
 func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, expectedHash string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := githubprov.NewAPIRequest(ctx, http.MethodGet, url)
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("User-Agent", githubutil.UserAgent)
-	githubutil.ApplyAuth(ctx, req)
 
-	httpDriver, err := lewdriver.Get[httpclientdriver.Driver](ctx)
+	client, err := httpclientdriver.Client(ctx)
 	if err != nil {
 		return "", fmt.Errorf("get http client driver: %w", err)
 	}
-	resp, err := httpDriver.Client().Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -65,7 +61,7 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 	if resp.StatusCode != http.StatusOK {
 		hint := ""
 		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusForbidden {
-			if githubutil.Token(ctx) == "" {
+			if githubprov.Token(ctx) == "" {
 				hint = " (private repos require GITHUB_TOKEN or 'gh auth login')"
 			}
 		}
