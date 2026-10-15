@@ -26,7 +26,7 @@ import (
 	_ "github.com/lewtec/modot/internal/driver/svgraster/prelude"
 	_ "github.com/lewtec/modot/internal/driver/terminal/lew"
 	_ "github.com/lewtec/modot/internal/driver/terminal/termux"
-	_ "github.com/lewtec/modot/internal/driver/tray/prelude"
+	_ "github.com/lewtec/modot/internal/driver/tray/lew"
 	_ "github.com/lewtec/modot/internal/driver/wallpaper/prelude"
 	_ "github.com/lewtec/modot/internal/driver/wm/prelude"
 )
