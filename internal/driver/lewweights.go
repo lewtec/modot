@@ -24,6 +24,7 @@ var lewIface = map[string]string{
 	"github.com/lewtec/modot/internal/driver/screen.Driver":       "github.com/lewtec/lewkit/x/driver/screen.Driver",
 	"github.com/lewtec/modot/internal/driver/screenshot.Driver":   "github.com/lewtec/lewkit/x/driver/screenshot.Driver",
 	"github.com/lewtec/modot/internal/driver/terminal.Driver":     "github.com/lewtec/lewkit/x/driver/terminal.Driver",
+	"github.com/lewtec/modot/internal/driver/tray.Driver":         "github.com/lewtec/lewkit/x/driver/tray.Driver",
 	"github.com/lewtec/modot/internal/driver/wallpaper.Driver":    "github.com/lewtec/lewkit/x/driver/wallpaper.Driver",
 	"github.com/lewtec/modot/internal/driver/wm.Driver":           "github.com/lewtec/lewkit/x/driver/wm.Driver",
 }
@@ -34,6 +35,7 @@ var lewID = map[string]string{
 	"brightness_ctl":      "brightness_brightnessctl",
 	"screen_wayland_sway": "wm_sway",
 	"screen_x11_i3":       "wm_i3",
+	"tray_dbus":           "dbus",
 	"v4l-ffmpeg":          "camera_v4l",
 	"wayland_swaybg":      "wallpaper_swaybg",
 	"x11_feh":             "wallpaper_feh",

@@ -14,14 +14,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/pbnjay/memory"
 
 	"cuelang.org/go/cue/ast"
 	lewgit "github.com/lewtec/lewkit/x/git"
-	"github.com/lewtec/modot/internal/driver"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	"github.com/lewtec/modot/internal/filespine"
 	"github.com/lewtec/modot/internal/modulecue"
@@ -32,7 +30,6 @@ import (
 	cueerrors "cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/format"
 	"cuelang.org/go/cue/parser"
-	"cuelang.org/go/cue/token"
 )
 
 var (
@@ -259,24 +256,12 @@ func compileModotValueWithContext(ctx *cue.Context, paths []string, runtimePrelu
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("mount file profiles: %w", err)
 	}
-	base := []namedSource{
+	files := []namedSource{
 		{Name: "schema.cue", Source: string(schemaBytes)},
 		{Name: "compose-profiles.cue", Source: profileSource},
 		{Name: "prelude_common.cue", Source: string(preludeCommonBytes)},
 		{Name: preludeVariantFile, Source: string(preludeVariantBytes)},
 		{Name: "runtime_prelude.cue", Source: runtimePrelude},
-	}
-	partial, err := buildPackage(ctx, base)
-	if err != nil {
-		return cue.Value{}, err
-	}
-	driverLayer, err := buildDriverWeightLayer(partial)
-	if err != nil {
-		return cue.Value{}, err
-	}
-	files := append([]namedSource{}, base...)
-	if driverLayer != "" {
-		files = append(files, namedSource{Name: "driver_weights.cue", Source: driverLayer})
 	}
 	for _, layer := range preLayers {
 		files = append(files, namedSource{Name: layer.Name, Source: layer.Source})
@@ -614,76 +599,6 @@ func buildModuleSchemaLayer(schemaByModule map[string]string) (string, error) {
 		return "", fmt.Errorf("format generated module schema layer: %w", err)
 	}
 	return string(formatted), nil
-}
-
-func buildDriverWeightLayer(current cue.Value) (string, error) {
-	shape := driver.RegisteredWeightShape()
-	if len(shape) == 0 {
-		return "", nil
-	}
-
-	ifaceNames := make([]string, 0, len(shape))
-	for name := range shape {
-		ifaceNames = append(ifaceNames, name)
-	}
-	sort.Strings(ifaceNames)
-
-	driverFields := make([]ast.Decl, 0, len(ifaceNames))
-	for _, ifaceName := range ifaceNames {
-		providerIDs := shape[ifaceName]
-		providerFields := make([]ast.Decl, 0, len(providerIDs))
-		for _, providerID := range providerIDs {
-			if hasDriverWeight(current, ifaceName, providerID) {
-				continue
-			}
-			providerFields = append(providerFields, &ast.Field{
-				Label: ast.NewString(providerID),
-				Value: ast.NewBinExpr(
-					token.OR,
-					&ast.UnaryExpr{
-						Op: token.MUL,
-						X:  ast.NewLit(token.INT, strconv.Itoa(50)),
-					},
-					ast.NewIdent("int"),
-				),
-			})
-		}
-		if len(providerFields) == 0 {
-			continue
-		}
-		driverFields = append(driverFields, &ast.Field{
-			Label: ast.NewString(ifaceName),
-			Value: &ast.StructLit{Elts: providerFields},
-		})
-	}
-	if len(driverFields) == 0 {
-		return "", nil
-	}
-
-	file := &ast.File{
-		Decls: []ast.Decl{
-			&ast.Package{Name: ast.NewIdent("modot")},
-			&ast.Field{
-				Label: ast.NewIdent("drivers"),
-				Value: &ast.StructLit{Elts: driverFields},
-			},
-		},
-	}
-	formatted, err := format.Node(file)
-	if err != nil {
-		return "", fmt.Errorf("format generated driver weight layer: %w", err)
-	}
-	return string(formatted), nil
-}
-
-func hasDriverWeight(v cue.Value, ifaceName string, providerID string) bool {
-	path := cue.MakePath(
-		cue.Str("drivers"),
-		cue.Str(ifaceName),
-		cue.Str(providerID),
-	)
-	current := v.LookupPath(path)
-	return current.Exists() && current.Err() == nil
 }
 
 func resolveLocalModulePath(cfg *Config, moduleName string, modEntry ModuleEntry, modulesBaseDir string) (string, bool, error) {

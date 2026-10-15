@@ -6,12 +6,20 @@ import (
 	"path/filepath"
 
 	"github.com/lewtec/modot/internal/api"
-	"github.com/lewtec/modot/internal/constants"
 )
 
-// FindDotfilesRoot walks constants.DotfilesCandidates using home for ~ expansion.
+// DotfilesCandidates is the list of paths to search for dotfiles root.
+// Paths are checked in order, first match wins.
+// Supports ~ for home directory and $VAR for environment variables.
+var DotfilesCandidates = []string{
+	"/workspaces/.codespaces/.persistedshare/dotfiles", // GitHub Codespaces
+	"~/.dotfiles",    // User dotfiles
+	"/etc/.dotfiles", // System-wide dotfiles
+}
+
+// FindDotfilesRoot walks DotfilesCandidates using home for ~ expansion.
 func FindDotfilesRoot(home string) (string, error) {
-	for _, path := range constants.DotfilesCandidates {
+	for _, path := range DotfilesCandidates {
 		expanded := ExpandPathIn(path, home)
 		if info, err := os.Stat(expanded); err == nil && info.IsDir() {
 			return expanded, nil

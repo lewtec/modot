@@ -14,7 +14,8 @@ import (
 	lewtool "github.com/lewtec/lewkit/x/tool"
 	"github.com/lewtec/lewkit/x/tool/github"
 	"github.com/lewtec/lewkit/x/tool/registry"
-	apps "github.com/lewtec/lewkit/x/tool/registry/applications"
+	obsidian "github.com/lewtec/lewkit/x/tool/registry/obsidian"
+	_ "github.com/lewtec/lewkit/x/tool/registry/prelude"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -90,9 +91,6 @@ func TestRegistryInstall(t *testing.T) {
 	for _, name := range registry.ListTools() {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			if name == "refactree" {
-				t.Skip("catalog repo lucasew/refactree is not readable from this workflow")
-			}
 			installed, err := registry.NewTool(name)
 			if err != nil {
 				reportInstallFailure(name, fmt.Sprintf("NewTool: %v", err))
@@ -118,7 +116,7 @@ func TestRegistryInstall(t *testing.T) {
 
 			dest := t.TempDir()
 			if err := installed.Install(ctx, versions[0], dest); err != nil {
-				if errors.Is(err, github.ErrNoArtifact) || errors.Is(err, apps.ErrNoPlatformArtifact) {
+				if errors.Is(err, github.ErrNoArtifact) || errors.Is(err, obsidian.ErrNoPlatformArtifact) {
 					t.Skipf("no artifact for %s/%s: %v", runtime.GOOS, runtime.GOARCH, err)
 				}
 				reportInstallFailure(name, fmt.Sprintf("Install(%q): %v", versions[0], err))

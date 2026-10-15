@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	lewdriver "github.com/lewtec/lewkit/x/driver"
 	lewhttp "github.com/lewtec/lewkit/x/driver/httpclient"
 	lewwall "github.com/lewtec/lewkit/x/driver/wallpaper"
 	"github.com/lewtec/modot/internal/api"
@@ -83,13 +82,13 @@ func SetAPOD(ctx context.Context) error {
 
 	slog.Info("fetching NASA Astronomy Picture of the Day")
 
-	httpDriver, err := lewdriver.Get[lewhttp.Driver](ctx)
+	client, err := lewhttp.Client(ctx)
 	if err != nil {
 		return err
 	}
 
 	apiURL := fmt.Sprintf("https://api.nasa.gov/planetary/apod?api_key=%s", apiKey)
-	resp, err := httpDriver.Client().Get(apiURL)
+	resp, err := client.Get(apiURL)
 	if err != nil {
 		return err
 	}
@@ -127,7 +126,7 @@ func SetAPOD(ctx context.Context) error {
 	}
 	outPath := filepath.Join(cacheDir, "apod.jpg")
 
-	imgResp, err := httpDriver.Client().Get(url)
+	imgResp, err := client.Get(url)
 	if err != nil {
 		return err
 	}

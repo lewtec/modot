@@ -2,6 +2,7 @@ package termux
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"log/slog"
 	"net"
@@ -13,9 +14,6 @@ import (
 
 	lewdriver "github.com/lewtec/lewkit/x/driver"
 	lewhttp "github.com/lewtec/lewkit/x/driver/httpclient"
-
-	"github.com/lewtec/modot/internal/driver"
-	httpclientdriver "github.com/lewtec/modot/internal/driver/httpclient"
 )
 
 func init() {
@@ -30,7 +28,7 @@ func (f *Factory) Name() string { return "Termux HTTP Client" }
 func (f *Factory) Weight() int { return 60 }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	return driver.RequireTermux()
+	return lewdriver.RequireTermux()
 }
 
 func (f *Factory) New(ctx context.Context) (lewhttp.Driver, error) {
@@ -70,7 +68,25 @@ func (d *Driver) Client() *http.Client {
 			KeepAlive: 30 * time.Second,
 			Resolver:  resolver,
 		}
-		d.client = httpclientdriver.NewClient(d.rootCAs, dialer)
+		inner := &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				if network == "tcp" {
+					network = "tcp4"
+				}
+				return dialer.DialContext(ctx, network, addr)
+			},
+			TLSClientConfig: &tls.Config{
+				RootCAs: d.rootCAs,
+			},
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		}
+		d.client = &http.Client{ //nolint:forbidigo // httpclient driver implementation
+			Transport: lewhttp.WithProgress(inner),
+		}
 	})
 	return d.client
 }

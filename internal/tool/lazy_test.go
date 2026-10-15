@@ -44,6 +44,7 @@ lazy_tools: {
     {"kind": "tool", "ref": "registry:mise", "currentValue": "0.1.0", "depName": "jdx/mise", "datasource": "github-releases"},
     {"kind": "tool", "ref": "registry:resvg", "currentValue": "0.1.0", "depName": "linebender/resvg", "datasource": "github-releases"},
     {"kind": "tool", "ref": "github:lucasew/ci-status", "currentValue": "0.1.0", "depName": "lucasew/ci-status", "datasource": "github-releases"},
+    {"kind": "tool", "ref": "registry:patlint", "currentValue": "0.1.0", "depName": "lewtec/patlint", "datasource": "github-releases"},
     {"kind": "tool", "ref": "mise:go:golang.org/x/vuln/cmd/govulncheck", "currentValue": "0.1.0"}
   ]
 }

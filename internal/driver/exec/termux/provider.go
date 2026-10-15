@@ -15,7 +15,6 @@ import (
 
 	"github.com/lewtec/modot/internal/api"
 	"github.com/lewtec/modot/internal/atomicfile"
-	"github.com/lewtec/modot/internal/driver"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 	"github.com/lewtec/modot/internal/executil"
 )
@@ -44,7 +43,7 @@ func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if prefix := os.Getenv("PREFIX"); strings.HasPrefix(prefix, "/data/data/com.termux/files/usr") {
 		return nil
 	}
-	return fmt.Errorf("%w: not running in Termux", driver.ErrIncompatible)
+	return fmt.Errorf("%w: not running in Termux", lewdriver.ErrIncompatible)
 }
 
 func (f *Factory) New(ctx context.Context) (lewexec.Driver, error) {

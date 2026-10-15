@@ -1,20 +1,18 @@
 package init
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/fs"
-	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
 	"text/template"
 
 	"github.com/lewtec/modot/internal/atomicfile"
-	"github.com/lewtec/modot/internal/constants"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 
 	"github.com/lewtec/lewkit/x/cmd"
@@ -44,8 +42,8 @@ func runInit(ctx context.Context, force bool) error {
 	// 1. Detect dotfiles root
 	dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 	if err != nil || dotfilesRoot == "" {
-		// Use first candidate from constants (typically ~/.dotfiles)
-		dotfilesRoot = envdriver.ExpandPath(constants.DotfilesCandidates[0])
+		// Use first candidate from envdriver (typically ~/.dotfiles)
+		dotfilesRoot = envdriver.ExpandPath(envdriver.DotfilesCandidates[0])
 		if dotfilesRoot == "" {
 			dotfilesRoot = filepath.Join(home, ".dotfiles") // Absolute fallback
 		}
@@ -123,37 +121,13 @@ func generateConfig(ctx context.Context, configPath string) error {
 		return fmt.Errorf("parse template: %w", err)
 	}
 
-	// Write via temp + rename so a failed Execute cannot leave a partial
-	// modot.cue (and, with --force, cannot destroy an existing good config).
-	tmpPath := configPath + ".tmp"
-	f, err := os.Create(tmpPath)
-	if err != nil {
-		return fmt.Errorf("create config temp file: %w", err)
-	}
-	if err := tmpl.Execute(f, data); err != nil {
-		if closer := f; closer != nil {
-			if err := closer.Close(); err != nil {
-				slog.Error("unexpected error", "op", "close", "error", err)
-			}
-		}
-		if rmErr := os.Remove(tmpPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
-			err = errors.Join(err, rmErr)
-		}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
 		return fmt.Errorf("execute template: %w", err)
 	}
-	if err := f.Close(); err != nil {
-		if rmErr := os.Remove(tmpPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
-			err = errors.Join(err, rmErr)
-		}
-		return fmt.Errorf("close config temp file: %w", err)
+	if err := atomicfile.WriteBytes(configPath, buf.Bytes(), 0o644); err != nil {
+		return fmt.Errorf("write config file: %w", err)
 	}
-	if err := os.Rename(tmpPath, configPath); err != nil {
-		if rmErr := os.Remove(tmpPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
-			err = errors.Join(err, rmErr)
-		}
-		return fmt.Errorf("replace config file: %w", err)
-	}
-
 	return nil
 }
 

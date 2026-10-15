@@ -7,7 +7,6 @@ import (
 
 	lewdriver "github.com/lewtec/lewkit/x/driver"
 
-	"github.com/lewtec/modot/internal/driver"
 	envdriver "github.com/lewtec/modot/internal/driver/env"
 )
 
@@ -23,7 +22,7 @@ func (f *Factory) New(ctx context.Context) (envdriver.Driver, error) { return &D
 
 type Driver struct{ envdriver.Base }
 
-func (d *Driver) IsPhone(ctx context.Context) bool { return driver.IsTermux() }
+func (d *Driver) IsPhone(ctx context.Context) bool { return lewdriver.IsTermux() }
 
 func (d *Driver) IsNixOS(ctx context.Context) bool {
 	_, err := os.Stat("/etc/NIXOS")

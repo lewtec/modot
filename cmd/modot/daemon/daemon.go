@@ -12,14 +12,11 @@ import (
 	"syscall"
 	"time"
 
-	"image"
-	_ "image/png"
 	"io"
 
 	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/db"
 	"github.com/lewtec/modot/internal/driver/media"
-	"github.com/lewtec/modot/internal/driver/tray"
 	"github.com/lewtec/modot/internal/executil"
 	"github.com/lewtec/modot/internal/icons"
 	"github.com/lewtec/modot/internal/types"
@@ -27,6 +24,7 @@ import (
 	"github.com/coreos/go-systemd/v22/activation"
 	"github.com/gorilla/websocket"
 	"github.com/lewtec/lewkit/x/cmd"
+	lewtray "github.com/lewtec/lewkit/x/driver/tray"
 )
 
 var (
@@ -134,38 +132,26 @@ func RunDaemon(ctx context.Context) error {
 	go media.Watch(ctx)
 
 	go func() {
-		t, err := tray.GetDefault(ctx)
-		if err != nil {
-			slog.Debug("no tray driver found, skipping", "error", err)
-			return
-		}
-
-		iconPath, err := icons.GetIconPath(ctx, "https://github.com")
-		var icon image.Image
-		if err == nil {
-			f, err := os.Open(iconPath)
-			if err == nil {
-				defer func() {
-					if closer := f; closer != nil {
-						if err := closer.Close(); err != nil {
-							slog.Error("unexpected error", "op", "close", "path", iconPath, "error", err)
-						}
-					}
-				}()
-				icon, _, err = image.Decode(f)
-				if err != nil {
-					slog.Debug("failed to decode tray icon", "path", iconPath, "error", err)
-				}
+		var iconBytes []byte
+		if iconPath, err := icons.GetIconPath(ctx, "https://github.com"); err == nil {
+			iconBytes, err = os.ReadFile(iconPath)
+			if err != nil {
+				slog.Debug("failed to read tray icon", "path", iconPath, "error", err)
 			}
 		}
 
-		t.SetState(tray.State{
+		slog.Info("starting tray driver")
+		_, err := lewtray.Open(ctx, lewtray.Config{
+			ID:    "modot",
 			Title: "modot",
-			Icon:  icon,
-			Menu: []tray.MenuItem{
+			Icon: lewtray.Icon{
+				Bytes: iconBytes,
+				Name:  "utilities-terminal",
+			},
+			Menu: []lewtray.Item{
 				{
 					Label: "Apply",
-					Callback: func() {
+					OnClick: func() {
 						slog.Info("tray: triggering apply")
 						_, err := ExecuteCLIRequest(ctx, types.Request{Command: "apply", Args: []string{}}, os.Stdout, os.Stderr)
 						if err != nil {
@@ -180,7 +166,7 @@ func RunDaemon(ctx context.Context) error {
 				},
 				{
 					Label: "Sync",
-					Callback: func() {
+					OnClick: func() {
 						slog.Info("tray: triggering sync")
 						_, err := ExecuteCLIRequest(ctx, types.Request{Command: "sync", Args: []string{}}, os.Stdout, os.Stderr)
 						if err != nil {
@@ -190,17 +176,15 @@ func RunDaemon(ctx context.Context) error {
 				},
 				{
 					Label: "Exit",
-					Callback: func() {
+					OnClick: func() {
 						time.Sleep(100 * time.Millisecond) // Give time for DBus reply
 						cancel()
 					},
 				},
 			},
 		})
-
-		slog.Info("starting tray driver")
-		if err := t.Run(ctx); err != nil {
-			slog.Error("tray driver failed", "error", err)
+		if err != nil {
+			slog.Debug("no tray driver opened, skipping", "error", err)
 		}
 	}()
 

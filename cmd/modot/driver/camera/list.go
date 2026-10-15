@@ -6,7 +6,7 @@ import (
 	"os"
 
 	lewdriver "github.com/lewtec/lewkit/x/driver"
-	cameraapi "github.com/lewtec/modot/internal/driver/camera"
+	cameraapi "github.com/lewtec/lewkit/x/driver/camera"
 )
 
 type List struct{}

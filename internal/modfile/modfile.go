@@ -3,10 +3,11 @@ package modfile
 import (
 	"errors"
 	"fmt"
-	"github.com/lewtec/modot/internal/configcue"
-	parsespec "github.com/lewtec/modot/internal/parse/spec"
 	"path/filepath"
 	"strings"
+
+	lewtool "github.com/lewtec/lewkit/x/tool"
+	"github.com/lewtec/modot/internal/configcue"
 )
 
 var (
@@ -231,11 +232,11 @@ func ParseSourceSpec(spec string) (SourceConfig, error) {
 		return SourceConfig{}, ErrInvalidSourceSpec
 	}
 
-	ts, err := parsespec.Parse(trimmed)
+	ts, err := lewtool.Parse(trimmed)
 	if err != nil {
 		return SourceConfig{}, err
 	}
-	provider := strings.TrimSpace(ts.Provider)
+	provider := strings.TrimSpace(ts.Backend)
 	target := strings.TrimSpace(ts.Package)
 	ref := strings.TrimSpace(ts.Version)
 

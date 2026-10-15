@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	lewdriver "github.com/lewtec/lewkit/x/driver"
 	lewhttp "github.com/lewtec/lewkit/x/driver/httpclient"
 	lewmedia "github.com/lewtec/lewkit/x/driver/media"
 	"github.com/lewtec/modot/internal/atomicfile"
@@ -51,12 +50,12 @@ func GetArtCachePath(ctx context.Context, url string) (string, error) {
 		return path, nil
 	}
 
-	httpDriver, err := lewdriver.Get[lewhttp.Driver](ctx)
+	client, err := lewhttp.Client(ctx)
 	if err != nil {
 		return "", err
 	}
 
-	resp, err := httpDriver.Client().Get(url)
+	resp, err := client.Get(url)
 	if err != nil {
 		return "", err
 	}
