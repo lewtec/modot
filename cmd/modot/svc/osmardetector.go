@@ -7,7 +7,7 @@ import (
 	"time"
 
 	lewdriver "github.com/lewtec/lewkit/x/driver"
-	"github.com/lewtec/modot/internal/driver/battery"
+	"github.com/lewtec/lewkit/x/driver/battery"
 )
 
 type Osmardetector struct{}

@@ -9,8 +9,6 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/lewtec/modot/internal/driver"
-
 	"github.com/lewtec/lewkit/x/cmd"
 	lewdriver "github.com/lewtec/lewkit/x/driver"
 )
@@ -25,22 +23,7 @@ func (Command) Description() string {
 
 func (c *Command) Run(ctx context.Context) error {
 	verbose := c.Verbose.Value()
-	report := driver.Doctor(ctx)
-	for _, iface := range lewdriver.Doctor(ctx) {
-		converted := driver.InterfaceStatus{Name: iface.Name}
-		for _, d := range iface.Drivers {
-			converted.Drivers = append(converted.Drivers, driver.DriverStatus{
-				ID:          d.ID,
-				Name:        d.Name,
-				FactoryType: d.FactoryType,
-				Weight:      d.Weight,
-				Available:   d.Available,
-				Selected:    d.Selected,
-				Error:       d.Error,
-			})
-		}
-		report = append(report, converted)
-	}
+	report := lewdriver.Doctor(ctx)
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	if _, err := fmt.Fprintln(w, "TYPE\tID\tDRIVER\tWEIGHT\tSTATUS\tMESSAGE"); err != nil {
@@ -67,12 +50,9 @@ func (c *Command) Run(ctx context.Context) error {
 					msg = "Warning: implicit selection (weight 0). Consider setting explicit weight."
 				}
 			} else if d.Error != nil {
-				if errors.Is(d.Error, driver.ErrIncompatible) || errors.Is(d.Error, lewdriver.ErrIncompatible) {
+				if errors.Is(d.Error, lewdriver.ErrIncompatible) {
 					status = "❌ Incompatible"
-					reason := d.Error.Error()
-					reason = strings.TrimPrefix(reason, driver.ErrIncompatible.Error()+": ")
-					reason = strings.TrimPrefix(reason, lewdriver.ErrIncompatible.Error()+": ")
-					msg = reason
+					msg = strings.TrimPrefix(d.Error.Error(), lewdriver.ErrIncompatible.Error()+": ")
 				} else {
 					msg = d.Error.Error()
 				}

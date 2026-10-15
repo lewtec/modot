@@ -246,9 +246,6 @@ func decodeConfig(data []byte) (*Config, error) {
 		typed := map[string]map[string]int{}
 		if data, err := json.Marshal(driversRaw); err == nil {
 			if err := json.Unmarshal(data, &typed); err == nil {
-				if err := driver.SetWeights(typed); err != nil {
-					return nil, err
-				}
 				if err := driver.ApplyLewWeights(typed); err != nil {
 					return nil, err
 				}

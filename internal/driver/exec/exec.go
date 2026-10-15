@@ -2,25 +2,18 @@ package exec
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os/exec"
 
 	lewdriver "github.com/lewtec/lewkit/x/driver"
 	lewexec "github.com/lewtec/lewkit/x/driver/exec"
 	"github.com/lewtec/lewkit/x/taskgroup"
-	"github.com/lewtec/modot/internal/driver"
 	"github.com/lewtec/modot/internal/executil"
 )
 
 // IsBinaryAvailable checks if a command exists in PATH using the selected driver.
 func IsBinaryAvailable(ctx context.Context, name string) bool {
-	d, err := lewdriver.Get[lewexec.Driver](ctx)
-	if err != nil {
-		return false
-	}
-	_, err = d.Which(ctx, name)
-	return err == nil
+	return lewexec.IsBinaryAvailable(ctx, name)
 }
 
 // Run creates an exec.Cmd using the selected driver.
@@ -82,36 +75,7 @@ func attachDefaultWriters(ctx context.Context, cmd *exec.Cmd) {
 	}
 }
 
-// RequireBinary returns driver.ErrIncompatible when name is missing from PATH.
+// RequireBinary returns lewdriver.ErrIncompatible when name is missing from PATH.
 func RequireBinary(ctx context.Context, name string) error {
-	if IsBinaryAvailable(ctx, name) {
-		return nil
-	}
-	return fmt.Errorf("%w: %s not found", driver.ErrIncompatible, name)
-}
-
-// RequireBinaries returns the first RequireBinary error for names.
-func RequireBinaries(ctx context.Context, names ...string) error {
-	for _, name := range names {
-		if err := RequireBinary(ctx, name); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// RequireEnvBinary requires envKey to be set, then name on PATH.
-func RequireEnvBinary(ctx context.Context, envKey, name string) error {
-	if err := driver.RequireEnv(ctx, envKey); err != nil {
-		return err
-	}
-	return RequireBinary(ctx, name)
-}
-
-// RequireEnvBinaries requires envKey to be set, then each name on PATH.
-func RequireEnvBinaries(ctx context.Context, envKey string, names ...string) error {
-	if err := driver.RequireEnv(ctx, envKey); err != nil {
-		return err
-	}
-	return RequireBinaries(ctx, names...)
+	return lewexec.RequireBinary(ctx, name)
 }

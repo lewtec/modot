@@ -4,9 +4,9 @@ package prelude
 
 import (
 	_ "github.com/lewtec/modot/internal/driver/audio/lew"
-	_ "github.com/lewtec/modot/internal/driver/battery/prelude"
+	_ "github.com/lewtec/modot/internal/driver/battery/lew"
 	_ "github.com/lewtec/modot/internal/driver/brightness/lew"
-	_ "github.com/lewtec/modot/internal/driver/camera/prelude"
+	_ "github.com/lewtec/modot/internal/driver/camera/lew"
 	_ "github.com/lewtec/modot/internal/driver/clipboard/lew"
 	_ "github.com/lewtec/modot/internal/driver/clipboard/termux"
 	_ "github.com/lewtec/modot/internal/driver/dialog/lew"

@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/lewtec/modot/internal/driver"
+	lewdriver "github.com/lewtec/lewkit/x/driver"
 	_ "github.com/lewtec/modot/internal/driver/exec/native"
 	"github.com/lewtec/modot/internal/driver/shell"
 	"github.com/stretchr/testify/require"
@@ -23,6 +23,6 @@ func TestWhichDriverExposesPathOnly(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "sh", filepath.Base(path))
 
-	_, ok := d.(driver.DriverFactory[shell.Driver])
+	_, ok := d.(lewdriver.DriverFactory[shell.Driver])
 	require.False(t, ok, "shell.Driver unexpectedly implements DriverFactory")
 }

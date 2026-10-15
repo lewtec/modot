@@ -15,8 +15,8 @@ import (
 
 	"github.com/lewtec/lewkit/x/cmd"
 	lewdriver "github.com/lewtec/lewkit/x/driver"
+	cameraapi "github.com/lewtec/lewkit/x/driver/camera"
 	"github.com/lewtec/modot/internal/atomicfile"
-	cameraapi "github.com/lewtec/modot/internal/driver/camera"
 )
 
 var (
