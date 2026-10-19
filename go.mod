@@ -10,7 +10,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
-	github.com/lewtec/lewkit v0.0.0-20261014225239-82e0bf6d08f3
+	github.com/lewtec/lewkit v0.0.0-20261019201250-ac76983f7d83
 	github.com/owenrumney/go-sarif/v2 v2.3.3
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/pelletier/go-toml/v2 v2.3.1
@@ -32,8 +32,8 @@ require (
 	cloud.google.com/go/longrunning v1.1.0 // indirect
 	cloud.google.com/go/monitoring v1.29.0 // indirect
 	cloud.google.com/go/storage v1.56.0 // indirect
-	filippo.io/age v1.3.1 // indirect
-	filippo.io/edwards25519 v1.1.1 // indirect
+	filippo.io/age v1.3.2 // indirect
+	filippo.io/edwards25519 v1.2.0 // indirect
 	filippo.io/hpke v0.4.0 // indirect
 	github.com/AndroidGoLab/binder v0.0.9 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.0 // indirect
@@ -48,6 +48,7 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.53.0 // indirect
 	github.com/KarpelesLab/authenticode v0.1.0 // indirect
 	github.com/ProtonMail/go-crypto v1.2.0 // indirect
+	github.com/a-h/templ v0.3.1020 // indirect
 	github.com/agusibrahim/apksig-go v1.1.0 // indirect
 	github.com/anchore/go-logger v0.0.0-20251106021608-a5b0513fa9a9 // indirect
 	github.com/anchore/go-lzo v0.1.0 // indirect
@@ -100,11 +101,12 @@ require (
 	github.com/cubicdaiya/gonp v1.0.4 // indirect
 	github.com/cyphar/filepath-securejoin v0.5.1 // indirect
 	github.com/danieljoos/wincred v1.2.2 // indirect
-	github.com/dave/jennifer v1.7.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/diskfs/go-diskfs v1.9.4 // indirect
+	github.com/djherbis/times v1.6.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.11.0 // indirect
+	github.com/elliotwutingfeng/asciiset v0.0.0-20260129054604-cfde2086bc57 // indirect
 	github.com/emicklei/proto v1.14.3 // indirect
 	github.com/envoyproxy/go-control-plane/envoy v1.37.0 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.3.3 // indirect
@@ -161,6 +163,7 @@ require (
 	github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3 // indirect
 	github.com/lewtec/leaven v0.0.0-20260814142252-666e23083398 // indirect
 	github.com/lewtec/leaven-tree-sitter/grammar v0.0.0-20260927175155-6b7c6c643bc9 // indirect
+	github.com/lewtec/leaven-tree-sitter/grammar/c v0.0.0-20260927191427-b55c533d023c // indirect
 	github.com/lewtec/leaven-tree-sitter/grammar/make v0.0.0-20260927191427-b55c533d023c // indirect
 	github.com/lewtec/wazero-tree-sitter/grammar v0.0.0-20260927175003-766673523e06 // indirect
 	github.com/lib/pq v1.12.3 // indirect
@@ -229,6 +232,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
+	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
