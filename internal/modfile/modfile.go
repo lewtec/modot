@@ -209,21 +209,50 @@ func validateSourceLock(alias string, src SourceConfig, sumFile *SumFile) error 
 	return nil
 }
 
+// applySourceLockOverlay fills an empty ref from the lock.
+// The row is keyed by the provider repo, not the cue alias.
+// The tracked ref is that row's tag or branch, and the URL is its digest.
+// A ref written in cue, including HEAD, stays as written.
 func applySourceLockOverlay(alias string, src SourceConfig, sumFile *SumFile) SourceConfig {
 	if sumFile == nil {
 		return src
 	}
-	lock, ok := sumFile.FindSource(alias)
+	if strings.TrimSpace(src.Ref) != "" {
+		return src
+	}
+	lock, ok := findExistingSourceLock(sumFile, alias, lockedSourceIdentity(alias, src))
+	if !ok {
+		repo := strings.TrimPrefix(strings.TrimSpace(src.Repo), "github:")
+		if repo != "" {
+			if lock, ok = sumFile.FindSource("github:" + repo); !ok {
+				lock, ok = sumFile.FindSource(repo)
+			}
+		}
+	}
 	if !ok {
 		return src
 	}
-	if strings.TrimSpace(src.Ref) == "" && strings.TrimSpace(lock.Ref) != "" {
-		src.Ref = strings.TrimSpace(lock.Ref)
+	if ref := strings.TrimSpace(lock.Ref); ref != "" && !strings.EqualFold(ref, "HEAD") {
+		src.Ref = ref
 	}
-	if strings.TrimSpace(src.URL) == "" && strings.TrimSpace(lock.URL) != "" {
-		src.URL = strings.TrimSpace(lock.URL)
+	if url := strings.TrimSpace(lock.URL); url != "" {
+		src.URL = url
 	}
 	return src
+}
+
+func lockedSourceIdentity(alias string, src SourceConfig) LockedSource {
+	provider := strings.TrimSpace(src.Provider)
+	if provider == "" {
+		provider = strings.TrimSpace(alias)
+	}
+	return LockedSource{
+		Provider: provider,
+		Path:     strings.TrimSpace(src.Path),
+		Repo:     strings.TrimSpace(src.Repo),
+		Ref:      strings.TrimSpace(src.Ref),
+		URL:      strings.TrimSpace(src.URL),
+	}
 }
 
 func ParseSourceSpec(spec string) (SourceConfig, error) {
