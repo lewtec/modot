@@ -10,12 +10,13 @@ import (
 )
 
 type LockedSource struct {
-	Provider string `json:"provider"`
-	Path     string `json:"path"`
-	Repo     string `json:"repo"`
-	Ref      string `json:"ref,omitempty"`
-	URL      string `json:"url"`
-	Hash     string `json:"hash"`
+	Provider   string `json:"provider"`
+	Path       string `json:"path"`
+	Repo       string `json:"repo"`
+	Ref        string `json:"ref,omitempty"`
+	URL        string `json:"url"`
+	Hash       string `json:"hash"`
+	Versioning string `json:"versioning,omitempty"`
 }
 
 type LockedTool struct {
@@ -72,7 +73,7 @@ type RenovateDependency struct {
 
 	// Datasource tells Renovate where to fetch new versions from.
 	// Required. Common values: "npm", "go", "docker", "git-refs",
-	// "github-releases", "maven", "pypi", etc.
+	// "git-tags", "github-releases", "maven", "pypi", etc.
 	Datasource string `json:"datasource"`
 
 	// Versioning defines the version comparison strategy.

@@ -45,7 +45,7 @@ func (p Provider) RehydrateLockedSource(dep modfile.RenovateDependency) (modfile
 	switch {
 	case strings.HasPrefix(key, "github:"):
 		repo = strings.TrimPrefix(key, "github:")
-	case datasource == "git-refs" && depName != "":
+	case (datasource == "git-refs" || datasource == "git-tags") && depName != "":
 		repo = depName
 	case strings.Contains(packageName, "github.com/"):
 		repo = repoFromGitHubPackageName(packageName)
@@ -62,9 +62,10 @@ func (p Provider) RehydrateLockedSource(dep modfile.RenovateDependency) (modfile
 	currentValue := strings.TrimSpace(dep.CurrentValue)
 	digest := strings.TrimSpace(dep.CurrentDigest)
 	out := modfile.LockedSource{
-		Provider: "github",
-		Repo:     repo,
-		Ref:      trackingGitRef(currentValue, ""),
+		Provider:   "github",
+		Repo:       repo,
+		Ref:        trackingGitRef(currentValue, ""),
+		Versioning: strings.TrimSpace(dep.Versioning),
 	}
 	pin := digest
 	if pin == "" && shaRefRe.MatchString(currentValue) {
@@ -103,12 +104,24 @@ func (p Provider) LockReusable(locked modfile.LockedSource) bool {
 	if ref == "" || strings.EqualFold(ref, "HEAD") || shaRefRe.MatchString(ref) {
 		return false
 	}
+	if _, tagSpec, err := modfile.TagSpec(ref); tagSpec || err != nil {
+		return false
+	}
 	return true
 }
 
 func (p Provider) LockMatchesDesired(desired, locked modfile.LockedSource) bool {
 	desiredRef := strings.TrimSpace(desired.Ref)
 	lockedRef := strings.TrimSpace(locked.Ref)
+	if pattern, tagSpec, err := modfile.TagSpec(desiredRef); tagSpec || err != nil {
+		if err != nil || !tagSpec {
+			return false
+		}
+		if _, lockedSpec, lockedErr := modfile.TagSpec(lockedRef); lockedSpec || lockedErr != nil {
+			return false
+		}
+		return modfile.TagMatches(pattern, lockedRef)
+	}
 	if desiredRef == "" || strings.EqualFold(desiredRef, "HEAD") {
 		return true
 	}

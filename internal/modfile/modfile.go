@@ -22,11 +22,12 @@ var (
 )
 
 type SourceConfig struct {
-	Provider string `json:"provider"`
-	Path     string `json:"path"`
-	Repo     string `json:"repo"`
-	URL      string `json:"url"`
-	Ref      string `json:"ref"`
+	Provider   string `json:"provider"`
+	Path       string `json:"path"`
+	Repo       string `json:"repo"`
+	URL        string `json:"url"`
+	Ref        string `json:"ref"`
+	Versioning string `json:"versioning,omitempty"`
 }
 
 type ModFile struct {
@@ -209,26 +210,25 @@ func validateSourceLock(alias string, src SourceConfig, sumFile *SumFile) error 
 	return nil
 }
 
-// applySourceLockOverlay fills an empty ref from the lock.
-// The row is keyed by the provider repo, not the cue alias.
-// The tracked ref is that row's tag or branch, and the URL is its digest.
-// A ref written in cue, including HEAD, stays as written.
+// applySourceLockOverlay fills a ref from the lock.
+// An empty version takes that row's tag or branch and its digest URL.
+// A version tag:<regexp> takes the locked tag when the regexp matches, and drops the digest URL.
+// Any other ref written in cue, including HEAD, stays as written.
 func applySourceLockOverlay(alias string, src SourceConfig, sumFile *SumFile) SourceConfig {
 	if sumFile == nil {
 		return src
 	}
+	pattern, isTag, err := TagSpec(src.Ref)
+	if err != nil {
+		return src
+	}
+	if isTag {
+		return overlayTagSpec(alias, src, sumFile, pattern)
+	}
 	if strings.TrimSpace(src.Ref) != "" {
 		return src
 	}
-	lock, ok := findExistingSourceLock(sumFile, alias, lockedSourceIdentity(alias, src))
-	if !ok {
-		repo := strings.TrimPrefix(strings.TrimSpace(src.Repo), "github:")
-		if repo != "" {
-			if lock, ok = sumFile.FindSource("github:" + repo); !ok {
-				lock, ok = sumFile.FindSource(repo)
-			}
-		}
-	}
+	lock, ok := lookupOverlayLock(alias, src, sumFile)
 	if !ok {
 		return src
 	}
@@ -239,6 +239,38 @@ func applySourceLockOverlay(alias string, src SourceConfig, sumFile *SumFile) So
 		src.URL = url
 	}
 	return src
+}
+
+func overlayTagSpec(alias string, src SourceConfig, sumFile *SumFile, pattern string) SourceConfig {
+	lock, ok := lookupOverlayLock(alias, src, sumFile)
+	if !ok {
+		return src
+	}
+	ref := strings.TrimSpace(lock.Ref)
+	if ref == "" || strings.EqualFold(ref, "HEAD") {
+		return src
+	}
+	if _, lockedSpec, err := TagSpec(ref); lockedSpec || err != nil || !TagMatches(pattern, ref) {
+		return src
+	}
+	src.Ref = ref
+	src.URL = ""
+	return src
+}
+
+func lookupOverlayLock(alias string, src SourceConfig, sumFile *SumFile) (LockedSource, bool) {
+	lock, ok := findExistingSourceLock(sumFile, alias, lockedSourceIdentity(alias, src))
+	if ok {
+		return lock, true
+	}
+	repo := strings.TrimPrefix(strings.TrimSpace(src.Repo), "github:")
+	if repo == "" {
+		return LockedSource{}, false
+	}
+	if lock, ok = sumFile.FindSource("github:" + repo); ok {
+		return lock, true
+	}
+	return sumFile.FindSource(repo)
 }
 
 func lockedSourceIdentity(alias string, src SourceConfig) LockedSource {

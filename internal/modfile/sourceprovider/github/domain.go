@@ -17,6 +17,7 @@ func newSource(alias string, src modfile.SourceConfig) Source {
 	cfg.Repo = normalizeGitHubRepo(cfg.Repo)
 	cfg.Ref = strings.TrimSpace(cfg.Ref)
 	cfg.URL = strings.TrimSpace(cfg.URL)
+	cfg.Versioning = strings.TrimSpace(cfg.Versioning)
 	return Source{
 		Alias:  strings.TrimSpace(alias),
 		Config: cfg,

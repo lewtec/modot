@@ -84,6 +84,7 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 			if r := strings.TrimSpace(resolved.Ref); r != "" {
 				entry.Ref = r
 			}
+			entry.Versioning = strings.TrimSpace(resolved.Versioning)
 			entry.Hash = hash
 			slog.Info("computed source lock hash", "source", alias)
 			return sourceLockHashUpdate{alias: alias, entry: entry}, nil

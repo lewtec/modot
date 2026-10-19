@@ -50,6 +50,63 @@ func TestLockMatchesDesired(t *testing.T) {
 	require.False(t, p.LockMatchesDesired(modfile.LockedSource{Ref: "develop"}, locked), "other branch")
 	require.True(t, p.LockMatchesDesired(modfile.LockedSource{Ref: "702499f331aa9c38309e1af99de4021013916297"}, locked), "pin sha")
 	require.False(t, p.LockReusable(modfile.LockedSource{Provider: "github", Hash: "abc", Ref: "702499f331aa9c38309e1af99de4021013916297"}), "sha-only tracking must not be reusable")
+
+	const spec = `tag:^v?(?<version>\d+\.\d+\.\d+)$`
+	tagged := modfile.LockedSource{Provider: "github", Ref: "4.0.0", Hash: "4f2fae08f23b54ce09322e62e73cce6161b8d3cb"}
+	require.True(t, p.LockMatchesDesired(modfile.LockedSource{Ref: spec}, tagged), "tag pattern matches locked tag")
+	require.False(t, p.LockMatchesDesired(modfile.LockedSource{Ref: spec}, locked), "tag pattern misses branch")
+	require.False(t, p.LockMatchesDesired(modfile.LockedSource{Ref: spec}, modfile.LockedSource{Ref: spec, Hash: "abc"}), "unresolved pattern is not a match")
+	require.False(t, p.LockMatchesDesired(modfile.LockedSource{Ref: "tag:("}, tagged), "invalid pattern does not match")
+	require.False(t, p.LockReusable(modfile.LockedSource{Provider: "github", Hash: "abc", Ref: spec}), "unresolved tag pattern is not reusable")
+	require.True(t, p.LockReusable(tagged), "resolved tag stays reusable")
+}
+
+func TestRehydrateGitTags(t *testing.T) {
+	t.Parallel()
+	p := Provider{}
+	const versioning = `regex:^v?(?<version>\d+\.\d+\.\d+)$`
+	dep := modfile.RenovateDependency{
+		Kind:          "source",
+		Ref:           "github:jquery/jquery",
+		DepName:       "jquery/jquery",
+		PackageName:   "https://github.com/jquery/jquery",
+		CurrentValue:  "4.0.0",
+		CurrentDigest: "4f2fae08f23b54ce09322e62e73cce6161b8d3cb",
+		Datasource:    "git-tags",
+		Versioning:    versioning,
+	}
+	lock, ok := p.RehydrateLockedSource(dep)
+	require.True(t, ok)
+	require.Equal(t, "4.0.0", lock.Ref)
+	require.Equal(t, versioning, lock.Versioning)
+	require.Equal(t, "https://codeload.github.com/jquery/jquery/tar.gz/4f2fae08f23b54ce09322e62e73cce6161b8d3cb", lock.URL)
+}
+
+func TestUpsertSourceTagVersioning(t *testing.T) {
+	t.Parallel()
+	sum := &modfile.SumFile{}
+	const versioning = `regex:^v?(?<version>\d+\.\d+\.\d+)$`
+	entry := modfile.LockedSource{
+		Provider:   "github",
+		Repo:       "jquery/jquery",
+		Ref:        "4.0.0",
+		Hash:       "4f2fae08f23b54ce09322e62e73cce6161b8d3cb",
+		URL:        "https://codeload.github.com/jquery/jquery/tar.gz/4f2fae08f23b54ce09322e62e73cce6161b8d3cb",
+		Versioning: versioning,
+	}
+	require.True(t, sum.UpsertSource("jquery", entry))
+	require.Equal(t, "git-tags", sum.Dependencies[0].Datasource)
+	require.Equal(t, versioning, sum.Dependencies[0].Versioning)
+	require.Equal(t, "4.0.0", sum.Dependencies[0].CurrentValue)
+	require.False(t, sum.UpsertSource("jquery", entry), "same tag row is unchanged")
+
+	branch := entry
+	branch.Versioning = ""
+	branch.Ref = "main"
+	require.True(t, sum.UpsertSource("jquery", branch))
+	require.Equal(t, "git-refs", sum.Dependencies[0].Datasource)
+	require.Empty(t, sum.Dependencies[0].Versioning)
+	require.Equal(t, "main", sum.Dependencies[0].CurrentValue)
 }
 
 func TestUpsertSourceIdempotentAfterReload(t *testing.T) {

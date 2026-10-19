@@ -195,6 +195,10 @@ func (s *SumFile) UpsertSource(name string, lock LockedSource) bool {
 			d.PackageName = dep.PackageName
 			changed = true
 		}
+		if d.Versioning != dep.Versioning {
+			d.Versioning = dep.Versioning
+			changed = true
+		}
 		break
 	}
 	if !found {
