@@ -10,7 +10,7 @@ import (
 // TryResolveSourceRefToPath tries to resolve "alias:path" using modfile sources.
 // It returns (resolvedPath, true, nil) when the spec is a resolvable source ref.
 // It returns (spec, false, nil) when the input should be treated as a regular path.
-func (m *ModFile) TryResolveSourceRefToPath(ctx context.Context, spec string, modulesBaseDir string) (string, bool, error) {
+func (m *ModFile) TryResolveSourceRefToPath(ctx context.Context, spec string, modulesBaseDir string, sumFile *SumFile) (string, bool, error) {
 	alias, relPart, ok := strings.Cut(strings.TrimSpace(spec), ":")
 	alias = strings.TrimSpace(alias)
 	rel := strings.Trim(strings.TrimSpace(relPart), "/")
@@ -23,6 +23,7 @@ func (m *ModFile) TryResolveSourceRefToPath(ctx context.Context, spec string, mo
 		// Support direct provider form for built-ins like local:path
 		src = SourceConfig{Provider: alias}
 	}
+	src = applySourceLockOverlay(alias, src, sumFile)
 	providerID := strings.TrimSpace(src.Provider)
 	if providerID == "" {
 		providerID = alias

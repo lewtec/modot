@@ -22,7 +22,7 @@ func TestTryResolveSourceRefToPath(t *testing.T) {
 		},
 	}
 
-	got, ok, err := mod.TryResolveSourceRefToPath(t.Context(), "papirus:Papirus", "/home/lucasew/.dotfiles/modules")
+	got, ok, err := mod.TryResolveSourceRefToPath(t.Context(), "papirus:Papirus", "/home/lucasew/.dotfiles/modules", nil)
 	require.NoError(t, err)
 	require.True(t, ok, "expected source ref to be resolved")
 	want := filepath.Clean("/tmp/papirus-icon-theme-20250501/Papirus")
@@ -37,7 +37,7 @@ func TestTryResolveSourceRefToPathPlainPath(t *testing.T) {
 	}
 
 	input := "/tmp/papirus-icon-theme-20250501/Papirus"
-	got, ok, err := mod.TryResolveSourceRefToPath(t.Context(), input, "/home/lucasew/.dotfiles/modules")
+	got, ok, err := mod.TryResolveSourceRefToPath(t.Context(), input, "/home/lucasew/.dotfiles/modules", nil)
 	require.NoError(t, err)
 	require.False(t, ok, "did not expect plain path to be treated as source ref")
 	require.Equal(t, input, got)
@@ -60,12 +60,12 @@ func TestTryResolveSourceRefToPathSelf(t *testing.T) {
 	modulesBase := "/home/user/dotfiles/modules"
 	wsRoot := "/home/user/dotfiles"
 
-	got, ok, err := mod.TryResolveSourceRefToPath(t.Context(), "skills_local_skills:.", modulesBase)
+	got, ok, err := mod.TryResolveSourceRefToPath(t.Context(), "skills_local_skills:.", modulesBase, nil)
 	require.NoError(t, err)
 	require.True(t, ok, "expected self ref to resolve")
 	require.Equal(t, wsRoot, got)
 
-	got, ok, err = mod.TryResolveSourceRefToPath(t.Context(), "skills_local_skills:codex/skills", modulesBase)
+	got, ok, err = mod.TryResolveSourceRefToPath(t.Context(), "skills_local_skills:codex/skills", modulesBase, nil)
 	require.NoError(t, err)
 	require.True(t, ok)
 	want := filepath.Join(wsRoot, "codex/skills")
@@ -79,7 +79,7 @@ func TestTryResolveSourceRefToPathDirectSelf(t *testing.T) {
 	mod := &modfile.ModFile{Sources: map[string]modfile.SourceConfig{}}
 
 	modulesBase := "/workspace/modules"
-	got, ok, err := mod.TryResolveSourceRefToPath(t.Context(), "self:.", modulesBase)
+	got, ok, err := mod.TryResolveSourceRefToPath(t.Context(), "self:.", modulesBase, nil)
 	require.NoError(t, err)
 	require.True(t, ok)
 	require.Equal(t, "/workspace", got)

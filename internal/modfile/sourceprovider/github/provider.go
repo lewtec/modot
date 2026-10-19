@@ -37,7 +37,10 @@ func (p Provider) Normalize(src modfile.SourceConfig) modfile.SourceConfig {
 func (p Provider) LockHash(ctx context.Context, alias string, src modfile.SourceConfig, modulesBaseDir string) (string, modfile.SourceConfig, error) {
 	_ = modulesBaseDir
 	normalized := newSource(alias, src)
-	root, err := ensureGithubSource(ctx, alias, src)
+	if err := normalized.resolveTagSpec(ctx); err != nil {
+		return "", src, err
+	}
+	root, err := ensureGithubSource(ctx, alias, normalized.Config)
 	if err != nil {
 		return "", src, err
 	}
@@ -51,10 +54,15 @@ func (p Provider) LockHash(ctx context.Context, alias string, src modfile.Source
 	}
 
 	normalized.Config.URL = strings.TrimSpace(meta.URL)
-	// Renovate git-refs needs a real branch/tag in currentValue — never HEAD and
-	// never a commit SHA (those live in the tarball URL / currentDigest).
-	// Empty, HEAD, or SHA config => track the repo default branch for updates.
+	// A tag: pattern is resolved above. What remains is a branch or a tag.
+	// Empty, HEAD, or a commit SHA tracks the repo default branch.
 	trackRef := strings.TrimSpace(normalized.Config.Ref)
+	if _, tagSpec, tagErr := modfile.TagSpec(trackRef); tagSpec || tagErr != nil {
+		if tagErr != nil {
+			return "", src, tagErr
+		}
+		return "", src, fmt.Errorf("%w: %s", modfile.ErrUnresolvedTagPattern, trackRef)
+	}
 	if trackRef == "" || strings.EqualFold(trackRef, "HEAD") || shaRefRe.MatchString(trackRef) {
 		branch, berr := normalized.resolveDefaultBranch(ctx, normalized.Repo())
 		if berr != nil {
@@ -98,12 +106,18 @@ func (p Provider) EnrichRenovateDependency(dep *modfile.RenovateDependency, src 
 	// Stable lock identity (kind+ref), independent of the tracked git ref.
 	dep.Ref = "github:" + repo
 	dep.DepName = repo
-	// Renovate tracks latest commit on a git ref via git-refs: symbolic ref in
-	// currentValue, commit SHA in currentDigest, full clone URL in packageName.
-	dep.Datasource = "git-refs"
 	dep.PackageName = "https://github.com/" + repo
 	dep.CurrentValue = trackRef
 	dep.CurrentDigest = pinnedSHA
+	// regex: versioning follows tags. Anything else follows one ref's commits.
+	versioning := strings.TrimSpace(src.Versioning)
+	if strings.HasPrefix(versioning, "regex:") {
+		dep.Datasource = "git-tags"
+		dep.Versioning = versioning
+		return
+	}
+	dep.Datasource = "git-refs"
+	dep.Versioning = ""
 }
 
 // trackingGitRef is the symbolic git ref Renovate should follow (branch/tag).
@@ -113,6 +127,9 @@ func trackingGitRef(srcRef, currentValue string) string {
 	for _, candidate := range []string{srcRef, currentValue} {
 		c := strings.TrimSpace(candidate)
 		if c == "" || strings.EqualFold(c, "HEAD") || shaRefRe.MatchString(c) {
+			continue
+		}
+		if _, tagSpec, tagErr := modfile.TagSpec(c); tagSpec || tagErr != nil {
 			continue
 		}
 		return c

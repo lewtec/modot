@@ -26,6 +26,7 @@ func (p *stubHashProvider) LockHash(ctx context.Context, alias string, src Sourc
 	p.calls.Add(1)
 	src.Ref = "main"
 	src.URL = "https://example.test/" + alias
+	src.Versioning = "regex:^v"
 	return fmt.Sprintf("sha256:%s", alias), src, nil
 }
 
@@ -96,6 +97,8 @@ func TestPopulateSourceLockHashesSkipsExisting(t *testing.T) {
 	require.Equal(t, "sha256:alpha", entries["alpha"].Hash)
 	require.Equal(t, "main", entries["alpha"].Ref, "alpha missing resolved metadata: %+v", entries["alpha"])
 	require.NotEmpty(t, entries["alpha"].URL, "alpha missing resolved metadata: %+v", entries["alpha"])
+	require.Equal(t, "regex:^v", entries["alpha"].Versioning)
+	require.Empty(t, entries["beta"].Versioning)
 	require.Equal(t, "sha256:keep", entries["beta"].Hash)
 }
 

@@ -3,7 +3,8 @@ package modot
 import "strings"
 
 #Input: {
-	from:    string
+	from:     string
+	// version is a git ref. A tag: prefix is a regexp of tag names.
 	version?: string
 }
 

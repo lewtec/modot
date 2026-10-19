@@ -51,14 +51,7 @@ func GenerateLockWithConfig(ctx context.Context, ws *Workspace, cfg *configcue.C
 				if !ok || !sourceLockReusable(locked) || !sourceLockMatchesDesired(entry, locked) {
 					continue
 				}
-				entry.Hash = locked.Hash
-				if strings.TrimSpace(locked.URL) != "" {
-					entry.URL = locked.URL
-				}
-				if ref := strings.TrimSpace(locked.Ref); ref != "" {
-					entry.Ref = ref
-				}
-				sourceEntries[name] = entry
+				sourceEntries[name] = applyReusableSourceLock(entry, locked)
 			}
 		}
 	}
@@ -88,6 +81,18 @@ func GenerateLockWithConfig(ctx context.Context, ws *Workspace, cfg *configcue.C
 		Sources: len(sourceEntries),
 		Changed: changed,
 	}, nil
+}
+
+func applyReusableSourceLock(entry, locked LockedSource) LockedSource {
+	entry.Hash = locked.Hash
+	if url := strings.TrimSpace(locked.URL); url != "" {
+		entry.URL = url
+	}
+	if ref := strings.TrimSpace(locked.Ref); ref != "" {
+		entry.Ref = ref
+	}
+	entry.Versioning = strings.TrimSpace(locked.Versioning)
+	return entry
 }
 
 func countSourceDependencies(sum *SumFile) int {

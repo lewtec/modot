@@ -18,6 +18,7 @@ import (
 type mountExpand struct {
 	cfg        *configcue.Config
 	modulesDir string
+	sum        *modfile.SumFile
 	dest       string
 	spec       configcue.Mount
 	targetBase string
@@ -138,7 +139,7 @@ func (job mountExpand) resolve(ctx context.Context, src string) (string, error) 
 		if err != nil {
 			return "", err
 		}
-		resolved, ok, err := mod.TryResolveSourceRefToPath(ctx, src, job.modulesDir)
+		resolved, ok, err := mod.TryResolveSourceRefToPath(ctx, src, job.modulesDir, job.sum)
 		if err != nil {
 			return "", err
 		}

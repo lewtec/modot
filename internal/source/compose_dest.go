@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"iter"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/lewtec/lewkit/x/taskgroup"
 	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/filespine"
+	"github.com/lewtec/modot/internal/modfile"
 )
 
 var (
@@ -48,6 +50,17 @@ func composeApply(ctx context.Context, request destRequest) (*Tree, error) {
 	return built, err
 }
 
+// mountLock is the pin file beside the workspace that holds modulesDir.
+// An empty modules dir leaves the caller with no lock, so an input with no
+// version still resolves as HEAD.
+func mountLock(modulesDir string) (*modfile.SumFile, error) {
+	modulesDir = strings.TrimSpace(modulesDir)
+	if modulesDir == "" {
+		return nil, nil
+	}
+	return modfile.LoadSumFile(filepath.Join(filepath.Dir(modulesDir), "modot.lock.json"))
+}
+
 func composeTracked(ctx context.Context, status *taskgroup.Status, request destRequest) (*Tree, error) {
 	mode := filespine.ModeHome
 	var profiles map[string]*compose.Tree
@@ -72,11 +85,16 @@ func composeTracked(ctx context.Context, status *taskgroup.Status, request destR
 		if err != nil {
 			return nil, err
 		}
+		sum, err := mountLock(request.modulesDir)
+		if err != nil {
+			return nil, err
+		}
 		for _, name := range filespine.Visible(mode) {
 			for dest, spec := range mounts[name] {
 				expanded, err := expandMount(ctx, mountExpand{
 					cfg:        request.config,
 					modulesDir: request.modulesDir,
+					sum:        sum,
 					dest:       dest,
 					spec:       spec,
 					targetBase: filespine.ApplyDir(name, request.targetBase),

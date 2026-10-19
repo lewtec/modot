@@ -73,7 +73,7 @@ func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File
 	}
 
 	resolver := func(ctx context.Context, spec, base string) (string, bool, error) {
-		return modFile.TryResolveSourceRefToPath(ctx, spec, base)
+		return modFile.TryResolveSourceRefToPath(ctx, spec, base, sumFile)
 	}
 
 	// Map each enabled module to its resolved files; reduce concatenates in input order.

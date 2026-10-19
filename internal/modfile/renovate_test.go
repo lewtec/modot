@@ -67,6 +67,30 @@ func TestBuildRenovateDependenciesFromTools(t *testing.T) {
 	require.Equal(t, "https://github.com/catppuccin/gtk", themeDep.PackageName)
 }
 
+func TestBuildRenovateDependenciesTracksTagRegex(t *testing.T) {
+	t.Parallel()
+
+	const versioning = `regex:^v?(?<version>\d+\.\d+\.\d+)$`
+	sources := map[string]LockedSource{
+		"jquery": {
+			Provider:   "github",
+			Repo:       "jquery/jquery",
+			Ref:        "4.0.0",
+			URL:        "https://codeload.github.com/jquery/jquery/tar.gz/4f2fae08f23b54ce09322e62e73cce6161b8d3cb",
+			Versioning: versioning,
+		},
+	}
+
+	got := BuildRenovateDependenciesFromLocks(sources, nil)
+	require.Len(t, got, 1, "%#v", got)
+	require.Equal(t, "git-tags", got[0].Datasource)
+	require.Equal(t, "4.0.0", got[0].CurrentValue)
+	require.Equal(t, "4f2fae08f23b54ce09322e62e73cce6161b8d3cb", got[0].CurrentDigest)
+	require.Equal(t, versioning, got[0].Versioning)
+	require.Equal(t, "jquery/jquery", got[0].DepName)
+	require.Equal(t, "https://github.com/jquery/jquery", got[0].PackageName)
+}
+
 func TestBuildRenovateDependenciesSkipsHeadWithoutBranch(t *testing.T) {
 	t.Parallel()
 
