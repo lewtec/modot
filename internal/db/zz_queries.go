@@ -5,9 +5,9 @@ package db
 import (
 	"context"
 	"fmt"
-	db "github.com/lewtec/lewkit/x/db"
+	"github.com/lewtec/lewkit/x/db"
 	_ "github.com/lewtec/lewkit/x/db/sqlite"
-	sqlite "github.com/lewtec/modot/internal/db/sqlite"
+	"github.com/lewtec/modot/internal/db/sqlite"
 )
 
 type History struct {
@@ -87,7 +87,7 @@ func (w sqliteWrap) SearchHistory(ctx context.Context, arg SearchHistoryParams) 
 	}
 	return out, err
 }
-func New(url string) func(db.DBTX) Queries {
+func New(url string) func(tx db.DBTX) Queries {
 	return func(tx db.DBTX) Queries {
 		switch db.Scheme(url) {
 		case "sqlite":
