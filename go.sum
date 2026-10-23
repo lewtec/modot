@@ -397,6 +397,8 @@ github.com/lewtec/leaven-tree-sitter/grammar/make v0.0.0-20260927191427-b55c533d
 github.com/lewtec/leaven-tree-sitter/grammar/make v0.0.0-20260927191427-b55c533d023c/go.mod h1:IB7OVNZwS8puiE6bD8zgRaaJK5J1+3iOwPtPh7TfSII=
 github.com/lewtec/lewkit v0.0.0-20261019201250-ac76983f7d83 h1:D4S7DrggFITR9N32ZhqTM+QDQW/p9EnQavsRMHFE1LQ=
 github.com/lewtec/lewkit v0.0.0-20261019201250-ac76983f7d83/go.mod h1:XtnRQP5P9gYzlouyw36NfmqufnZgIIkaxd944E6/8RI=
+github.com/lewtec/lewkit v0.0.0-20261022170717-cded6ad35127 h1:/F5ACjW1O0Pd205mZzDeopzkfN1fpBI5cIlOCYuundk=
+github.com/lewtec/lewkit v0.0.0-20261022170717-cded6ad35127/go.mod h1:n7dWIrZq9bIAtWJyGUc1Ifejx33KGULml1ExAmPaoUA=
 github.com/lewtec/wazero-tree-sitter/grammar v0.0.0-20260927175003-766673523e06 h1:qYGqfJ5fiQeRfSxsvcOwVbADQsZy8raGYr6l1EpaaOc=
 github.com/lewtec/wazero-tree-sitter/grammar v0.0.0-20260927175003-766673523e06/go.mod h1:xwgf7PJSOWRAqcuffR314NyyEYgsyeTP/Y1FxvykQBk=
 github.com/lib/pq v1.12.3 h1:tTWxr2YLKwIvK90ZXEw8GP7UFHtcbTtty8zsI+YjrfQ=
