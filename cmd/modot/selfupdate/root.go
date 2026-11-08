@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -91,16 +92,6 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string, s *taskgroup
 		return err
 	}
 
-	goVersion := getGoVersion()
-	if goVersion == "" {
-		return ErrGoVersionUnknown
-	}
-
-	misePath, err := miseutil.Ensure(ctx)
-	if err != nil {
-		return fmt.Errorf("ensure mise: %w", err)
-	}
-
 	if err := os.MkdirAll(installDir, 0755); err != nil {
 		return err
 	}
@@ -125,23 +116,25 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string, s *taskgroup
 		}
 	}()
 
-	goSpec := fmt.Sprintf("go@%s", goVersion)
-	slog.Info("building from source", "path", srcPath, "go", goSpec)
+	toolchain, err := resolveGoToolchain(ctx)
+	if err != nil {
+		return fmt.Errorf("resolve Go toolchain: %w", err)
+	}
+	slog.Info("building from source", "path", srcPath, "go", toolchain.version, "via", toolchain.name)
 
 	prog := newBuildProgress(s)
 	if s != nil {
 		s.Progress(0, 1)
 		s.Update("compiling")
 	}
-	if n, err := countBuildPackages(ctx, misePath, goSpec, srcPath); err == nil && n > 0 {
+	if n, err := countBuildPackages(ctx, toolchain, srcPath); err == nil && n > 0 {
 		prog.total = n
 		if s != nil {
 			s.Progress(0, n)
 		}
 	}
 
-	buildCmd, err := execdriver.Run(ctx, misePath, "exec", goSpec, "--",
-		"go", "build", "-v", "-o", tmpPath, "./cmd/modot")
+	buildCmd, err := execdriver.Run(ctx, toolchain.path, toolchain.buildArgs(tmpPath)...)
 	if err != nil {
 		return err
 	}
@@ -419,9 +412,111 @@ func (w *buildProgress) finish(msg string) {
 	s.Update(msg)
 }
 
-func countBuildPackages(ctx context.Context, misePath, goSpec, srcPath string) (int64, error) {
-	cmd, err := execdriver.Run(ctx, misePath, "exec", goSpec, "--",
-		"go", "list", "-e", "-deps", "-f", "{{if not .Standard}}{{.ImportPath}}{{end}}", "./cmd/modot")
+// goToolchain is how to invoke `go` for a source build: PATH's `go`, or mise
+// pinned to the Go version this binary was built with.
+type goToolchain struct {
+	// name and version are for logging.
+	name    string
+	version string
+	path    string
+	// prefix is prepended to the `go` arguments, so mise users carry
+	// "exec go@<version> --".
+	prefix []string
+}
+
+func (t goToolchain) buildArgs(outPath string) []string {
+	return append(t.args(), "build", "-v", "-o", outPath, "./cmd/modot")
+}
+
+func (t goToolchain) listArgs() []string {
+	return append(t.args(), "list", "-e", "-deps", "-f", "{{if not .Standard}}{{.ImportPath}}{{end}}", "./cmd/modot")
+}
+
+func (t goToolchain) args() []string {
+	args := make([]string, len(t.prefix), len(t.prefix)+2)
+	copy(args, t.prefix)
+	return args
+}
+
+// resolveGoToolchain picks a Go toolchain for a source build.
+//
+// `mise exec` parses every argument before the `--`, so `go build -o <path>`
+// itself must never run as a mise option: a bad prefix (or no `--`) turns the
+// `-o` flag into a mise flag ("a value is required for '--env <ENV>'" on
+// Apple Silicon). The prefix is always built here, structurally.
+//
+// PATH's `go` comes first when it is at least as new as this module's Go
+// directive: the project's mise.toml only lists micro tools (gopls, goreleaser,
+// svu), so asking mise for go@<directive> would download a second toolchain.
+func resolveGoToolchain(ctx context.Context) (goToolchain, error) {
+	need := getGoVersion()
+	if need == "" {
+		return goToolchain{}, ErrGoVersionUnknown
+	}
+	if path, err := execdriver.Which(ctx, "go"); err == nil {
+		tc := goToolchain{name: "go", version: need, path: path}
+		if got, err := goVersionArg(ctx, tc); err == nil && goVersionAtLeast(got, need) {
+			tc.version = got
+			return tc, nil
+		}
+	}
+	misePath, err := miseutil.Ensure(ctx)
+	if err != nil {
+		return goToolchain{}, fmt.Errorf("ensure mise: %w", err)
+	}
+	return goToolchain{
+		name:    "mise",
+		path:    misePath,
+		prefix:  []string{"exec", "go@" + need, "--"},
+		version: need,
+	}, nil
+}
+
+func goVersionArg(ctx context.Context, tc goToolchain) (string, error) {
+	cmd, err := execdriver.Run(ctx, tc.path, append(tc.args(), "env", "GOVERSION")...)
+	if err != nil {
+		return "", err
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// goVersionAtLeast reports whether a `go env GOVERSION` value (such as go1.27.0)
+// is at least want (such as 1.27.0).
+func goVersionAtLeast(version, want string) bool {
+	version = strings.TrimPrefix(version, "go")
+	// Drop devel and release-candidate suffixes: GOVERSION "go1.27devel" and
+	// "go1.28rc1" both work for a module that asks for 1.27.
+	version = strings.TrimSuffix(version, "devel")
+	if i := strings.Index(version, "rc"); i > 0 {
+		version = version[:i]
+	}
+	gotMajor, gotMinor := parseGoVersion(version)
+	wantMajor, wantMinor := parseGoVersion(want)
+	if gotMajor != wantMajor {
+		return gotMajor > wantMajor
+	}
+	return gotMinor >= wantMinor
+}
+
+// parseGoVersion reads the major and minor of a version (1.27.0, 1.27devel).
+func parseGoVersion(s string) (int, int) {
+	parts := strings.SplitN(s, ".", 3)
+	var major, minor int
+	if len(parts) > 0 {
+		major, _ = strconv.Atoi(parts[0])
+	}
+	if len(parts) > 1 {
+		minor, _ = strconv.Atoi(parts[1])
+	}
+	return major, minor
+}
+
+func countBuildPackages(ctx context.Context, toolchain goToolchain, srcPath string) (int64, error) {
+	cmd, err := execdriver.Run(ctx, toolchain.path, toolchain.listArgs()...)
 	if err != nil {
 		return 0, err
 	}
