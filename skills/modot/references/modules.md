@@ -15,7 +15,7 @@ providers). Modules point at an input (and often a `path` within it).
 Rough flow:
 
 ```text
-cue: inputs + modules.<name> { input, path, config, … }
+cue: inputs + modules.<name> { input, path, … } + options.<name>
         |
         +-- resolve sources --> modot.lock.json (pins, hashes, …)
         |
@@ -32,9 +32,10 @@ Typical roles you'll see (names may vary with your file; inspect theirs):
 | Role | Meaning |
 |------|---------|
 | inputs | Named sources (`self`, remote specs, versions/refs as applicable) |
-| modules.\<id\> | Enable/bind a module: which input, path inside input, `config` bag |
-| config on module | Data for that module's templates/behavior — your playground in CUE |
-| file on module | Dest map (`module.file`) unified into `file` when enabled |
+| modules.\<id\> | Enable/bind a module: which input and path inside it |
+| options on module | The module's config schema; modot injects it as `options.<name>` in the shared options tree |
+| options in your config | Configure modules here. There is no `modules.<id>.config` |
+| file on module | Dest map (`file`) unified into the global `file` when enabled |
 
 Init starter pattern (illustrative only):
 
@@ -100,6 +101,14 @@ boundaries, prefer keyed objects over lists that multiple layers might each try
 to own. You can still author lists in CUE and project them to maps before the
 merge boundary (`cue.md`).
 
+A module's options live at `options.<name>` in one shared tree: write a
+module's configuration there, and read another module's resolved options
+through the same tree. Module names must be CUE identifiers; a hyphen in a
+module name fails the build, so name the module `base16_gtk`, not
+`base16-gtk`. `modules.<id>` only carries `enable`, `input`, `path`, `from`, and
+`version`; there is no `modules.<id>.config`. Two modules declaring the same
+options path must agree, and a conflict fails the build.
+
 ## Operations (verbs only)
 
 | Verb | Role |
@@ -122,7 +131,7 @@ Flags and extras: `--help` on each.
   after moves.
 - Treating lock as source of truth: edits get overwritten or disagree with cue;
   fix cue/inputs then lock.
-- List-shaped module config at merge points: surprising replace/drop when more
+- List-shaped module options at merge points: surprising replace/drop when more
   than one contributor merges; use maps or CUE projection (`cue.md`).
 - Confusing module with tool: installing `ripgrep` doesn't add a module; adding
   a module doesn't put `rg` on PATH unless the module/templates/shims do that

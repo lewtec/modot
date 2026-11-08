@@ -29,8 +29,8 @@ import (
 var (
 	ErrNoValidSizes        = errors.New("no valid sizes provided")
 	ErrBase16NotConfigured = errors.New("module base16 is not configured")
-	ErrInvalidBase16Config = errors.New("invalid modules.base16 config")
-	ErrBase16MissingColors = errors.New("modules.base16 must include at least base00/base05/base0D")
+	ErrInvalidBase16Config = errors.New("invalid options.base16.palette")
+	ErrBase16MissingColors = errors.New("options.base16.palette must include at least base00/base05/base0D")
 	ErrInvalidSize         = errors.New("invalid icon size")
 	ErrInvalidReplaceRule  = errors.New("invalid color replace rule")
 	ErrNoSVGFiles          = errors.New("no .svg or .svg.tmpl files found")
@@ -316,12 +316,11 @@ func loadBase16Colors(ctx context.Context) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	entry, err := cfg.ModuleEntry("base16")
-	if err != nil {
+	if _, err := cfg.ModuleEntry("base16"); err != nil {
 		return nil, ErrBase16NotConfigured
 	}
-	m := entry.Config
-	if m == nil {
+	var m map[string]any
+	if err := cfg.Decode("options.base16.palette", &m); err != nil || m == nil {
 		return nil, ErrInvalidBase16Config
 	}
 

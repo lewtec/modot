@@ -50,6 +50,10 @@ import "strings"
 	...
 }
 
+// #ModuleRef carries no config. A module's options live in the shared options
+// tree under the module's name (options.theme, options.base16_gtk), and module
+// names must be CUE identifiers. Writing modules.<name>.config is not a way to
+// configure a module.
 #ModuleRef: {
 	enable: bool | *true
 	input?: string
@@ -58,8 +62,8 @@ import "strings"
 	// (many modules only set input/path and omit from).
 	from:     string | *""
 	version?: string
-	config: _ | *{}
-	// Legacy from: "core:place" is checked here, then rewritten below.
+	// Legacy from: "core:place" is checked here, then rewritten below. It is
+	// the one module shape that still carries a config bag.
 	if from == "core:place" {
 		config: #PlaceConfig
 	}
@@ -149,6 +153,11 @@ runtime?: #Runtime
 modules: {
 	[string]: #ModuleRef
 }
+// options is the shared module option tree. Every module unifies its schema
+// into this one namespace, so options.theme.palette.base00 resolves no matter
+// which module declared it. Two modules declaring the same path must agree.
+options: [string]: _
+
 workspaces?: [string]: int
 desktop?: {
 	dark_mode?: bool

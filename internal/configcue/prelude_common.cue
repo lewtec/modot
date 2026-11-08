@@ -40,7 +40,9 @@ drivers: {
 		"httpclient_termux": *60 | int
 	}
 	"github.com/lewtec/modot/internal/driver/notification.Driver": {
-		"notification_termux": *60 | int
+		"notification_termux":    *60 | int
+		notification_dbus:        100
+		notification_notify_send: 10
 	}
 	"github.com/lewtec/modot/internal/driver/opener.Driver": {
 		"opener_termux": *60 | int

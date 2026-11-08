@@ -128,9 +128,9 @@ Result: `~/.bashrc` (all together, alphabetical order)
 
 ## Context
 
-Templates are not only module `config`. Example module docs show patterns like:
+Templates are not only module options. Example module docs show patterns like:
 
-- Module config: e.g. `.module.greeting` (from cue `modules.<id>.config`)
+- Module options: e.g. `.module.greeting` (from cue `options.<name>`)
 - Runtime: hostname, phone/desktop, display server, etc.
 - Root config: broader modot config (e.g. `.root.hosts`,
   `$.root.browser.webapp`)
@@ -285,7 +285,7 @@ when the bundle is unchanged.
 Fingerprint best practices:
 
 1. Include engine version (`v1`, `v2`, …)
-2. Include effective module config (`sizes`, `map_scheme`, etc.)
+2. Include effective module options (`sizes`, `map_scheme`, etc.)
 3. Include palette/theme (e.g. base16)
 4. Include source snapshot (`count`, `size`, `max_mtime` or file hash)
 

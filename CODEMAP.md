@@ -54,7 +54,7 @@ For complex subsystems, mirror `skills/modot/references/templates.md`: decision 
 
 ## Gotchas (also in AGENTS.md)
 
-- No lists in module configs.
+- No lists in module options.
 - Use `internal/driver/exec` outside driver implementations.
 - Import driver prelude only from `cmd/modot/root.go`.
 - Only leaf taskgroup tasks take IO/CPU/Internet (`x/taskgroup` package doc).

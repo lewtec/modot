@@ -113,7 +113,7 @@ modules: best_practices: {
 `,
 		},
 		{
-			name: "non-place module config stays open",
+			name: "non-place module config is rejected",
 			cue: `
 package modot
 modules: other: {
@@ -121,9 +121,10 @@ modules: other: {
 	config: {anything: true, nested: {x: 1}}
 }
 `,
+			wantErr: true,
 		},
 		{
-			name: "module without from field",
+			name: "module without from field rejects config",
 			cue: `
 package modot
 modules: fontconfig: {
@@ -132,6 +133,7 @@ modules: fontconfig: {
 	config: {enable: true}
 }
 `,
+			wantErr: true,
 		},
 	}
 	for _, tc := range cases {

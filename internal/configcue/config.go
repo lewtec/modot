@@ -57,12 +57,11 @@ type Input struct {
 }
 
 type ModuleEntry struct {
-	Enable  bool           `json:"enable"`
-	Input   string         `json:"input"`
-	Path    string         `json:"path"`
-	From    string         `json:"from"`
-	Version string         `json:"version"`
-	Config  map[string]any `json:"config"`
+	Enable  bool   `json:"enable"`
+	Input   string `json:"input"`
+	Path    string `json:"path"`
+	From    string `json:"from"`
+	Version string `json:"version"`
 }
 
 func (c *Config) Raw() map[string]any {
@@ -104,8 +103,10 @@ func (c *Config) Decode(key string, val any) error {
 	return json.Unmarshal(data, val)
 }
 
+// ModuleConfig returns the module's options from the shared options tree.
+// A module without options decodes from its module entry instead.
 func (c *Config) ModuleConfig(name string, target any) error {
-	if err := c.Decode("modules."+name+".config", target); err == nil {
+	if err := c.Decode("options."+name, target); err == nil {
 		return nil
 	}
 	return c.Decode("modules."+name, target)
@@ -123,12 +124,6 @@ func (c *Config) Modules() (map[string]ModuleEntry, error) {
 	modules := map[string]ModuleEntry{}
 	if err := c.Decode("modules", &modules); err != nil {
 		return nil, err
-	}
-	for name, entry := range modules {
-		if entry.Config == nil {
-			entry.Config = map[string]any{}
-		}
-		modules[name] = entry
 	}
 	return modules, nil
 }
@@ -160,9 +155,6 @@ func (c *Config) ModuleEntry(name string) (ModuleEntry, error) {
 	var entry ModuleEntry
 	if err := c.Decode("modules."+name, &entry); err != nil {
 		return ModuleEntry{}, err
-	}
-	if entry.Config == nil {
-		entry.Config = map[string]any{}
 	}
 	return entry, nil
 }

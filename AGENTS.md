@@ -24,7 +24,7 @@ Break these and behavior will be wrong.
   2. Add the key in the user's `modot.cue`.
   3. Decode with `configcue.Config.Decode()` or `ModuleConfig()`.
   4. Consume via `{{ .Field }}` in templates.
-- No lists in module configs. Shapes must deep-merge cleanly.
+- No lists in module options. Shapes must deep-merge cleanly.
 - Driver preloads: import `_ "github.com/lewtec/modot/internal/driver/prelude"` only from `cmd/modot/root.go`. Never duplicate that import in subcommands.
 - Tool preloads (`internal/tool/prelude`): import from the cmd that needs registration.
 - Linters/formatters: CUE `lint` / `formatter` (SPEC.md ADR-0004). No per-tool Go packages.
@@ -65,7 +65,7 @@ Register an impl by importing its package from the central prelude.
 - A supported import path outside this repository.
 - Raw `os/exec` or `http.DefaultClient` in feature code.
 - Treating tools as first-class backends instead of going through registries/backends.
-- Lists in module config.
+- Lists in module options.
 - `utils` / `common` package names.
 - `Each` + `mu.Lock` + `append` to build a result list — use `Map` + a pure reduce.
 - Hand-rolled `WaitGroup`/`chan` fan-out when a `taskgroup.Session` is already on `ctx`.
