@@ -32,7 +32,7 @@ func init() {
 var (
 	ErrInputDirRequired    = errors.New("input_dir is required for core:base16-icons-linux")
 	ErrThemeNameRequired   = errors.New("theme_name is required")
-	ErrInvalidBase16Config = errors.New("invalid modules.base16 config")
+	ErrInvalidBase16Config = errors.New("invalid options.base16.palette")
 )
 
 type base16IconsLinuxModule struct{}
@@ -210,14 +210,19 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 }
 
 func extractBase16(req module.ResolveRequest) (map[string]any, error) {
-	entry, err := req.Config.ModuleEntry("base16")
-	if err != nil {
-		return nil, fmt.Errorf("module %q from core:base16-icons-linux requires modules.base16", req.ModuleName)
+	if req.Config == nil {
+		return nil, fmt.Errorf("module %q requires options.base16", req.ModuleName)
 	}
-	if entry.Config == nil {
+	var options map[string]any
+	if err := req.Config.ModuleConfig("base16", &options); err != nil {
+		return nil, fmt.Errorf("module %q requires options.base16: %w", req.ModuleName, err)
+	}
+	// options.base16 is {mode, palette}; the icons only care about the palette.
+	palette, _ := options["palette"].(map[string]any)
+	if len(palette) == 0 {
 		return nil, ErrInvalidBase16Config
 	}
-	return entry.Config, nil
+	return palette, nil
 }
 
 func moduleFingerprint(cfg base16IconsConfig, palette map[string]any) (string, error) {

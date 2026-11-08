@@ -122,7 +122,8 @@ func (p *ModuleScannerPlugin) resolveModule(
 	slog.Info("loading module", "module", m.name, "from", sourceSpec)
 
 	// Clone so Prepare/Resolve never mutate shared CUE config from parallel workers.
-	moduleConfig := cloneModuleConfig(m.entry.Config)
+	// A module's options live in the shared options tree under its name.
+	moduleConfig := moduleOptions(p.cfg, m.name)
 
 	if providerID == "core" {
 		if cm, ok := module.GetCoreModule(ref); ok {
@@ -166,6 +167,24 @@ func (p *ModuleScannerPlugin) resolveModule(
 		})
 	}
 	return out, nil
+}
+
+// moduleOptions returns a copy of options.<name>, the module's configuration
+// in the shared options tree. A module without options contributes an empty
+// map.
+func moduleOptions(cfg *configcue.Config, name string) map[string]any {
+	if cfg == nil {
+		return map[string]any{}
+	}
+	raw, err := cfg.Lookup("options." + name)
+	if err != nil {
+		return map[string]any{}
+	}
+	mapped, ok := raw.(map[string]any)
+	if !ok {
+		return map[string]any{}
+	}
+	return cloneModuleConfig(mapped)
 }
 
 // cloneModuleConfig deep-copies map[string]any trees used as module config so

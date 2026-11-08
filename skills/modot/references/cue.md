@@ -13,7 +13,7 @@ modot" without editing cue, skip this file. Universals: SKILL.md.
 ## Stance
 
 CUE is flexible here. Modot cares about the evaluated configuration:
-modules enabled, inputs, driver weights, module `config` bags, hosts, and
+modules enabled, inputs, driver weights, module options, hosts, and
 anything else loaders decode. How you author that result is yours.
 
 Outside-the-box is welcome: definitions (`#…`), comprehensions, shared fragments,
@@ -67,12 +67,12 @@ There is no requirement that cue look flat or match init line-for-line.
 
 These are runtime/merge/program edges, not style preferences.
 
-### 1. Merge-friendly module config
+### 1. Merge-friendly module options
 
 Modot composes configuration with deep merge in mind, especially across
-modules/layers. Naked lists at merge points in module `config` tend to replace
+modules/layers. Naked lists at merge points in module options tend to replace
 or fight each other rather than compose — which is why the project discourages
-list-shaped module configs specifically.
+list-shaped module options specifically.
 
 That does not mean "never use lists in CUE." It means:
 
@@ -136,7 +136,7 @@ lands on the same kind of structure.
 
 - Imposing init style on a mature cue file: users often have non-trivial CUE;
   extend their patterns instead of rewriting to the tutorial shape.
-- "Lists are banned" overread: only sensitive at merged module config (and
+- "Lists are banned" overread: only sensitive at merged module options (and
   similar merge points). Elsewhere, lists are normal CUE.
 - Schema is not a style guide: schema limits what modot decodes; it doesn't
   mean authoring must be minimal or non-DRY.

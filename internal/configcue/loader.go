@@ -231,7 +231,12 @@ func buildModotValue(ctx context.Context, paths []string, discovered []Layer, op
 	if len(moduleLayers) == 0 {
 		return baseConfigValue, nil
 	}
-	return compileModotValueWithContext(cueCtx, paths, runtimePrelude, homeLayers, nil, moduleLayers)
+	preLayers, postLayers, err := buildResolvedModuleLayers(baseConfigValue, paths, discovered)
+	if err != nil {
+		return cue.Value{}, err
+	}
+	postLayers = append(moduleLayers, postLayers...)
+	return compileModotValueWithContext(cueCtx, paths, runtimePrelude, homeLayers, preLayers, postLayers)
 }
 
 func compileModotValueWithContext(ctx *cue.Context, paths []string, runtimePrelude string, homeLayers bool, preLayers []compiledLayer, postLayers []compiledLayer) (cue.Value, error) {
@@ -385,9 +390,13 @@ func loadModuleCueLayers(configValue cue.Value, paths []string, discovered []Lay
 		if err != nil {
 			return nil, fmt.Errorf("module %q: read %s: %w", name, modulecue.FilePath(modulePath), err)
 		}
+		source, err := modulecue.StripOptions(string(body))
+		if err != nil {
+			return nil, fmt.Errorf("module %q: strip options from %s: %w", name, modulecue.FilePath(modulePath), err)
+		}
 		layers = append(layers, compiledLayer{
 			Name:   modulecue.FilePath(modulePath),
-			Source: string(body),
+			Source: source,
 		})
 	}
 	return layers, nil
@@ -423,6 +432,9 @@ func buildResolvedModuleLayers(configValue cue.Value, paths []string, discovered
 
 	schemaByModule := map[string]string{}
 	for modName, modEntry := range modules {
+		if err := ValidateModuleName(modName); err != nil {
+			return nil, nil, err
+		}
 		modulePath, ok, err := resolveLocalModulePath(cfg, modName, modEntry, modulesBaseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("resolve module %q for config resolution: %w", modName, err)
@@ -433,7 +445,15 @@ func buildResolvedModuleLayers(configValue cue.Value, paths []string, discovered
 		if !modulecue.Exists(modulePath) {
 			continue
 		}
-		schemaText, err := modulecue.ConfigSyntaxWithRoot(modulePath, raw)
+		schemaText, err := modulecue.OptionsSyntaxWithRoot(modulePath, raw)
+		if errors.Is(err, modulecue.ErrOptionsFieldNotFound) {
+			// Backward compatibility: older modules declare the schema as
+			// module.config instead of a top-level options field.
+			schemaText, err = modulecue.ConfigSyntaxWithRoot(modulePath, raw)
+		}
+		if errors.Is(err, modulecue.ErrModuleConfigFieldNotFound) || errors.Is(err, modulecue.ErrModuleFieldNotFound) {
+			continue
+		}
 		if err != nil {
 			return nil, nil, err
 		}
@@ -442,13 +462,13 @@ func buildResolvedModuleLayers(configValue cue.Value, paths []string, discovered
 
 	preLayers := make([]compiledLayer, 0, 1)
 	if len(schemaByModule) > 0 {
-		schemaLayer, err := buildModuleSchemaLayer(schemaByModule)
+		optionsLayer, err := buildModuleSchemaLayers(schemaByModule)
 		if err != nil {
 			return nil, nil, err
 		}
 		preLayers = append(preLayers, compiledLayer{
-			Name:   "module_schemas.cue",
-			Source: schemaLayer,
+			Name:   "module_options.cue",
+			Source: optionsLayer,
 		})
 	}
 	postLayers := make([]compiledLayer, 0, 1)
@@ -544,9 +564,9 @@ func buildDerivedModulePrelude() string {
 	return `package modot
 
 desktop: {
-	dark_mode: *modules.base16.config.dark_mode | bool
+	dark_mode: *(options.base16.mode == "dark") | bool
 	raw: {
-		dconf: *modules["base16-gtk"].config.dconf | {
+		dconf: *options.base16_gtk.dconf | {
 			[string]: [string]: _
 		}
 	}
@@ -554,28 +574,47 @@ desktop: {
 `
 }
 
-func buildModuleSchemaLayer(schemaByModule map[string]string) (string, error) {
+// buildModuleSchemaLayers generates the shared options layer.
+//
+// It unifies every module's options schema into the one shared options tree
+// under the module's name. Modules share the tree: a module reads another's
+// options through it, and a genuine conflict (different types or values on the
+// same path) fails the build.
+//
+// Modules do not get a modules.<name>.config field: the module's options are
+// options.<name> and nothing else (options.theme, options.base16_gtk). Module
+// names must be valid CUE identifiers, so a hyphen in a module name fails the
+// build instead of forcing options["base16-gtk"]. That is the only
+// configuration surface, and modules read each other through the same tree.
+func buildModuleSchemaLayers(schemaByModule map[string]string) (string, error) {
 	moduleNames := make([]string, 0, len(schemaByModule))
 	for name := range schemaByModule {
 		moduleNames = append(moduleNames, name)
 	}
 	sort.Strings(moduleNames)
 
-	moduleFields := make([]ast.Decl, 0, len(moduleNames))
+	optionsDecls := make([]ast.Decl, 0, len(moduleNames))
 	for _, name := range moduleNames {
-		// Module schemas are package module and say modot.<field>.
+		if err := ValidateModuleName(name); err != nil {
+			return "", err
+		}
+		// Module schemas are package module and may say modot.<field>.
 		// Pasted into this package, that root is the top-level field.
 		schemaText := strings.ReplaceAll(strings.TrimSpace(schemaByModule[name]), "modot.", "")
-		expr, err := parser.ParseExpr(name+".module_config.cue", schemaText)
+		expr, err := parser.ParseExpr(name+".module_options.cue", schemaText)
 		if err != nil {
-			return "", fmt.Errorf("parse module config schema for %q: %w", name, err)
+			return "", fmt.Errorf("parse module options schema for %q: %w", name, err)
 		}
-		moduleFields = append(moduleFields, &ast.Field{
-			Label: ast.NewString(name),
+		// One `options: <name>: <schema>` conjunct per module. Every module
+		// writes its own key under the shared options tree, so a module can
+		// read another's options by key. Two modules claiming the same key
+		// unify; divergent types fail the build.
+		optionsDecls = append(optionsDecls, &ast.Field{
+			Label: ast.NewIdent("options"),
 			Value: &ast.StructLit{
 				Elts: []ast.Decl{
 					&ast.Field{
-						Label: ast.NewIdent("config"),
+						Label: ast.NewIdent(name),
 						Value: expr,
 					},
 				},
@@ -583,20 +622,16 @@ func buildModuleSchemaLayer(schemaByModule map[string]string) (string, error) {
 		})
 	}
 
+	return renderModuleLayer(optionsDecls)
+}
+
+func renderModuleLayer(decls []ast.Decl) (string, error) {
 	file := &ast.File{
-		Decls: []ast.Decl{
-			&ast.Package{Name: ast.NewIdent("modot")},
-			&ast.Field{
-				Label: ast.NewIdent("modules"),
-				Value: &ast.StructLit{
-					Elts: moduleFields,
-				},
-			},
-		},
+		Decls: append([]ast.Decl{&ast.Package{Name: ast.NewIdent("modot")}}, decls...),
 	}
 	formatted, err := format.Node(file)
 	if err != nil {
-		return "", fmt.Errorf("format generated module schema layer: %w", err)
+		return "", fmt.Errorf("format generated module layer: %w", err)
 	}
 	return string(formatted), nil
 }

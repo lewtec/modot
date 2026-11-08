@@ -150,6 +150,58 @@ func ConfigSyntaxWithRoot(modPath string, root map[string]any) (string, error) {
 	return string(formatted), nil
 }
 
+// StripOptions removes the top-level options field from a module source.
+// The loader injects options under the module's sanitized key in the shared
+// options tree; leaving the field in the unified package would merge every
+// module's schema into one global tree without a module key.
+func StripOptions(src string) (string, error) {
+	file, err := parser.ParseFile("modot.cue", src)
+	if err != nil {
+		return "", err
+	}
+	decls := make([]ast.Decl, 0, len(file.Decls))
+	for _, decl := range file.Decls {
+		field, ok := decl.(*ast.Field)
+		if ok {
+			label, isIdent, err := ast.LabelName(field.Label)
+			if err == nil && isIdent && label == "options" {
+				continue
+			}
+		}
+		decls = append(decls, decl)
+	}
+	file.Decls = decls
+	out, err := format.Node(file)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
+// OptionsSyntaxWithRoot returns the module's top-level options expression.
+// Modules declare their config schema as `options: { ... }`; the loader
+// injects it under the module's sanitized key in the shared options tree.
+func OptionsSyntaxWithRoot(modPath string, root map[string]any) (string, error) {
+	path := FilePath(modPath)
+	src, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read %s: %w", path, err)
+	}
+	file, err := parser.ParseFile(path, src)
+	if err != nil {
+		return "", fmt.Errorf("parse %s: %w", path, err)
+	}
+	optionsExpr, err := findOptionsExpr(file)
+	if err != nil {
+		return "", fmt.Errorf("lookup options in %s: %w", path, err)
+	}
+	formatted, err := format.Node(optionsExpr)
+	if err != nil {
+		return "", fmt.Errorf("format options syntax for %s: %w", modPath, err)
+	}
+	return string(formatted), nil
+}
+
 func compileModule(modPath string) (cue.Value, error) {
 	return compileModuleWithContext(cuecontext.New(), modPath, nil)
 }
@@ -294,9 +346,18 @@ var (
 	ErrModuleFieldNotFound       = errors.New("module field not found")
 	ErrModuleFieldNotStruct      = errors.New("module field is not a struct")
 	ErrModuleConfigFieldNotFound = errors.New("module.config field not found")
+	ErrOptionsFieldNotFound      = errors.New("options field not found")
 	ErrUnsupportedValueType      = errors.New("unsupported cue context value type")
 	ErrFileNotStruct             = errors.New("module.file is not a struct")
 )
+
+func findOptionsExpr(file *ast.File) (ast.Expr, error) {
+	field := findField(file.Decls, "options")
+	if field == nil {
+		return nil, ErrOptionsFieldNotFound
+	}
+	return field.Value, nil
+}
 
 func findModuleConfigExpr(file *ast.File) (ast.Expr, error) {
 	moduleField := findField(file.Decls, "module")
