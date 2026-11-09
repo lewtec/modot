@@ -455,6 +455,11 @@ func (t goToolchain) args() []string {
 	return args
 }
 
+// The release builds everywhere with CGO_ENABLED=0 (.goreleaser.yaml), and
+// nothing modot imports needs cgo. A source build follows suit: with cgo off
+// a broken C compiler on PATH cannot fail the build at all.
+const buildCGOEnv = "CGO_ENABLED=0"
+
 // env returns the toolchain environment with GOTOOLCHAIN pinned, when it is.
 //
 // The exec driver leaves Cmd.Env nil, which os/exec reads as "inherit"; go
@@ -463,10 +468,11 @@ func (t goToolchain) env(base []string) []string {
 	if base == nil {
 		base = os.Environ()
 	}
-	if t.pin == "" {
-		return base
+	out := slices.Clone(base)
+	if t.pin != "" {
+		out = append(out, "GOTOOLCHAIN="+t.pin)
 	}
-	return append(slices.Clone(base), "GOTOOLCHAIN="+t.pin)
+	return append(out, buildCGOEnv)
 }
 
 func (t goToolchain) buildArgs(outPath string) []string {
