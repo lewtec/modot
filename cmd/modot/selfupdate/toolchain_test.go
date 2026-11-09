@@ -76,12 +76,29 @@ func TestGoToolchainPinsGotoolchainInEnv(t *testing.T) {
 	t.Parallel()
 	tc := goToolchain{path: "/usr/local/go/bin/go", version: "go1.25.1", pin: pinAuto}
 	base := []string{"PATH=/usr/bin"}
-	require.Equal(t, []string{"PATH=/usr/bin", "GOTOOLCHAIN=auto"}, tc.env(base))
+	require.Equal(t, []string{"PATH=/usr/bin", "GOTOOLCHAIN=auto", buildCGOEnv}, tc.env(base))
 	require.Equal(t, []string{"PATH=/usr/bin"}, base, "env must not modify the base slice")
 	require.NotContains(t, tc.buildArgs("/tmp/out"), "GOTOOLCHAIN=auto")
 
 	unpinned := goToolchain{path: "/usr/local/go/bin/go"}
-	require.Equal(t, base, unpinned.env(base))
+	require.Equal(t, []string{"PATH=/usr/bin", buildCGOEnv}, unpinned.env(base))
+}
+
+// A source build must never need a C compiler: a `cc` shim on PATH that hands
+// the compiler's `-o` to mise is what failed as
+// "# runtime/cgo: a value is required for '--env <ENV>'".
+func TestGoToolchainEnvDisablesCgo(t *testing.T) {
+	t.Parallel()
+	ccShim := "/home/user/.dotfiles/bin/shim/cc"
+	for _, tc := range []goToolchain{
+		{path: "/usr/local/go/bin/go"},
+		{path: "/usr/local/go/bin/go", pin: pinLocal},
+		{path: "/bin/mise", prefix: []string{"exec", "go@1.27.0", "--"}, pin: pinLocal},
+	} {
+		env := tc.env([]string{"CC=" + ccShim})
+		require.Contains(t, env, "CGO_ENABLED=0")
+		require.Contains(t, env, "CC="+ccShim, "the inherited CC must not be dropped")
+	}
 }
 
 // The exec driver leaves Cmd.Env nil (inherit). Pinning must not turn that into
