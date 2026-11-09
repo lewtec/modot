@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -114,6 +115,9 @@ templ Overview(v View) {
 			if v.shown().ProblemCount() > 0 {
 				@problemCard(v.shown())
 			}
+			if len(v.shown().Unused) > 0 {
+				@unusedCard(v.shown())
+			}
 			if v.shown().MergedErr != nil {
 				@errorAlertTitled("Merge failed", v.shown().MergedErr)
 			}
@@ -186,6 +190,29 @@ templ problemCard(r configdash.Report) {
 							}
 						}
 					</li>
+				}
+			</ul>
+		</div>
+	</div>
+}
+
+// unusedCard lists module directories that exist but that no module entry
+// points at. They do not load; the entry file decides what does.
+templ unusedCard(r configdash.Report) {
+	<div class="card border border-base-300 bg-base-100 shadow">
+		<div class="card-body">
+			<div class="flex items-center justify-between">
+				<h2 class="card-title text-base">
+					Module directories not used
+					<span class="badge badge-ghost badge-sm">{ fmt.Sprint(len(r.Unused)) }</span>
+				</h2>
+			</div>
+			<p class="text-sm text-base-content/70">
+				These directories hold a <span class="font-mono">modot.cue</span> but nothing under <span class="font-mono">modules</span> points at them, so they do not load. Reference one with <span class="font-mono">modules.&lt;name&gt;.input</span> to use it.
+			</p>
+			<ul class="flex flex-wrap gap-2">
+				for _, dir := range r.Unused {
+					<li class="badge badge-ghost badge-sm font-mono" title={ dir }>{ filepath.Base(dir) }</li>
 				}
 			</ul>
 		</div>
