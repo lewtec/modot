@@ -127,6 +127,26 @@ func ExpandPathIn(path, home string) string {
 	return os.ExpandEnv(path)
 }
 
+// ExpandTildeIn expands only a leading ~ using home. Unlike ExpandPathIn it
+// never runs $VAR expansion, so a path that is already concrete keeps every
+// byte of it. Use this for paths that were not written by the user in config:
+// state keys, planned targets, and recorded file paths may legitimately
+// contain a literal "$" (for example "$inspect.md"), and os.ExpandEnv would
+// silently drop it.
+// Empty home leaves a leading ~ unexpanded.
+func ExpandTildeIn(path, home string) string {
+	if home == "" || !strings.HasPrefix(path, "~") {
+		return path
+	}
+	if path == "~" {
+		return home
+	}
+	if path[1] == '/' || path[1] == filepath.Separator {
+		return filepath.Join(home, path[2:])
+	}
+	return path
+}
+
 // ExpandPathContext expands path using the active env driver's home directory.
 func ExpandPathContext(ctx context.Context, path string) (string, error) {
 	home, err := GetHomeDir(ctx)
