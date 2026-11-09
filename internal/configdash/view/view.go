@@ -10,20 +10,48 @@ import (
 	"github.com/lewtec/modot/internal/configdash"
 )
 
-// ThemeDefault is the palette when no theme cookie is set.
-const ThemeDefault = "light"
+// ThemeSystem means "follow the operating system preference", which only the
+// browser can see. It is the default; the page starts light and the client
+// script swaps the palette before paint.
+const ThemeSystem = "system"
 
-// ThemeCookie keeps the chosen daisyUI palette across navigation.
+// ThemeLight is the light daisyUI palette.
+const ThemeLight = "light"
+
+// ThemeDark is the dark daisyUI palette.
+const ThemeDark = "dark"
+
+// ThemePalette turns a theme choice into the palette the page starts with. The
+// browser redraws it when the choice is ThemeSystem.
+func ThemePalette(theme string) string {
+	if theme == ThemeDark {
+		return ThemeDark
+	}
+
+	return ThemeLight
+}
+
+// ThemeDefault is the choice when no theme cookie is set.
+const ThemeDefault = ThemeSystem
+
+// ThemeCookie keeps the chosen theme across navigation.
 const ThemeCookie = "modot_theme"
 
-// Theme reads the theme cookie, or ThemeDefault.
+// Theme reads the theme cookie, or ThemeDefault. ThemeSystem resolves on the
+// client: the server cannot know the machine's preference, and it sends the
+// light palette so the page is readable before the script runs.
 func Theme(r *http.Request) string {
 	cookie, err := r.Cookie(ThemeCookie)
-	if err == nil && (cookie.Value == "light" || cookie.Value == "dark") {
+	if err == nil && (cookie.Value == ThemeLight || cookie.Value == ThemeDark || cookie.Value == ThemeSystem) {
 		return cookie.Value
 	}
 
 	return ThemeDefault
+}
+
+// Scopes lists the scopes the dashboard serves, in switcher order.
+func Scopes() []configdash.Scope {
+	return []configdash.Scope{configdash.ScopeHome, configdash.ScopeCodebase, configdash.ScopeSystem}
 }
 
 // page is one dashboard screen.
@@ -80,7 +108,7 @@ func Handler(requested configdash.Scope, reload func(r *http.Request, scope conf
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, scopeRoute(requested, pageOverview), http.StatusFound)
 	})
-	for _, scope := range []configdash.Scope{configdash.ScopeHome, configdash.ScopeCodebase} {
+	for _, scope := range Scopes() {
 		for _, p := range pageNames() {
 			route := scopeRoute(scope, p)
 			mux.HandleFunc("GET "+route+"/{$}", func(writer http.ResponseWriter, req *http.Request) {

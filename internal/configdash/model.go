@@ -33,12 +33,20 @@ const (
 	ScopeHome Scope = "home"
 	// ScopeCodebase discovers the repo layer (modot codebase config).
 	ScopeCodebase Scope = "codebase"
+	// ScopeSystem discovers dotfiles, user, home, and host layers for the
+	// system tree (modot system config).
+	ScopeSystem Scope = "system"
 )
 
 // DiscoverOptions maps the scope onto the loader's discovery options.
 func (s Scope) DiscoverOptions(cwd string) configcue.DiscoverOptions {
-	if s == ScopeHome {
+	switch s {
+	case ScopeHome:
 		return configcue.DiscoverOptions{Cwd: cwd, Mode: filespine.ModeHome, HomeLayers: true}
+	case ScopeSystem:
+		return configcue.DiscoverOptions{Cwd: cwd, Mode: filespine.ModeSystem, HomeLayers: true}
+	case ScopeCodebase:
+		return configcue.DiscoverOptions{Cwd: cwd, Mode: filespine.ModeCodebase, HomeLayers: false}
 	}
 
 	return configcue.DiscoverOptions{Cwd: cwd, Mode: filespine.ModeCodebase, HomeLayers: false}

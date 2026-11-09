@@ -13,6 +13,9 @@ func (v View) selectedModule() (configdash.Module, bool) {
 	return selectedModule(v.shown(), v.ModuleName)
 }
 
+// tabBase is a daisyUI tab; the selected one is the active tab.
+const tabBase = "tab"
+
 // sourceLabel is the module's location the way the config names it:
 // "core:base16-icons-linux" for a built-in, "self:modules/theme" for a
 // directory in this workspace.
@@ -37,7 +40,7 @@ func problemClass(mod configdash.Module) string {
 // tabClass marks the selected module and the ones that failed to load, so a
 // broken module stands out in the list without opening it.
 func tabClass(mod configdash.Module, selected bool) string {
-	classes := "tab"
+	classes := tabBase
 	if selected {
 		classes += " tab-active"
 	}

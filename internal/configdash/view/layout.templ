@@ -15,7 +15,7 @@ templ BrowserAssets() {
 
 templ Document(title, theme string) {
 	<!DOCTYPE html>
-	<html lang="en" data-theme={ theme }>
+	<html lang="en" data-theme={ ThemePalette(theme) } data-theme-choice={ themeChoiceAttr(theme) }>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -44,14 +44,24 @@ templ Brand() {
 }
 
 templ themeToggle(theme string) {
-	<span class="join" title="Switch theme">
-		<a href="#light" class={ toggleClass("light", theme) } data-theme-set="light" aria-pressed={ boolAttr(theme == "light") }>
-			@icon(lucide.NameSun, "size-4")
-		</a>
-		<a href="#dark" class={ toggleClass("dark", theme) } data-theme-set="dark" aria-pressed={ boolAttr(theme == "dark") }>
-			@icon(lucide.NameMoon, "size-4")
-		</a>
-	</span>
+	<div class="tabs tabs-box tabs-xs" role="tablist" title="Theme">
+		for _, choice := range []string{"system", "light", "dark"} {
+			<a href="#" class={ toggleClass(choice, theme) } data-theme-set={ choice } role="tab" aria-selected={ boolAttr(choice == theme) }>
+				@themeIcon(choice)
+			</a>
+		}
+	</div>
+}
+
+// themeIcon draws the pictogram for one theme choice.
+templ themeIcon(choice string) {
+	if choice == "system" {
+		@icon(lucide.NameMonitor, "size-4")
+	} else if choice == "dark" {
+		@icon(lucide.NameMoon, "size-4")
+	} else {
+		@icon(lucide.NameSun, "size-4")
+	}
 }
 
 templ navItem(href, label, current string) {
@@ -66,23 +76,28 @@ templ navItem(href, label, current string) {
 
 // scopeTitle names the layer set the switcher shows.
 func scopeTitle(scope configdash.Scope) string {
-	if scope == configdash.ScopeHome {
+	switch scope {
+	case configdash.ScopeHome:
 		return "Home"
+	case configdash.ScopeCodebase:
+		return "Codebase"
+	case configdash.ScopeSystem:
+		return "System"
 	}
-	return "Codebase"
+
+	return string(scope)
 }
 
 // scopeToggle switches layer set. Each scope is its own route, so the links are
-// plain paths; the current scope carries the active style.
+// plain paths; the current scope is the active tab.
 templ scopeToggle(v View) {
-	<span class="join" title="Layer set">
-		<a href={ scopeRoute(configdash.ScopeHome, pageOverview) } class={ scopeClass(configdash.ScopeHome, v.Scope) } aria-pressed={ boolAttr(v.Scope == configdash.ScopeHome) }>
-			Home
-		</a>
-		<a href={ scopeRoute(configdash.ScopeCodebase, pageOverview) } class={ scopeClass(configdash.ScopeCodebase, v.Scope) } aria-pressed={ boolAttr(v.Scope == configdash.ScopeCodebase) }>
-			Codebase
-		</a>
-	</span>
+	<div class="tabs tabs-box tabs-sm" role="tablist" title="Layer set">
+		for _, scope := range Scopes() {
+			<a href={ scopeRoute(scope, pageOverview) } class={ scopeClass(scope, v.Scope) } role="tab" aria-selected={ boolAttr(scope == v.Scope) }>
+				{ scopeTitle(scope) }
+			</a>
+		}
+	</div>
 }
 
 templ Sidebar(current string, v View) {
@@ -97,7 +112,9 @@ templ Sidebar(current string, v View) {
 	</nav>
 }
 
-// Shell is the page frame: header, sidebar, and scrollable body.
+// Shell is the page frame: header, sidebar, and scrollable body. theme is the
+// choice (system, light, dark); the page starts on the palette that choice
+// implies and the client script corrects "system" before anything is visible.
 templ Shell(title string, current page, theme string, v View) {
 	@Document(title, theme) {
 		<body class="h-screen min-h-screen overflow-hidden bg-base-200 text-base-content">
@@ -127,24 +144,40 @@ templ Shell(title string, current page, theme string, v View) {
 				</div>
 			</div>
 			<script>
-				// The theme is a cookie so it survives navigation. daisyUI picks
-				// the palette from the data-theme attribute on <html>.
+				// Theme choices are light, dark, and system. "system" follows
+				// prefers-color-scheme and is the default when no cookie is set.
+				// The class only applies to the resolved palette; the choice
+				// itself is kept in the cookie.
 				(function () {
 					var root = document.documentElement;
+					var dark = window.matchMedia("(prefers-color-scheme: dark)");
+					var choice = root.getAttribute("data-theme-choice") || "system";
+
+					function apply() {
+						var resolved = choice === "system" ? (dark.matches ? "dark" : "light") : choice;
+						root.setAttribute("data-theme", resolved);
+						document.querySelectorAll("[data-theme-set]").forEach(function (el) {
+							var on = el.getAttribute("data-theme-set") === choice;
+							el.classList.toggle("tab-active", on);
+							el.setAttribute("aria-selected", on ? "true" : "false");
+						});
+					}
+
 					document.querySelectorAll("[data-theme-set]").forEach(function (el) {
 						el.addEventListener("click", function (event) {
 							event.preventDefault();
-							var next = el.getAttribute("data-theme-set");
-							root.setAttribute("data-theme", next);
-							document.cookie = "modot_theme=" + next + "; path=/; max-age=31536000; SameSite=Lax";
-							document.querySelectorAll("[data-theme-set]").forEach(function (other) {
-								var on = other.getAttribute("data-theme-set") === next;
-								other.classList.toggle("btn-primary", on);
-								other.classList.toggle("btn-ghost", !on);
-								other.setAttribute("aria-pressed", on ? "true" : "false");
-							});
+							choice = el.getAttribute("data-theme-set");
+							root.setAttribute("data-theme-choice", choice);
+							document.cookie = "modot_theme=" + choice + "; path=/; max-age=31536000; SameSite=Lax";
+							apply();
 						});
 					});
+					dark.addEventListener("change", function () {
+						if (choice === "system") {
+							apply();
+						}
+					});
+					apply();
 				})();
 			</script>
 		</body>
@@ -170,16 +203,26 @@ templ PageBody() {
 
 func scopeClass(value, current configdash.Scope) string {
 	if value == current {
-		return "btn btn-sm join-item btn-primary"
+		return tabBase + " tab-active"
 	}
-	return "btn btn-sm join-item btn-ghost"
+	return tabBase
 }
 
 func toggleClass(value, current string) string {
 	if value == current {
-		return "btn btn-sm join-item btn-primary"
+		return tabBase + " tab-active"
 	}
-	return "btn btn-sm join-item btn-ghost"
+	return tabBase
+}
+
+// themeChoiceAttr is the theme choice the client script starts from: the cookie
+// value, or "system" when nothing was chosen.
+func themeChoiceAttr(theme string) string {
+	if theme == ThemeLight || theme == ThemeDark {
+		return theme
+	}
+
+	return ThemeSystem
 }
 
 func boolAttr(v bool) string {

@@ -92,17 +92,25 @@ func workingDir(cwd string) (string, error) {
 }
 
 // landingScope picks the scope "/" redirects to: home layers when discovery
-// finds them, codebase otherwise. Both routes are served either way, so this
-// only decides which one the window opens on.
+// finds them, codebase next, then system. Every route is served either way, so
+// this only decides which one the window opens on.
 func landingScope(ctx context.Context, cwd string) configdash.Scope {
 	homeErr := discoverable(ctx, configdash.ScopeHome, cwd)
-	codebaseErr := discoverable(ctx, configdash.ScopeCodebase, cwd)
-	scope, ok := view.Landing(configdash.ScopeHome, configdash.ScopeCodebase, homeErr, codebaseErr)
-	if !ok {
-		slog.Warn("dashboard: no layers for either scope", "cwd", cwd)
+	if homeErr == nil {
+		return configdash.ScopeHome
 	}
+	codebaseErr := discoverable(ctx, configdash.ScopeCodebase, cwd)
+	if codebaseErr == nil {
+		return configdash.ScopeCodebase
+	}
+	systemErr := discoverable(ctx, configdash.ScopeSystem, cwd)
+	if systemErr == nil {
+		return configdash.ScopeSystem
+	}
+	slog.Warn("dashboard: no layers for any scope", "cwd", cwd, "home", homeErr,
+		"codebase", codebaseErr, "system", systemErr)
 
-	return scope
+	return configdash.ScopeHome
 }
 
 // discoverable reports whether scope finds at least one layer.

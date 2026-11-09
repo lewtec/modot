@@ -51,5 +51,8 @@ go test ./internal/configdash/ ./internal/configcue/
 
 The UI is templ plus the daisyUI and Tailwind CSS assets the lewkit asset
 package serves under `/__lewkit__/`. The theme is a `modot_theme` cookie read on
-each request, so the light/dark toggle survives navigation without JavaScript
-state.
+each request, so the choice survives navigation without server state: `system`
+(the default) follows `prefers-color-scheme`, `light` and `dark` pin a palette.
+Home, codebase, and system are tabs in the header, and each scope is its own
+route (`/home/layers`, `/system/modules?name=icons`), so the URL always says what
+is on screen.
