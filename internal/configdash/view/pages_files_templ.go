@@ -90,7 +90,7 @@ func Files(v View) templ.Component {
 					var templ_7745c5c3_Var4 string
 					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(v.Files.Mode)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 25, Col: 95}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 25, Col: 95}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 					if templ_7745c5c3_Err != nil {
@@ -168,7 +168,7 @@ func filesError(files configdash.FilesReport) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(files.Err.Error())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 43, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 43, Col: 90}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -211,7 +211,7 @@ func filesSummary(files configdash.FilesReport) templ.Component {
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(files.MaterialCount()))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 53, Col: 72}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 53, Col: 72}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
@@ -224,7 +224,7 @@ func filesSummary(files configdash.FilesReport) templ.Component {
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(files.DirCount()))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 54, Col: 78}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 54, Col: 78}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -237,7 +237,7 @@ func filesSummary(files configdash.FilesReport) templ.Component {
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(files.TargetBase)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 58, Col: 65}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 58, Col: 65}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 		if templ_7745c5c3_Err != nil {
@@ -250,7 +250,7 @@ func filesSummary(files configdash.FilesReport) templ.Component {
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(files.TargetBase)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 58, Col: 86}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 58, Col: 86}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
@@ -263,7 +263,7 @@ func filesSummary(files configdash.FilesReport) templ.Component {
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(strings.Join(files.Profiles, ", "))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 59, Col: 94}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 59, Col: 94}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -286,7 +286,7 @@ func filesSummary(files configdash.FilesReport) templ.Component {
 			var templ_7745c5c3_Var14 string
 			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var13).String())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 1, Col: 0}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 1, Col: 0}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 			if templ_7745c5c3_Err != nil {
@@ -299,7 +299,7 @@ func filesSummary(files configdash.FilesReport) templ.Component {
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(kind.Label + " " + fmt.Sprint(kind.Count))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 65, Col: 86}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 65, Col: 86}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {
@@ -335,7 +335,7 @@ func filesSummary(files configdash.FilesReport) templ.Component {
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(warning)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 76, Col: 33}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 76, Col: 33}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -393,7 +393,7 @@ func spriteIcon(name lucide.Name, class string) templ.Component {
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var18).String())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 1, Col: 0}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 1, Col: 0}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
 		if templ_7745c5c3_Err != nil {
@@ -406,7 +406,7 @@ func spriteIcon(name lucide.Name, class string) templ.Component {
 		var templ_7745c5c3_Var20 string
 		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue("#icon-" + name.String())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 89, Col: 77}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 89, Col: 77}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
 		if templ_7745c5c3_Err != nil {
@@ -455,7 +455,7 @@ func fileTree(scope configdash.Scope, nodes []configdash.FileNode) templ.Compone
 		var templ_7745c5c3_Var22 string
 		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(nodeFileCount(nodes)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 100, Col: 94}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 100, Col: 94}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 		if templ_7745c5c3_Err != nil {
@@ -523,7 +523,7 @@ func treeNode(scope configdash.Scope, node configdash.FileNode) templ.Component 
 			var templ_7745c5c3_Var24 string
 			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(node.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 216, Col: 39}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 216, Col: 39}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 			if templ_7745c5c3_Err != nil {
@@ -536,7 +536,7 @@ func treeNode(scope configdash.Scope, node configdash.FileNode) templ.Component 
 			var templ_7745c5c3_Var25 string
 			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(node.Files))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 217, Col: 53}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 217, Col: 53}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 			if templ_7745c5c3_Err != nil {
@@ -597,7 +597,7 @@ func fileNode(scope configdash.Scope, file *configdash.MaterialFile) templ.Compo
 		var templ_7745c5c3_Var27 templ.SafeURL
 		templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinURLErrs(fileRoute(scope, *file))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 235, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 235, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 		if templ_7745c5c3_Err != nil {
@@ -622,7 +622,7 @@ func fileNode(scope configdash.Scope, file *configdash.MaterialFile) templ.Compo
 		var templ_7745c5c3_Var28 string
 		templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(file.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 238, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 238, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 		if templ_7745c5c3_Err != nil {
@@ -645,7 +645,7 @@ func fileNode(scope configdash.Scope, file *configdash.MaterialFile) templ.Compo
 			var templ_7745c5c3_Var30 string
 			templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var29).String())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 1, Col: 0}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 1, Col: 0}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var30)
 			if templ_7745c5c3_Err != nil {
@@ -658,7 +658,7 @@ func fileNode(scope configdash.Scope, file *configdash.MaterialFile) templ.Compo
 			var templ_7745c5c3_Var31 string
 			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(file.Kind)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 240, Col: 52}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 240, Col: 52}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 			if templ_7745c5c3_Err != nil {
@@ -676,7 +676,7 @@ func fileNode(scope configdash.Scope, file *configdash.MaterialFile) templ.Compo
 		var templ_7745c5c3_Var32 string
 		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(file.Mode)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 243, Col: 21}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 243, Col: 21}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 		if templ_7745c5c3_Err != nil {
@@ -689,7 +689,7 @@ func fileNode(scope configdash.Scope, file *configdash.MaterialFile) templ.Compo
 		var templ_7745c5c3_Var33 string
 		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(fileSize(file))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 244, Col: 26}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 244, Col: 26}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 		if templ_7745c5c3_Err != nil {
@@ -702,7 +702,7 @@ func fileNode(scope configdash.Scope, file *configdash.MaterialFile) templ.Compo
 		var templ_7745c5c3_Var34 string
 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(displaySource(file.Source))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 245, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_files.templ`, Line: 245, Col: 63}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 		if templ_7745c5c3_Err != nil {
