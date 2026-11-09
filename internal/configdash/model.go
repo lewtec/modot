@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/lewtec/modot/internal/configcue"
@@ -603,34 +604,57 @@ func ownerOf(path string, owners map[string]string) string {
 	return owners[root]
 }
 
-// walkLeaves calls visit for every scalar path in node.
+// walkLeaves calls visit for every scalar path in node, in CUE's path form:
+// lists use the index in brackets, as in backup.actions[0].name.
 func walkLeaves(node map[string]any, visit func(path string)) {
-	var walk func(prefix string, value any)
-	walk = func(prefix string, value any) {
-		if obj, ok := value.(map[string]any); ok {
-			for key, child := range obj {
-				walk(join(prefix, key), child)
-			}
+	for key, value := range node {
+		walkValue(key, value, visit)
+	}
+}
 
-			return
+// walkValue visits the scalars under value, recursing through structs and
+// lists. CUE writes a list element as parent[index], so provenance and owner
+// lookups use that form rather than a dotted index.
+func walkValue(prefix string, value any, visit func(path string)) {
+	switch container := value.(type) {
+	case map[string]any:
+		for key, child := range container {
+			walkValue(join(prefix, key), child, visit)
 		}
+	case []any:
+		for i, child := range container {
+			walkValue(indexPath(prefix, i), child, visit)
+		}
+	default:
 		visit(prefix)
 	}
-	for key, value := range node {
-		walk(key, value)
-	}
+}
+
+// indexPath is CUE's path for a list element: parent[0].
+func indexPath(prefix string, index int) string {
+	return prefix + "[" + strconv.Itoa(index) + "]"
 }
 
 func count(merged map[string]any, src map[string]Source) Stats {
 	stats := Stats{Keys: 0, FromModules: 0, FromRoot: 0, Conflicted: 0}
 	var walk func(prefix string, node any)
 	walk = func(prefix string, node any) {
-		if obj, ok := node.(map[string]any); ok {
-			if len(obj) == 0 {
+		switch container := node.(type) {
+		case map[string]any:
+			if len(container) == 0 {
 				stats.Keys++
 			}
-			for key, value := range obj {
+			for key, value := range container {
 				walk(join(prefix, key), value)
+			}
+
+			return
+		case []any:
+			if len(container) == 0 {
+				stats.Keys++
+			}
+			for i, value := range container {
+				walk(indexPath(prefix, i), value)
 			}
 
 			return

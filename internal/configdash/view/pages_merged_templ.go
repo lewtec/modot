@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/lewtec/modot/internal/configdash"
@@ -46,21 +47,51 @@ func buildTree(r configdash.Report, nodePath string) []node {
 	var value any = r.Merged
 	base := ""
 	if nodePath != "" {
+		// Accept the row's own [0] form and the address-bar .0 form, then key
+		// the subtree by CUE's form so provenance and owners line up.
+		nodePath = bracketToDot(nodePath)
 		found, ok := lookup(r.Merged, strings.Split(nodePath, "."))
 		if !ok {
 			return nil
 		}
 		value = found
-		base = nodePath
+		base = dotIndexToCue(nodePath)
 	}
 	return walkNode(r, base, value, 0, nodePath)
 }
 
-func walkNode(r configdash.Report, path string, value any, depth int, focus string) []node {
-	obj, ok := value.(map[string]any)
-	if !ok {
-		return nil
+// dotIndexToCue rewrites dot-numeric segments back to CUE's parent[index] so
+// lookup paths and rendered paths read the same.
+func dotIndexToCue(path string) string {
+	var out strings.Builder
+	for _, part := range strings.Split(path, ".") {
+		if _, isIndex := listIndex(part); isIndex {
+			out.WriteString("[" + part + "]")
+
+			continue
+		}
+		if out.Len() > 0 {
+			out.WriteString(".")
+		}
+		out.WriteString(part)
 	}
+
+	return out.String()
+}
+
+func walkNode(r configdash.Report, path string, value any, depth int, focus string) []node {
+	switch container := value.(type) {
+	case map[string]any:
+		return walkObject(r, path, container, depth, focus)
+	case []any:
+		return walkList(r, path, container, depth, focus)
+	}
+
+	return nil
+}
+
+// walkObject renders a struct's fields.
+func walkObject(r configdash.Report, path string, obj map[string]any, depth int, focus string) []node {
 	keys := make([]string, 0, len(obj))
 	for key := range obj {
 		keys = append(keys, key)
@@ -69,19 +100,48 @@ func walkNode(r configdash.Report, path string, value any, depth int, focus stri
 	out := make([]node, 0, len(keys))
 	for _, key := range keys {
 		childPath := joinPath(path, key)
-		owner := ""
-		if src, ok := r.Sources[childPath]; ok && src.Owned() {
-			owner = src.Module
-		}
-		row := node{Key: key, Path: childPath, Depth: depth, Owner: owner, Filename: filenameOf(r, childPath), Value: shortValue(obj[key])}
-		if _, isMap := obj[key].(map[string]any); isMap {
-			row.Open = focus == "" || childPath == focus || strings.HasPrefix(childPath, focus+".") || strings.HasPrefix(focus, childPath+".")
-			row.Children = walkNode(r, childPath, obj[key], depth+1, focus)
-			row.Files = leafFiles(row.Children)
-		}
-		out = append(out, row)
+		out = append(out, walkRow(r, key, childPath, obj[key], depth, focus))
 	}
+
 	return out
+}
+
+// walkList renders a list as indexed rows. Lists are config too: backup
+// actions, place steps, and module arguments are all their entries, so they
+// expand like structs instead of ending at "[9 items]".
+func walkList(r configdash.Report, path string, list []any, depth int, focus string) []node {
+	out := make([]node, 0, len(list))
+	for i, item := range list {
+		out = append(out, walkRow(r, fmt.Sprintf("[%d]", i), indexPath(path, i), item, depth, focus))
+	}
+
+	return out
+}
+
+// walkRow is one key of a struct or one entry of a list.
+func walkRow(r configdash.Report, key, path string, value any, depth int, focus string) node {
+	owner := ""
+	if src, ok := r.Sources[path]; ok && src.Owned() {
+		owner = src.Module
+	}
+	row := node{Key: key, Path: path, Depth: depth, Owner: owner, Filename: filenameOf(r, path), Value: shortValue(value)}
+	if isContainer(value) {
+		row.Open = focus == "" || path == focus || strings.HasPrefix(path, focus+".") || strings.HasPrefix(focus, path+".")
+		row.Children = walkNode(r, path, value, depth+1, focus)
+		row.Files = leafFiles(row.Children)
+	}
+
+	return row
+}
+
+// isContainer reports whether value has rows beneath it.
+func isContainer(value any) bool {
+	switch value.(type) {
+	case map[string]any, []any:
+		return true
+	}
+
+	return false
 }
 
 // filenameOf is the base name of the file that set a leaf: the record CUE kept
@@ -148,9 +208,40 @@ func leafFiles(rows []node) []fileCount {
 	return out
 }
 
+// lookup walks a path the way the address bar writes it: actions.0.name and
+// actions[0].name both reach the first backup action.
 func lookup(root map[string]any, parts []string) (any, bool) {
+	out, ok := lookupRaw(root, parts)
+	if ok {
+		return out, true
+	}
+
+	return lookupRaw(root, splitPath(bracketToDot(strings.Join(parts, "."))))
+}
+
+// splitPath splits a dotted path into segments.
+func splitPath(path string) []string {
+	return strings.Split(path, ".")
+}
+
+// bracketToDot turns CUE's parent[index] into parent.index for lookup.
+func bracketToDot(path string) string {
+	return strings.NewReplacer("[", ".", "]", "").Replace(path)
+}
+
+// lookupRaw walks segments, treating all-digit ones as list indices.
+func lookupRaw(root any, parts []string) (any, bool) {
 	var current any = root
 	for _, part := range parts {
+		if index, isIndex := listIndex(part); isIndex {
+			list, ok := current.([]any)
+			if !ok || index < 0 || index >= len(list) {
+				return nil, false
+			}
+			current = list[index]
+
+			continue
+		}
 		obj, ok := current.(map[string]any)
 		if !ok {
 			return nil, false
@@ -161,6 +252,22 @@ func lookup(root map[string]any, parts []string) (any, bool) {
 		}
 	}
 	return current, true
+}
+
+// indexPath is the path a list entry is looked up by. The tree shows entries
+// as [0], but CUE keys them actions[0], so both lookups use that form.
+func indexPath(prefix string, index int) string {
+	return prefix + "[" + strconv.Itoa(index) + "]"
+}
+
+// listIndex decodes an all-digit path segment as a list index.
+func listIndex(part string) (int, bool) {
+	index, err := strconv.Atoi(part)
+	if err != nil || index < 0 || part != strconv.Itoa(index) {
+		return 0, false
+	}
+
+	return index, true
 }
 
 func joinPath(prefix, key string) string {
@@ -221,7 +328,7 @@ func treeRows(rows []node) templ.Component {
 				var templ_7745c5c3_Var2 string
 				templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(row.Key)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 178, Col: 61}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 285, Col: 61}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 				if templ_7745c5c3_Err != nil {
@@ -234,7 +341,7 @@ func treeRows(rows []node) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(nodeKind(row))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 179, Col: 74}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 286, Col: 74}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -252,7 +359,7 @@ func treeRows(rows []node) templ.Component {
 					var templ_7745c5c3_Var4 string
 					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(row.Owner)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 181, Col: 63}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 288, Col: 63}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 					if templ_7745c5c3_Err != nil {
@@ -287,7 +394,7 @@ func treeRows(rows []node) templ.Component {
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(row.Key)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 191, Col: 46}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 298, Col: 46}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
@@ -300,7 +407,7 @@ func treeRows(rows []node) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(row.Value)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 192, Col: 69}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 299, Col: 69}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -359,7 +466,7 @@ func fileBadges(files []fileCount) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(fileCountTitle(files))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 204, Col: 108}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 311, Col: 108}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 			if templ_7745c5c3_Err != nil {
@@ -383,7 +490,7 @@ func fileBadges(files []fileCount) templ.Component {
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(file.File)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 209, Col: 39}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 316, Col: 39}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {
@@ -402,7 +509,7 @@ func fileBadges(files []fileCount) templ.Component {
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(len(files) - 3))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 212, Col: 39}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 319, Col: 39}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
@@ -473,7 +580,7 @@ func ownerBadge(owner, filename string) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(fileTitle(owner, filename))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 242, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 349, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 			if templ_7745c5c3_Err != nil {
@@ -486,7 +593,7 @@ func ownerBadge(owner, filename string) templ.Component {
 			var templ_7745c5c3_Var13 string
 			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(owner + "/" + filename)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 242, Col: 108}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 349, Col: 108}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
@@ -504,7 +611,7 @@ func ownerBadge(owner, filename string) templ.Component {
 			var templ_7745c5c3_Var14 string
 			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(fileTitle(owner, filename))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 244, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 351, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 			if templ_7745c5c3_Err != nil {
@@ -517,7 +624,7 @@ func ownerBadge(owner, filename string) templ.Component {
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(owner)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 244, Col: 91}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 351, Col: 91}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {
@@ -535,7 +642,7 @@ func ownerBadge(owner, filename string) templ.Component {
 			var templ_7745c5c3_Var16 string
 			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue("set by " + filename)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 246, Col: 71}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 353, Col: 71}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
 			if templ_7745c5c3_Err != nil {
@@ -548,7 +655,7 @@ func ownerBadge(owner, filename string) templ.Component {
 			var templ_7745c5c3_Var17 string
 			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(filename)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 246, Col: 84}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 353, Col: 84}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 			if templ_7745c5c3_Err != nil {
@@ -648,7 +755,7 @@ func Merged(v View) templ.Component {
 					var templ_7745c5c3_Var21 templ.SafeURL
 					templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinURLErrs(scopeRoute(v.Scope, pageMerged))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 271, Col: 76}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 378, Col: 76}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 					if templ_7745c5c3_Err != nil {
@@ -666,7 +773,7 @@ func Merged(v View) templ.Component {
 						var templ_7745c5c3_Var22 string
 						templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(v.Path)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 273, Col: 68}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 380, Col: 68}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 						if templ_7745c5c3_Err != nil {

@@ -76,6 +76,28 @@ func TestLoadDotfilesFixture(t *testing.T) {
 	require.NotContains(t, rep.Files, "runtime.hostname", "computed leaves have no file")
 }
 
+// Lists are config too. Provenance, owner, and counts must reach list elements,
+// or a tree of backup actions stops at "[9 items]" with no file behind them.
+func TestLoadListProvenance(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	config := "package modot\n\n" +
+		"backup: actions: [\n" +
+		"\t{name: \"cantgit\", kind: \"rsync\", src: \"/w/\", dst: \"host:w\"},\n" +
+		"\t{name: \"camera\", kind: \"rsync\", src: \"/sdcard/\", dst: \"host:c\"},\n" +
+		"]\n"
+	require.NoError(t, writeFile(root, "modot.cue", config))
+
+	rep, err := configdash.Load(t.Context(), configdash.ScopeCodebase, root)
+	require.NoError(t, err, "Load")
+
+	// CUE keys a list element as parent[index], not parent.index.
+	require.Equal(t, filepath.Join(root, "modot.cue"), rep.Files["backup.actions[0].name"])
+	require.Equal(t, filepath.Join(root, "modot.cue"), rep.Files["backup.actions[1].dst"])
+	require.Contains(t, rep.Sources, "backup.actions[0].name")
+	require.Contains(t, rep.Sources, "backup.actions[1].dst")
+}
+
 func TestLoadMissingModule(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()

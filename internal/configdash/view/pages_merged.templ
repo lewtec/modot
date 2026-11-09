@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/lewtec/modot/internal/configdash"
@@ -38,21 +39,51 @@ func buildTree(r configdash.Report, nodePath string) []node {
 	var value any = r.Merged
 	base := ""
 	if nodePath != "" {
+		// Accept the row's own [0] form and the address-bar .0 form, then key
+		// the subtree by CUE's form so provenance and owners line up.
+		nodePath = bracketToDot(nodePath)
 		found, ok := lookup(r.Merged, strings.Split(nodePath, "."))
 		if !ok {
 			return nil
 		}
 		value = found
-		base = nodePath
+		base = dotIndexToCue(nodePath)
 	}
 	return walkNode(r, base, value, 0, nodePath)
 }
 
-func walkNode(r configdash.Report, path string, value any, depth int, focus string) []node {
-	obj, ok := value.(map[string]any)
-	if !ok {
-		return nil
+// dotIndexToCue rewrites dot-numeric segments back to CUE's parent[index] so
+// lookup paths and rendered paths read the same.
+func dotIndexToCue(path string) string {
+	var out strings.Builder
+	for _, part := range strings.Split(path, ".") {
+		if _, isIndex := listIndex(part); isIndex {
+			out.WriteString("[" + part + "]")
+
+			continue
+		}
+		if out.Len() > 0 {
+			out.WriteString(".")
+		}
+		out.WriteString(part)
 	}
+
+	return out.String()
+}
+
+func walkNode(r configdash.Report, path string, value any, depth int, focus string) []node {
+	switch container := value.(type) {
+	case map[string]any:
+		return walkObject(r, path, container, depth, focus)
+	case []any:
+		return walkList(r, path, container, depth, focus)
+	}
+
+	return nil
+}
+
+// walkObject renders a struct's fields.
+func walkObject(r configdash.Report, path string, obj map[string]any, depth int, focus string) []node {
 	keys := make([]string, 0, len(obj))
 	for key := range obj {
 		keys = append(keys, key)
@@ -61,19 +92,48 @@ func walkNode(r configdash.Report, path string, value any, depth int, focus stri
 	out := make([]node, 0, len(keys))
 	for _, key := range keys {
 		childPath := joinPath(path, key)
-		owner := ""
-		if src, ok := r.Sources[childPath]; ok && src.Owned() {
-			owner = src.Module
-		}
-		row := node{Key: key, Path: childPath, Depth: depth, Owner: owner, Filename: filenameOf(r, childPath), Value: shortValue(obj[key])}
-		if _, isMap := obj[key].(map[string]any); isMap {
-			row.Open = focus == "" || childPath == focus || strings.HasPrefix(childPath, focus+".") || strings.HasPrefix(focus, childPath+".")
-			row.Children = walkNode(r, childPath, obj[key], depth+1, focus)
-			row.Files = leafFiles(row.Children)
-		}
-		out = append(out, row)
+		out = append(out, walkRow(r, key, childPath, obj[key], depth, focus))
 	}
+
 	return out
+}
+
+// walkList renders a list as indexed rows. Lists are config too: backup
+// actions, place steps, and module arguments are all their entries, so they
+// expand like structs instead of ending at "[9 items]".
+func walkList(r configdash.Report, path string, list []any, depth int, focus string) []node {
+	out := make([]node, 0, len(list))
+	for i, item := range list {
+		out = append(out, walkRow(r, fmt.Sprintf("[%d]", i), indexPath(path, i), item, depth, focus))
+	}
+
+	return out
+}
+
+// walkRow is one key of a struct or one entry of a list.
+func walkRow(r configdash.Report, key, path string, value any, depth int, focus string) node {
+	owner := ""
+	if src, ok := r.Sources[path]; ok && src.Owned() {
+		owner = src.Module
+	}
+	row := node{Key: key, Path: path, Depth: depth, Owner: owner, Filename: filenameOf(r, path), Value: shortValue(value)}
+	if isContainer(value) {
+		row.Open = focus == "" || path == focus || strings.HasPrefix(path, focus+".") || strings.HasPrefix(focus, path+".")
+		row.Children = walkNode(r, path, value, depth+1, focus)
+		row.Files = leafFiles(row.Children)
+	}
+
+	return row
+}
+
+// isContainer reports whether value has rows beneath it.
+func isContainer(value any) bool {
+	switch value.(type) {
+	case map[string]any, []any:
+		return true
+	}
+
+	return false
 }
 
 // filenameOf is the base name of the file that set a leaf: the record CUE kept
@@ -140,9 +200,40 @@ func leafFiles(rows []node) []fileCount {
 	return out
 }
 
+// lookup walks a path the way the address bar writes it: actions.0.name and
+// actions[0].name both reach the first backup action.
 func lookup(root map[string]any, parts []string) (any, bool) {
+	out, ok := lookupRaw(root, parts)
+	if ok {
+		return out, true
+	}
+
+	return lookupRaw(root, splitPath(bracketToDot(strings.Join(parts, "."))))
+}
+
+// splitPath splits a dotted path into segments.
+func splitPath(path string) []string {
+	return strings.Split(path, ".")
+}
+
+// bracketToDot turns CUE's parent[index] into parent.index for lookup.
+func bracketToDot(path string) string {
+	return strings.NewReplacer("[", ".", "]", "").Replace(path)
+}
+
+// lookupRaw walks segments, treating all-digit ones as list indices.
+func lookupRaw(root any, parts []string) (any, bool) {
 	var current any = root
 	for _, part := range parts {
+		if index, isIndex := listIndex(part); isIndex {
+			list, ok := current.([]any)
+			if !ok || index < 0 || index >= len(list) {
+				return nil, false
+			}
+			current = list[index]
+
+			continue
+		}
 		obj, ok := current.(map[string]any)
 		if !ok {
 			return nil, false
@@ -153,6 +244,22 @@ func lookup(root map[string]any, parts []string) (any, bool) {
 		}
 	}
 	return current, true
+}
+
+// indexPath is the path a list entry is looked up by. The tree shows entries
+// as [0], but CUE keys them actions[0], so both lookups use that form.
+func indexPath(prefix string, index int) string {
+	return prefix + "[" + strconv.Itoa(index) + "]"
+}
+
+// listIndex decodes an all-digit path segment as a list index.
+func listIndex(part string) (int, bool) {
+	index, err := strconv.Atoi(part)
+	if err != nil || index < 0 || part != strconv.Itoa(index) {
+		return 0, false
+	}
+
+	return index, true
 }
 
 func joinPath(prefix, key string) string {
