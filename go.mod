@@ -5,11 +5,10 @@ go 1.27.0
 require (
 	cuelang.org/go v0.17.1
 	github.com/a-h/templ v0.3.1020
-	github.com/coreos/go-systemd/v22 v22.7.0
+	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/git-pkgs/gitignore v1.2.0
 	github.com/gokrazy/rsync v0.3.3
 	github.com/google/go-cmp v0.7.0
-	github.com/gorilla/websocket v1.5.3
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
 	github.com/lewtec/lewkit v0.0.0-20261019201250-ac76983f7d83
 	github.com/owenrumney/go-sarif/v2 v2.3.3
@@ -51,7 +50,6 @@ require (
 	github.com/ProtonMail/go-crypto v1.2.0 // indirect
 	github.com/a-h/parse v0.0.0-20250122154542-74294addb73e // indirect
 	github.com/agusibrahim/apksig-go v1.1.0 // indirect
-	github.com/alecthomas/chroma/v2 v2.27.0 // indirect
 	github.com/anchore/go-logger v0.0.0-20251106021608-a5b0513fa9a9 // indirect
 	github.com/anchore/go-lzo v0.1.0 // indirect
 	github.com/anchore/go-macholibre v0.0.0-20250826193721-3cd206ca93aa // indirect

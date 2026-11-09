@@ -32,14 +32,20 @@ func RelToRoot(path, root string) string {
 }
 
 // AbsFromRoot resolves a state/display path against root.
-// Absolute paths and "~/..." (via ExpandPath) are accepted for migration
-// and display formats; other relative paths are joined to root.
+// Absolute paths and "~/..." are accepted for migration and display formats;
+// other relative paths are joined to root.
+// Only a leading ~ is expanded. State keys may hold a literal "$" (for example
+// "$inspect.md"), so $VAR expansion must not run here.
 func AbsFromRoot(path, root string) string {
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return path
 	}
-	expanded := envdriver.ExpandPath(path)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = ""
+	}
+	expanded := envdriver.ExpandTildeIn(path, home)
 	if filepath.IsAbs(expanded) {
 		return filepath.Clean(expanded)
 	}
