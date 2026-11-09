@@ -25,6 +25,9 @@ type View struct {
 	Path string
 	// Scope is the layer set this page shows.
 	Scope configdash.Scope
+	// Files is what the materialized-files page shows. It is zero except on
+	// that page: building it renders every template.
+	Files configdash.FilesReport
 }
 
 // shown is the report to render: the loaded one, else the partial one.

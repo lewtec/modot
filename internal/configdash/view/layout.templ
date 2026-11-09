@@ -109,6 +109,7 @@ templ Sidebar(current string, v View) {
 		<li class="menu-title mt-2 px-3 py-2 text-[0.65rem] tracking-wider uppercase"><span>Data</span></li>
 		@navItem(scopeRoute(v.Scope, pageMerged), "Merged tree", current)
 		@navItem(scopeRoute(v.Scope, pageMerged)+".json", "Merged JSON", current)
+		@navItem(scopeRoute(v.Scope, pageFiles), "Materialized files", current)
 	</nav>
 }
 

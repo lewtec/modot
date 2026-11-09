@@ -235,6 +235,20 @@ func ConfigFromJSON(data []byte) (*Config, error) {
 	return decodeConfig(data)
 }
 
+// ConfigFromEvaluation decodes an evaluated config and keeps the evaluated
+// value, which ConfigFromJSON cannot: the JSON export is plain data, so the CUE
+// side of the config (file profiles, mounts, runtime.mode) would be lost and
+// anything built from it would come out empty.
+func ConfigFromEvaluation(result EvaluationResult) (*Config, error) {
+	cfg, err := decodeConfig(result.JSON)
+	if err != nil {
+		return nil, err
+	}
+	cfg.cueVal = result.Value
+
+	return cfg, nil
+}
+
 func decodeConfig(data []byte) (*Config, error) {
 	raw := map[string]any{}
 	if err := json.Unmarshal(data, &raw); err != nil {

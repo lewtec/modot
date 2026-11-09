@@ -1,0 +1,173 @@
+package view
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/lewtec/lewkit/x/http/asset/lucide"
+	"github.com/lewtec/modot/internal/configdash"
+)
+
+// Files renders the files the scope's apply would place. The tree is built by
+// the same pipeline apply uses, so the paths are the real ones; whether each
+// file changes is the deployer's business and is not shown here.
+templ Files(v View) {
+	@Shell("Materialized files", pageFiles, v.Theme, v) {
+		@PageHeader("Materialized files", "What `modot "+string(v.Scope)+" apply` places from this config: every file the source pipeline discovers, renders, and composes into the file profiles, with the module or config tree that produced it. Nothing is written and the state file is not read, so this is the tree, not the diff.")
+		@PageBody() {
+			if v.LoadErr != nil && v.Files.Err == nil {
+				@errorAlert(v.LoadErr)
+			} else if v.Files.Err != nil {
+				@filesError(v.Files)
+			} else if v.Files.MaterialCount() == 0 {
+				<div class="rounded-box border border-dashed border-base-300 bg-base-100 p-16 text-center text-base-content/50">
+					<p>This scope places no files.</p>
+					<p class="mt-1 text-sm">The config declares no <span class="font-mono">file.{ v.Files.Mode }</span> entries and no enabled module ships a file tree.</p>
+				</div>
+			} else {
+				@filesSummary(v.Files)
+				@fileTable(v.Files.Files)
+			}
+		}
+	}
+}
+
+// filesError explains a tree that could not be built. The usual causes are a
+// broken template and a module whose source cannot be fetched.
+templ filesError(files configdash.FilesReport) {
+	<div class="alert alert-error items-start" role="alert">
+		@icon(lucide.NameTriangleAlert, "size-5")
+		<div class="min-w-0 space-y-1">
+			<p class="font-semibold">The file tree could not be built</p>
+			<p class="text-sm">Apply would stop at this step too. The merge pages still show the configuration that loaded.</p>
+			<pre class="max-w-full overflow-x-auto text-xs whitespace-pre-wrap">{ files.Err.Error() }</pre>
+		</div>
+	</div>
+}
+
+// filesSummary is the count, the roots the tree lands under, and the kinds.
+templ filesSummary(files configdash.FilesReport) {
+	<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+		<div class="rounded-box border border-base-300 bg-base-100 p-4">
+			<p class="text-xs tracking-wider text-base-content/60 uppercase">Files</p>
+			<p class="text-2xl font-semibold">{ fmt.Sprint(files.MaterialCount()) }</p>
+			<p class="mt-1 text-xs text-base-content/60">{ fmt.Sprint(len(files.Groups)) } directories</p>
+		</div>
+		<div class="rounded-box border border-base-300 bg-base-100 p-4">
+			<p class="text-xs tracking-wider text-base-content/60 uppercase">Under</p>
+			<p class="truncate font-mono text-sm" title={ files.TargetBase }>{ files.TargetBase }</p>
+			<p class="mt-1 text-xs text-base-content/60">profiles: { strings.Join(files.Profiles, ", ") }</p>
+		</div>
+		<div class="rounded-box border border-base-300 bg-base-100 p-4">
+			<p class="text-xs tracking-wider text-base-content/60 uppercase">By kind</p>
+			<div class="mt-1 flex flex-wrap gap-1">
+				for _, kind := range files.KindCounts() {
+					<span class={ kindClass(kind.Label) }>{ kind.Label + " " + fmt.Sprint(kind.Count) }</span>
+				}
+			</div>
+		</div>
+	</div>
+	if len(files.Warnings) > 0 {
+		<div class="alert alert-warning items-start" role="alert">
+			@icon(lucide.NameTriangleAlert, "size-5")
+			<div class="min-w-0 space-y-1">
+				<p class="font-semibold">Pipeline warnings</p>
+				for _, warning := range files.Warnings {
+					<p class="text-sm">{ warning }</p>
+				}
+			</div>
+		</div>
+	}
+}
+
+// fileTable is every file, the path relative to the apply root. The rows carry
+// data attributes so the box above can filter them without a round trip.
+templ fileTable(files []configdash.MaterialFile) {
+	<div class="rounded-box border border-base-300 bg-base-100">
+		<div class="flex flex-wrap items-center gap-2 border-b border-base-300 px-4 py-2">
+			<span class="text-sm font-semibold">Files</span>
+			<span class="badge badge-xs badge-ghost">{ fmt.Sprint(len(files)) }</span>
+			<input type="search" class="input input-sm ml-auto w-full max-w-xs font-mono" placeholder="Filter by path, source, or kind" aria-label="Filter files" data-file-filter="files"/>
+		</div>
+		<div class="max-h-[70vh] overflow-auto">
+			<table class="table table-xs table-pin-rows" id="files">
+				<thead>
+					<tr>
+						<th>Path</th>
+						<th>Kind</th>
+						<th>Mode</th>
+						<th>Source</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, file := range files {
+						<tr class="hover:bg-base-200" data-file-row={ file.Path + " " + file.Source + " " + file.Kind }>
+							<td class="font-mono"><span class="truncate">{ displayedPath(file) }</span></td>
+							<td><span class={ kindClass(file.Kind) }>{ file.Kind }</span></td>
+							<td class="font-mono text-base-content/60">{ file.Mode }</td>
+							<td class="max-w-md font-mono text-xs text-base-content/60"><span class="truncate" title={ file.Source }>{ displaySource(file.Source) }</span></td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	</div>
+	<script>
+		// Filtering runs on the rows already in the page: the tree is fixed
+		// for the request, so a round trip would only re-render the same rows.
+		(function () {
+			var box = document.querySelector("[data-file-filter]");
+			if (!box) {
+				return;
+			}
+			var rows = Array.prototype.slice.call(
+				document.querySelectorAll("tr[data-file-row]")
+			);
+			box.addEventListener("input", function () {
+				var needle = box.value.trim().toLowerCase();
+				rows.forEach(function (row) {
+					var haystack = (row.getAttribute("data-file-row") || "").toLowerCase();
+					row.style.display = needle === "" || haystack.indexOf(needle) >= 0 ? "" : "none";
+				});
+			});
+		})();
+	</script>
+}
+
+// displayedPath is the file under its apply root, which is what reads as a
+// path: "~" for home, "/" for system (the system root's own files), and the
+// workspace for codebase.
+func displayedPath(file configdash.MaterialFile) string {
+	if file.Dir != "" {
+		return file.Path
+	}
+
+	return file.Name
+}
+
+// kindClass tints a file kind: a copy is plain, a rendered template is the
+// interesting one.
+func kindClass(kind string) string {
+	if kind == "template" || kind == "multifile" || kind == "dotd" {
+		return "badge badge-xs badge-info"
+	}
+
+	return "badge badge-xs badge-ghost"
+}
+
+// displaySource names what produced a file without the pipeline's internal
+// prefix, so a reader sees the module, the place entry, or the config-tree
+// path. A copy by path alone says nothing beyond the target, so it reads as
+// the stage that made it.
+func displaySource(source string) string {
+	source = strings.TrimPrefix(source, "source:")
+	source = strings.TrimPrefix(source, "module:")
+	switch {
+	case source == "":
+		return "—"
+	case strings.HasPrefix(source, "filespine:"):
+		return "copy"
+	}
+
+	return strings.TrimPrefix(source, "mount:")
+}

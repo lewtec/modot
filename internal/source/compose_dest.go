@@ -98,6 +98,7 @@ func composeTracked(ctx context.Context, status *taskgroup.Status, request destR
 					dest:       dest,
 					spec:       spec,
 					targetBase: filespine.ApplyDir(name, request.targetBase),
+					source:     "file." + name + "." + dest,
 				})
 				if err != nil {
 					return nil, fmt.Errorf("file.%s: %w", name, err)

@@ -56,10 +56,15 @@ func (c *Command) Run(ctx context.Context) error {
 		return err
 	}
 
-	reload := func(r *http.Request, scope configdash.Scope) view.View {
-		return loadView(r.Context(), cwd, scope)
+	loader := view.Loader{
+		Reload: func(r *http.Request, scope configdash.Scope) view.View {
+			return loadView(r.Context(), cwd, scope)
+		},
+		Files: func(r *http.Request, scope configdash.Scope) configdash.FilesReport {
+			return loadFiles(r.Context(), cwd, scope)
+		},
 	}
-	handler := view.Handler(landingScope(ctx, cwd), reload)
+	handler := view.Handler(landingScope(ctx, cwd), loader)
 
 	if addr := c.Addr.Value(); addr != "" {
 		return serve(ctx, addr, handler)
@@ -133,12 +138,33 @@ func loadView(ctx context.Context, cwd string, scope configdash.Scope) view.View
 		return view.View{Report: configdash.Report{
 			Scope: scope, Mode: "", Root: "", Layers: nil, Modules: nil, Merged: nil,
 			MergedErr: nil, Stats: configdash.Stats{Keys: 0, FromModules: 0, FromRoot: 0, Conflicted: 0},
-			Sources: nil,
-		}, Theme: "", LoadErr: err, Partial: &rep, ModuleName: "", Path: "", Scope: scope}
+			Sources: nil, Files: nil, Builtin: nil,
+		}, Theme: "", LoadErr: err, Partial: &rep, ModuleName: "", Path: "", Scope: scope,
+			Files: emptyFiles(scope)}
 	}
 
 	return view.View{Report: rep, Theme: "", LoadErr: nil, Partial: nil,
-		ModuleName: "", Path: "", Scope: scope}
+		ModuleName: "", Path: "", Scope: scope, Files: emptyFiles(scope)}
+}
+
+// emptyFiles is the zero page input: the files page fills it from loadFiles,
+// and the other pages never read it.
+func emptyFiles(scope configdash.Scope) configdash.FilesReport {
+	return configdash.FilesReport{
+		Mode: scope.DiscoverOptions("").RuntimeMode(), TargetBase: "", Profiles: nil,
+		Groups: nil, Files: nil, Warnings: nil, Err: nil,
+	}
+}
+
+// loadFiles builds the tree this scope's apply would place. It renders every
+// template, so it runs only when the materialized-files page is requested.
+func loadFiles(ctx context.Context, cwd string, scope configdash.Scope) configdash.FilesReport {
+	files, err := configdash.LoadFiles(ctx, scope, cwd)
+	if err != nil {
+		slog.Warn("dashboard file tree failed", "cwd", cwd, "scope", scope, "error", err)
+	}
+
+	return files
 }
 
 // graphical reports whether a window can open: an app host owns the surface,

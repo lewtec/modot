@@ -1,6 +1,7 @@
 package view_test
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -64,4 +65,78 @@ func TestScopesCoverEveryMode(t *testing.T) {
 	require.Equal(t, []configdash.Scope{
 		configdash.ScopeHome, configdash.ScopeCodebase, configdash.ScopeSystem,
 	}, view.Scopes())
+}
+
+// homeView is the page furniture a request carries before any page-specific
+// data is added.
+func homeView() view.View {
+	var v view.View
+	v.Theme = view.ThemeSystem
+	v.Scope = configdash.ScopeHome
+	v.Report.Scope = configdash.ScopeHome
+
+	return v
+}
+
+// The files page serves the tree the loader built, and the sidebar links to it
+// from every page, so the route cannot drift from the navigation.
+func TestFilesPageServesTree(t *testing.T) {
+	t.Parallel()
+	loader := view.Loader{
+		Reload: func(*http.Request, configdash.Scope) view.View {
+			return homeView()
+		},
+		Files: func(*http.Request, configdash.Scope) configdash.FilesReport {
+			var files configdash.FilesReport
+			files.Mode = "home"
+			files.TargetBase = "~"
+			files.Profiles = []string{"home"}
+			files.Files = []configdash.MaterialFile{
+				{
+					Target: "~/.bashrc", Path: ".bashrc", Dir: "", Name: ".bashrc", Root: "~",
+					Kind: "static", Source: "theme", Mode: "0644",
+				},
+			}
+
+			return files
+		},
+	}
+
+	recorder := httptest.NewRecorder()
+	view.Handler(configdash.ScopeHome, loader).ServeHTTP(recorder,
+		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/home/files/", nil))
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	body := recorder.Body.String()
+	require.Contains(t, body, ".bashrc")
+	require.Contains(t, body, "theme")
+	require.Contains(t, body, `href="/home/files"`)
+}
+
+// errFakeModule stands in for a pipeline failure, which carries a module's
+// error rather than a typed sentinel.
+var errFakeModule = errors.New("plugin module-scanner failed")
+
+// A tree that failed still renders: the page explains what went wrong instead
+// of returning a 500.
+func TestFilesPageShowsTreeError(t *testing.T) {
+	t.Parallel()
+	loader := view.Loader{
+		Reload: func(*http.Request, configdash.Scope) view.View {
+			return homeView()
+		},
+		Files: func(*http.Request, configdash.Scope) configdash.FilesReport {
+			var files configdash.FilesReport
+			files.Err = errFakeModule
+
+			return files
+		},
+	}
+
+	recorder := httptest.NewRecorder()
+	view.Handler(configdash.ScopeHome, loader).ServeHTTP(recorder,
+		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/home/files/", nil))
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Body.String(), "plugin module-scanner failed")
 }

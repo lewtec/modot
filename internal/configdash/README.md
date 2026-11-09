@@ -26,6 +26,26 @@ sets where discovery starts.
 - `/merged?path=KEY` — the merged tree. Each leaf carries a badge naming the
   module, or the file, that supplied it.
 - `/merged.json` — the merged `Configuration` as JSON.
+- `/files` — the files `modot <scope> apply` would place, with the module,
+  place entry, or config-tree path behind each one.
+
+## Materialized files
+
+`/files` answers a different question from the merged tree: not what the config
+*means*, but what lands on disk. `LoadFiles` evaluates the same config, then
+runs the apply pipeline (source scanners, template rendering, file profiles,
+place mounts) and lists the composed tree without writing anything.
+
+The tree is built for the scope's own apply root — `~` for home, the workspace
+for codebase, `/` for system — and only the file profiles that mode makes
+visible. It is the tree, not a diff: whether a file changes needs the state
+file, which a preview does not read.
+
+`file.<profile>.<dest>` place entries keep their key as the file's source, so
+the page can name the entry a tree of mounted files came from.
+
+The page is separate because building the tree renders every template and can
+fetch module sources; the other pages read only the merge.
 
 ## How a key gets its source
 

@@ -62,11 +62,12 @@ const (
 	pageLayers   page = "layers"
 	pageModules  page = "modules"
 	pageMerged   page = "merged"
+	pageFiles    page = "files"
 )
 
 // pageNames lists every page, in sidebar order.
 func pageNames() []page {
-	return []page{pageOverview, pageLayers, pageModules, pageMerged}
+	return []page{pageOverview, pageLayers, pageModules, pageMerged, pageFiles}
 }
 
 // scopeRoute is the URL path for a page in a scope: /home/layers, /codebase.
@@ -100,40 +101,30 @@ func Landing(requested, other configdash.Scope, homeErr, codebaseErr error) (con
 	return requested, false
 }
 
-// Handler serves the dashboard. reload is called on every page request for the
-// scope in the URL, so edits show up without a restart and a scope that fails
-// to load still renders its error next to the switcher.
-func Handler(requested configdash.Scope, reload func(r *http.Request, scope configdash.Scope) View) http.Handler {
+// Loader supplies the pages of one scope. Reload is called on every config page
+// request and Files only on the materialized-files page, because building the
+// file tree renders every template and is much slower than reading the merge.
+type Loader struct {
+	// Reload returns the view for scope.
+	Reload func(r *http.Request, scope configdash.Scope) View
+	// Files returns the files scope's apply would place.
+	Files func(r *http.Request, scope configdash.Scope) configdash.FilesReport
+}
+
+// Handler serves the dashboard. The loader is called on every page request for
+// the scope in the URL, so edits show up without a restart and a scope that
+// fails to load still renders its error next to the switcher.
+func Handler(requested configdash.Scope, loader Loader) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, scopeRoute(requested, pageOverview), http.StatusFound)
 	})
 	for _, scope := range Scopes() {
 		for _, p := range pageNames() {
-			route := scopeRoute(scope, p)
-			mux.HandleFunc("GET "+route+"/{$}", func(writer http.ResponseWriter, req *http.Request) {
-				board := load(req, scope, reload)
-				switch p {
-				case pageOverview:
-					render(writer, req, Overview(board))
-				case pageLayers:
-					render(writer, req, Layers(board))
-				case pageModules:
-					board.ModuleName = req.URL.Query().Get("name")
-					if board.ModuleName == "" {
-						if mod, ok := selectedModule(board.shown(), ""); ok {
-							board.ModuleName = mod.Name
-						}
-					}
-					render(writer, req, Modules(board))
-				case pageMerged:
-					board.Path = req.URL.Query().Get("path")
-					render(writer, req, Merged(board))
-				}
-			})
+			mux.HandleFunc("GET "+scopeRoute(scope, p)+"/{$}", pageHandler(scope, p, loader))
 		}
 		mergedJSON := func(writer http.ResponseWriter, req *http.Request) {
-			board := load(req, scope, reload)
+			board := load(req, scope, loader.Reload)
 			writer.Header().Set("Content-Type", "application/json")
 			if board.LoadErr != nil {
 				http.Error(writer, board.LoadErr.Error(), http.StatusInternalServerError)
@@ -146,6 +137,37 @@ func Handler(requested configdash.Scope, reload func(r *http.Request, scope conf
 	}
 
 	return asset.Mount(mux)
+}
+
+// pageHandler serves one page of one scope and fills the selection it needs
+// from the query. Only the materialized-files page builds the file tree, so a
+// plain navigation never pays for it.
+func pageHandler(scope configdash.Scope, p page, loader Loader) http.HandlerFunc {
+	return func(writer http.ResponseWriter, req *http.Request) {
+		board := load(req, scope, loader.Reload)
+		switch p {
+		case pageLayers:
+			render(writer, req, Layers(board))
+		case pageModules:
+			board.ModuleName = req.URL.Query().Get("name")
+			if board.ModuleName == "" {
+				if mod, ok := selectedModule(board.shown(), ""); ok {
+					board.ModuleName = mod.Name
+				}
+			}
+			render(writer, req, Modules(board))
+		case pageMerged:
+			board.Path = req.URL.Query().Get("path")
+			render(writer, req, Merged(board))
+		case pageFiles:
+			if loader.Files != nil {
+				board.Files = loader.Files(req, scope)
+			}
+			render(writer, req, Files(board))
+		case pageOverview:
+			render(writer, req, Overview(board))
+		}
+	}
 }
 
 // load renders the view for scope and adds the page furniture.
