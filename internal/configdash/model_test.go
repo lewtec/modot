@@ -92,6 +92,46 @@ func TestLoadMissingModule(t *testing.T) {
 	require.Contains(t, problem.Hint, "modules.ghost.enable = false")
 }
 
+// A module may be named with underscores while its checkout is dashed: CUE
+// only selects options.<name>, so the name stays underscored and the path has
+// to say where the directory is. The hint should name the directory that
+// exists instead of only echoing the missing one.
+func TestLoadDashedModuleDirectory(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	module := filepath.Join("modules", "base16-dunst")
+	require.NoError(t, writeFile(root, "modot.cue",
+		"package modot\n\nmodules: base16_dunst: {enable: true}\n"))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, module), 0o750))
+	moduleCUE := "package base16_dunst\n\noptions: mode: *\"dark\" | string\n"
+	require.NoError(t, writeFile(filepath.Join(root, module), "modot.cue", moduleCUE))
+
+	rep, err := configdash.Load(t.Context(), configdash.ScopeCodebase, root)
+	require.ErrorIs(t, err, configdash.ErrModuleFile)
+	require.Len(t, rep.Modules, 1)
+
+	problem := rep.Modules[0].Problem
+	require.NotNil(t, problem, "Problem")
+	require.Equal(t, filepath.Join(root, "modules", "base16_dunst", "modot.cue"), problem.Looked)
+	require.Contains(t, problem.Hint, filepath.Join(root, module))
+	require.Contains(t, problem.Hint, `modules.base16_dunst.path = "modules/base16-dunst"`)
+}
+
+// The same dashed directory, reached through a self: input: the fix points at
+// the input that would find it.
+func TestLoadDashedInputModule(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	require.NoError(t, writeFile(root, "modot.cue",
+		"package modot\n\nmodules: base16_dunst: {input: \"self:modules/base16_dunst\", enable: true}\n"))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "modules", "base16-dunst"), 0o750))
+
+	rep, err := configdash.Load(t.Context(), configdash.ScopeCodebase, root)
+	require.ErrorIs(t, err, configdash.ErrModuleFile)
+	require.Equal(t, `modules.base16_dunst.input = "self:modules/base16_dunst"`, rep.Modules[0].Problem.Declared)
+	require.Contains(t, rep.Modules[0].Problem.Hint, `modules.base16_dunst.input = "self:modules/base16-dunst"`)
+}
+
 func TestLoadBrokenModuleOptions(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()

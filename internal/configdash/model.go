@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -300,11 +301,7 @@ func inspectModules(root string, entries map[string]configcue.ModuleEntry, optio
 func inspectModule(root, name string, entry configcue.ModuleEntry, options map[string]any) Module {
 	mod := Module{Name: name, Enable: entry.Enable, Path: root, File: "", RootKeys: nil,
 		OptionsCUE: "", Merged: nil, Err: nil, Problem: nil}
-	if entry.Path != "" {
-		mod.Path = filepath.Join(root, entry.Path)
-	} else if root != "" {
-		mod.Path = filepath.Join(root, name)
-	}
+	mod.Path = moduleDir(root, name, entry)
 	mod.File = modulecue.FilePath(mod.Path)
 	if options != nil {
 		mod.Merged, _ = options[name].(map[string]any)
@@ -335,6 +332,28 @@ func inspectModule(root, name string, entry configcue.ModuleEntry, options map[s
 	return mod
 }
 
+// moduleDir is the directory a module is read from: modules/<path> when the
+// entry names one, modules/<name> otherwise. A dashed name cannot be a
+// modules/<name> directory without a path saying so, which is the usual cause
+// of "module file not found".
+func moduleDir(root, name string, entry configcue.ModuleEntry) string {
+	workspace := filepath.Dir(root)
+	// path names a module inside the workspace modules tree; without one the
+	// directory is modules/<name>, which only exists for CUE-safe names.
+	modulePath := filepath.ToSlash(filepath.Join("modules", name))
+	if trimmed := strings.Trim(strings.TrimSpace(entry.Path), "/"); trimmed != "" {
+		modulePath = filepath.ToSlash(filepath.Join("modules", trimmed))
+	}
+
+	return filepath.Join(workspace, filepath.FromSlash(modulePath))
+}
+
+// specLocal reports whether an input names a workspace directory (`self:`),
+// as opposed to the bare `self` that means the workspace root itself.
+func specLocal(spec string) bool {
+	return strings.HasPrefix(strings.TrimSpace(spec), "self:")
+}
+
 // missingModuleProblem explains a module whose file is not on disk: the
 // directory that was tried, the modules.<name> declaration it came from, and
 // the two ways to fix it.
@@ -342,18 +361,53 @@ func missingModuleProblem(name, file string, entry configcue.ModuleEntry) *Modul
 	declared := ""
 	if entry.Path != "" {
 		declared = fmt.Sprintf("modules.%s.path = %q", name, entry.Path)
+	} else if entry.Input != "" {
+		declared = fmt.Sprintf("modules.%s.input = %q", name, entry.Input)
 	}
-	dir := filepath.Dir(file)
 
 	return &ModuleProblem{
 		Summary:  "module file not found",
 		Looked:   file,
 		Declared: declared,
 		Detail:   "",
-		Hint: fmt.Sprintf("Point modules.%s.path at the module directory, the one holding "+
-			"modot.cue (tried %s), or set modules.%s.enable = false to stop loading it.",
-			name, dir, name),
+		Hint:     missingModuleHint(name, file, entry),
 	}
+}
+
+// missingModuleHint names the fix. A dashed directory next to the one tried is
+// the usual cause: CUE selects options.<name>, so a module declared
+// base16_dunst looks for modules/base16_dunst while the checkout holds
+// modules/base16-dunst.
+func missingModuleHint(name, file string, entry configcue.ModuleEntry) string {
+	dashed, found := dashedSibling(name, file)
+	if !found {
+		return fmt.Sprintf("Point modules.%s.path at the module directory, the one holding "+
+			"modot.cue (tried %s), or set modules.%s.enable = false to stop loading it.",
+			name, filepath.Dir(file), name)
+	}
+	dir := filepath.Base(dashed)
+	fix := fmt.Sprintf(`modules.%s.path = "modules/%s"`, name, dir)
+	if specLocal(entry.Input) {
+		fix = fmt.Sprintf(`modules.%s.input = "self:modules/%s"`, name, dir)
+	}
+
+	return fmt.Sprintf("The loader looked in %s. %s exists; set %s. "+
+		"The name keeps the underscore: CUE cannot select options.%s with a dash "+
+		"in the field name.", filepath.Dir(file), dashed, fix, strings.ReplaceAll(name, "_", "-"))
+}
+
+// dashedSibling finds a module directory whose name swaps the underscores of
+// name for dashes, next to the directory tried for file: modules/base16-dunst
+// for modules/base16_dunst.
+func dashedSibling(name, file string) (string, bool) {
+	dashed := strings.ReplaceAll(name, "_", "-")
+	if dashed == name {
+		return "", false
+	}
+	other := filepath.Join(filepath.Dir(file), "..", dashed)
+	info, err := os.Stat(other)
+
+	return other, err == nil && info.IsDir()
 }
 
 // sources maps dotted key paths to the module that owns them. A module owns
