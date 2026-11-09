@@ -229,6 +229,12 @@ func loadConfig(ctx context.Context, opts DiscoverOptions) (*Config, error) {
 	return cfg, nil
 }
 
+// ConfigFromJSON decodes an evaluated config (EvaluationResult.JSON) into a
+// Config, so a caller that already evaluated does not evaluate again.
+func ConfigFromJSON(data []byte) (*Config, error) {
+	return decodeConfig(data)
+}
+
 func decodeConfig(data []byte) (*Config, error) {
 	raw := map[string]any{}
 	if err := json.Unmarshal(data, &raw); err != nil {

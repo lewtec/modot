@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -75,15 +76,29 @@ type Module struct {
 	// Merged is what options.<name> resolved to in the final Configuration.
 	// It is nil when the module's options never made it into the merge.
 	Merged map[string]any
+	// Source is the provider the module comes from: "core" for a built-in,
+	// "self" for a directory in this workspace, or a fetched provider.
+	Source string
+	// Ref is the module name inside Source: the core module name, or the
+	// directory a self module is read from.
+	Ref string
 	// Err is set when this module's declaration could not be read.
 	Err error
-	// Problem explains an Err in terms a user can act on.
+	// Problem is set when the module cannot be read here: a local module
+	// missing on disk, a fragment with a broken options block, or a built-in
+	// module that has no fragment at all (which is not an error).
 	Problem *ModuleProblem
+	// Unavailable is set when Err is this module's fault (it did not load).
+	// It is false for a module that simply has no fragment on disk.
+	Unavailable bool
 }
 
 // ModuleProblem is why a module could not be read, in the order a reader
 // needs it: what was tried, why it failed, and what to change.
 type ModuleProblem struct {
+	// Provider names the module's source ("core", a fetch) when it has no
+	// file on disk at all; empty for a local module missing from disk.
+	Provider string
 	// Summary is the one-line cause, e.g. "module file not found".
 	Summary string
 	// Looked is the path that was not there (missing files only).
@@ -164,7 +179,7 @@ func Load(ctx context.Context, scope Scope, cwd string) (Report, error) {
 		err = fmt.Errorf("evaluate %s layers: %w", scope, err)
 		// The layers are still worth showing next to the merge error.
 		rep.MergedErr = err
-		rep.Modules = inspectModules(rep.Root, nil, nil)
+		rep.Modules = inspectModules(nil, rep.Root, nil, nil)
 
 		return rep, err
 	}
@@ -176,7 +191,8 @@ func Load(ctx context.Context, scope Scope, cwd string) (Report, error) {
 	return rep, moduleErrors(rep.Modules)
 }
 
-// ProblemCount counts the modules that could not be read.
+// ProblemCount counts the modules the page explains instead of showing a
+// schema: the ones that failed, and the built-ins with no fragment here.
 func (rep Report) ProblemCount() int {
 	problems := 0
 	for _, mod := range rep.Modules {
@@ -191,6 +207,10 @@ func (rep Report) ProblemCount() int {
 // fill decodes the evaluated Configuration into rep and records where each
 // merged key came from.
 func (rep *Report) fill(result configcue.EvaluationResult) error {
+	cfg, err := configcue.ConfigFromJSON(result.JSON)
+	if err != nil {
+		slog.Debug("decode config for module inspection", "error", err)
+	}
 	if len(result.JSON) > 0 {
 		err := json.Unmarshal(result.JSON, &rep.Merged)
 		if err != nil {
@@ -201,7 +221,7 @@ func (rep *Report) fill(result configcue.EvaluationResult) error {
 		rep.Merged = map[string]any{}
 	}
 	options, _ := rep.Merged["options"].(map[string]any)
-	rep.Modules = inspectModules(rep.Root, moduleEntries(rep.Merged), options)
+	rep.Modules = inspectModules(cfg, rep.Root, moduleEntries(rep.Merged), options)
 	rep.Sources = sources(rep.Merged, rep.Modules)
 	for path, file := range result.Provenance().Files {
 		source := rep.Sources[path]
@@ -223,7 +243,7 @@ func (rep *Report) fill(result configcue.EvaluationResult) error {
 func moduleErrors(modules []Module) error {
 	var err error
 	for _, mod := range modules {
-		if mod.Err != nil {
+		if mod.Unavailable && mod.Err != nil {
 			err = errors.Join(err, mod.Err)
 		}
 	}
@@ -279,7 +299,12 @@ func moduleEntries(merged map[string]any) map[string]configcue.ModuleEntry {
 
 // inspectModules reads each module's declared options. It never fails: a
 // module that cannot be read carries Err so the UI can show it.
-func inspectModules(root string, entries map[string]configcue.ModuleEntry, options map[string]any) []Module {
+func inspectModules(
+	cfg *configcue.Config,
+	root string,
+	entries map[string]configcue.ModuleEntry,
+	options map[string]any,
+) []Module {
 	if len(entries) == 0 {
 		return nil
 	}
@@ -290,24 +315,65 @@ func inspectModules(root string, entries map[string]configcue.ModuleEntry, optio
 	sort.Strings(names)
 	out := make([]Module, 0, len(names))
 	for _, name := range names {
-		out = append(out, inspectModule(root, name, entries[name], options))
+		out = append(out, inspectModule(cfg, root, name, entries[name], options))
 	}
 
 	return out
 }
 
 // inspectModule reads one module. It never fails: a module that cannot be read
-// carries Err so the UI can show it.
-func inspectModule(root, name string, entry configcue.ModuleEntry, options map[string]any) Module {
+// carries Err so the UI can show it. The path comes from the loader's own
+// resolver, so the dashboard reads exactly the file the merge reads.
+func inspectModule(
+	cfg *configcue.Config,
+	root, name string,
+	entry configcue.ModuleEntry,
+	options map[string]any,
+) Module {
 	mod := Module{Name: name, Enable: entry.Enable, Path: root, File: "", RootKeys: nil,
-		OptionsCUE: "", Merged: nil, Err: nil, Problem: nil}
-	mod.Path = moduleDir(root, name, entry)
-	mod.File = modulecue.FilePath(mod.Path)
+		OptionsCUE: "", Merged: nil, Source: "", Ref: "", Err: nil, Problem: nil,
+		Unavailable: false}
 	if options != nil {
 		mod.Merged, _ = options[name].(map[string]any)
 	}
-	if root == "" || !modulecue.Exists(mod.Path) {
+	if cfg != nil {
+		mod.Source, mod.Ref = moduleSource(name, entry)
+	}
+	modulePath, local, err := modulePath(cfg, name, entry, root)
+	switch {
+	case err != nil:
+		mod.Err = fmt.Errorf("%w: %w", ErrModuleOptions, err)
+		mod.Unavailable = true
+		mod.Problem = &ModuleProblem{
+			Summary:  "module source not resolvable",
+			Provider: "",
+			Looked:   "",
+			Declared: declaredEntry(name, entry),
+			Hint:     "",
+			Detail:   err.Error(),
+		}
+
+		return mod
+	case !local:
+		// core: and fetched modules have no file here; their options are
+		// whatever the config wrote under options.<name>.
+		mod.Path = ""
+		mod.File = ""
+		mod.Problem = nonLocalProblem(mod)
+
+		return mod
+	}
+
+	return readModule(mod, modulePath, name, entry)
+}
+
+// readModule reads a local module's fragment and its declared options.
+func readModule(mod Module, modulePath, name string, entry configcue.ModuleEntry) Module {
+	mod.Path = modulePath
+	mod.File = modulecue.FilePath(mod.Path)
+	if !modulecue.Exists(mod.Path) {
 		mod.Err = fmt.Errorf("%w: %s", ErrModuleFile, mod.File)
+		mod.Unavailable = true
 		mod.Problem = missingModuleProblem(name, mod.File, entry)
 
 		return mod
@@ -315,13 +381,15 @@ func inspectModule(root, name string, entry configcue.ModuleEntry, options map[s
 	expr, err := modulecue.OptionsSyntaxWithRoot(mod.Path, nil)
 	if err != nil {
 		mod.Err = fmt.Errorf("%w: %w", ErrModuleOptions, err)
+		mod.Unavailable = true
 		mod.Problem = &ModuleProblem{
 			Summary:  "module options not readable",
+			Provider: "",
 			Looked:   mod.File,
 			Declared: "",
-			Detail:   err.Error(),
 			Hint: "Fix the options block in " + mod.File + "; `modot home|codebase config eval` " +
 				"shows the same error without the dashboard.",
+			Detail: err.Error(),
 		}
 
 		return mod
@@ -332,54 +400,89 @@ func inspectModule(root, name string, entry configcue.ModuleEntry, options map[s
 	return mod
 }
 
-// moduleDir is the directory a module is read from: the workspace joined with
-// its `self:` input (or `from` ref) when the entry names one, modules/<path>
-// when it names a path, modules/<name> otherwise. A dashed name cannot be a
-// modules/<name> directory without a path or input saying so, which is the
-// usual cause of "module file not found".
+// modulePath resolves a module through the loader. local is false when the
+// module comes from a provider with no directory on disk (core:, a fetch).
+func modulePath(cfg *configcue.Config, name string, entry configcue.ModuleEntry, root string) (string, bool, error) {
+	if cfg == nil || root == "" {
+		return moduleDir(root, name, entry), true, nil
+	}
+	path, ok, err := configcue.ResolveModulePath(cfg, name, entry, root)
+	if err != nil {
+		return "", false, fmt.Errorf("resolve modules.%s: %w", name, err)
+	}
+	if !ok {
+		return "", false, nil
+	}
+
+	return path, true, nil
+}
+
+// moduleSource names where a module comes from and what it points at there:
+// "core" and the core module name, "self" and the directory, or a fetch.
+func moduleSource(name string, entry configcue.ModuleEntry) (string, string) {
+	from := strings.TrimSpace(entry.From)
+	if from == "" {
+		from = strings.TrimSpace(entry.Input)
+	}
+	if from == "" {
+		from = "self"
+	}
+	provider, ref, ok := strings.Cut(from, ":")
+	if !ok {
+		return strings.TrimSpace(from), name
+	}
+	provider = strings.TrimSpace(provider)
+	ref = strings.TrimSpace(ref)
+	if provider == "self" {
+		// A self: input is the module directory; an explicit path is where
+		// the module lives inside it.
+		if path := strings.Trim(strings.TrimSpace(entry.Path), "/"); path != "" {
+			ref = strings.Trim(path, "/")
+		}
+
+		return provider, ref
+	}
+
+	return provider, ref
+}
+
+// nonLocalProblem says a module has no fragment on disk here, which is normal
+// for core: and fetched modules.
+func nonLocalProblem(mod Module) *ModuleProblem {
+	return &ModuleProblem{
+		Summary:  "built-in module, no fragment on disk",
+		Provider: mod.Source,
+		Looked:   "",
+		Declared: "",
+		Hint: fmt.Sprintf("%s modules are built into modot: %s:%s has no modot.cue to read. "+
+			"Its options are whatever the config sets under options.%s.",
+			mod.Source, mod.Source, mod.Ref, mod.Name),
+		Detail: "",
+	}
+}
+
+// declaredEntry renders the config line that named a module.
+func declaredEntry(name string, entry configcue.ModuleEntry) string {
+	switch {
+	case entry.Input != "":
+		return fmt.Sprintf("modules.%s.input = %q", name, entry.Input)
+	case entry.Path != "":
+		return fmt.Sprintf("modules.%s.path = %q", name, entry.Path)
+	default:
+		return ""
+	}
+}
+
+// moduleDir is the directory a module is read from when the loader cannot
+// resolve it (no config was decoded): modules/<path>, or modules/<name>.
 func moduleDir(root, name string, entry configcue.ModuleEntry) string {
 	workspace := filepath.Dir(root)
-	// Without any hint the directory is modules/<name>, which only exists for
-	// CUE-safe names.
 	modulePath := filepath.ToSlash(filepath.Join("modules", name))
-	explicit := strings.Trim(strings.TrimSpace(entry.Path), "/")
-	if explicit != "" {
+	if explicit := strings.Trim(strings.TrimSpace(entry.Path), "/"); explicit != "" {
 		modulePath = filepath.ToSlash(filepath.Join("modules", explicit))
-	}
-	if ref, ok := selfRef(entry.Input); ok && ref != "" && !explicitLocal(explicit) {
-		// A `self:` input is the module directory relative to the workspace;
-		// a path only names the module inside it.
-		modulePath = filepath.ToSlash(filepath.Join(ref, explicit))
 	}
 
 	return filepath.Join(workspace, filepath.FromSlash(modulePath))
-}
-
-// selfRef returns the workspace-relative directory a spec names: `self:x`
-// names x and bare `self` names the workspace root. Anything else (a fetch, a
-// named input) is not local and reports ok=false.
-func selfRef(spec string) (string, bool) {
-	spec = strings.TrimSpace(spec)
-	if spec == "self" || spec == "" {
-		return "", true
-	}
-	if !strings.HasPrefix(spec, "self:") {
-		return "", false
-	}
-
-	return strings.Trim(strings.TrimPrefix(spec, "self:"), "/"), true
-}
-
-// explicitLocal reports whether a path already starts at the workspace, as in
-// modules/<dir>, which a self: input must not be joined to again.
-func explicitLocal(path string) bool {
-	return strings.HasPrefix(path, "modules/") || strings.HasPrefix(path, "./")
-}
-
-// specLocal reports whether an input names a workspace directory (`self:`),
-// as opposed to the bare `self` that means the workspace root itself.
-func specLocal(spec string) bool {
-	return strings.HasPrefix(strings.TrimSpace(spec), "self:")
 }
 
 // missingModuleProblem explains a module whose file is not on disk: the
@@ -394,6 +497,7 @@ func missingModuleProblem(name, file string, entry configcue.ModuleEntry) *Modul
 	}
 
 	return &ModuleProblem{
+		Provider: "",
 		Summary:  "module file not found",
 		Looked:   file,
 		Declared: declared,
@@ -417,7 +521,7 @@ func missingModuleHint(name, file string, entry configcue.ModuleEntry) string {
 	// The fix is the line that already names a directory: the input that
 	// points at the wrong one, or a path when nothing names one.
 	fix := fmt.Sprintf(`modules.%s.path = "modules/%s"`, name, dir)
-	if specLocal(entry.Input) {
+	if strings.HasPrefix(strings.TrimSpace(entry.Input), "self:") {
 		fix = fmt.Sprintf(`modules.%s.input = "self:modules/%s"`, name, dir)
 	}
 

@@ -8,43 +8,50 @@ import (
 
 // moduleProblem shows why a module did not load: the path tried, the config
 // line that named it, and the fix. The raw error is the last line so it can be
-// copied into a search.
+// copied into a search. A module with no file here (a built-in) is explained
+// the same way, in a quieter box.
 templ moduleProblem(mod configdash.Module) {
-	if mod.Problem == nil {
-		<div class="alert alert-error items-start" role="alert">
-			<div class="min-w-0">
+	<div class={ problemClass(mod) } role="alert">
+		<span class="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-current/20 text-xs font-bold">!</span>
+		<div class="min-w-0 space-y-2">
+			if mod.Problem == nil {
 				<p class="font-semibold">Module did not load</p>
 				<pre class="max-w-full overflow-x-auto text-xs whitespace-pre-wrap">{ mod.Err.Error() }</pre>
-			</div>
-		</div>
-	} else {
-		<div class="alert alert-error items-start" role="alert">
-			<span class="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-error-content/20 text-xs font-bold">!</span>
-			<div class="min-w-0 space-y-2">
+			} else {
 				<p class="font-semibold">{ mod.Problem.Summary }</p>
-				if mod.Problem.Looked != "" {
-					<p class="text-xs">tried <span class="font-mono">{ mod.Problem.Looked }</span></p>
-				}
 				if mod.Problem.Declared != "" {
 					<p class="text-xs">from <span class="font-mono">{ mod.Problem.Declared }</span></p>
+				}
+				if mod.Problem.Looked != "" {
+					<p class="text-xs">tried <span class="font-mono">{ mod.Problem.Looked }</span></p>
 				}
 				<p class="text-sm">{ mod.Problem.Hint }</p>
 				if mod.Problem.Detail != "" {
 					<pre class="max-w-full overflow-x-auto text-xs whitespace-pre-wrap">{ mod.Problem.Detail }</pre>
 				}
-			</div>
+			}
 		</div>
-	}
+	</div>
 }
 
 templ ModuleOptions(r configdash.Report, mod configdash.Module) {
 	<div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
 		<div class="flex min-w-0 flex-col rounded-box border border-base-300 bg-base-100">
 			<div class="flex items-center justify-between border-b border-base-300 px-4 py-3">
-				<h3 class="text-sm font-semibold">Schema (<span class="font-mono">options</span>)</h3>
-				<span class="badge badge-sm badge-soft badge-secondary">{ fmt.Sprint(len(mod.RootKeys)) } root key(s)</span>
+				<h3 class="text-sm font-semibold">
+					if mod.Source == "self" {
+						Schema (<span class="font-mono">options</span>)
+					} else {
+						Source (<span class="font-mono">{ mod.Source }</span>)
+					}
+				</h3>
+				if mod.Source == "self" {
+					<span class="badge badge-sm badge-soft badge-secondary">{ fmt.Sprint(len(mod.RootKeys)) } root key(s)</span>
+				} else {
+					<span class="badge badge-sm badge-soft badge-info">{ mod.Source } module</span>
+				}
 			</div>
-			if mod.Err != nil {
+			if mod.Problem != nil {
 				<div class="p-4">
 					@moduleProblem(mod)
 				</div>
@@ -61,7 +68,7 @@ templ ModuleOptions(r configdash.Report, mod configdash.Module) {
 				if mod.Problem != nil {
 					<p class="p-4 text-sm text-base-content/70">The module never loaded, so nothing under <span class="font-mono">options.{ mod.Name }</span> exists in the merged tree.</p>
 				} else {
-					<p class="p-4 text-sm text-base-content/60">No values resolved for this module.</p>
+					<p class="p-4 text-sm text-base-content/60">The config sets no options for this module.</p>
 				}
 			} else {
 				<pre class="max-h-[32rem] overflow-auto p-4 font-mono text-xs leading-relaxed">{ prettyJSON(mod.Merged) }</pre>
@@ -74,11 +81,11 @@ templ Modules(v View) {
 	@Shell("Modules", pageModules, v.Theme, v) {
 		@PageHeader("Modules", "Each module declares configuration as a top-level options field. The loader strips it from the fragment and injects it into the shared tree under the module's name.")
 			@PageBody() {
-				if v.LoadErr != nil && v.shown().ProblemCount() == 0 {
+				if v.LoadErr != nil && len(v.shown().Modules) == 0 {
 					@errorAlert(v.LoadErr)
 				} else if len(v.shown().Modules) == 0 {
 					<div class="rounded-box border border-dashed border-base-300 bg-base-100 p-16 text-center text-base-content/50">
-						<p class="font-semibold italic">No modules named by this entry file</p>
+						<p>No modules in this scope.</p>
 					</div>
 				} else {
 					<div class="tabs tabs-box w-fit flex-wrap">
@@ -92,26 +99,22 @@ templ Modules(v View) {
 					</div>
 					if mod, ok := v.selectedModule(); ok {
 						<div class="rounded-box border border-base-300 bg-base-100 p-4">
-							<div class="mb-1 flex flex-wrap items-center gap-2">
-								<span class="font-mono text-base font-semibold">{ mod.Name }</span>
-								if mod.Problem != nil {
-									<span class="badge badge-error badge-sm">{ mod.Problem.Summary }</span>
-								} else if mod.Err != nil {
-									<span class="badge badge-error badge-sm">error</span>
-								} else if mod.Enable {
-									<span class="badge badge-success badge-sm">enabled</span>
+							<div class="mb-4 flex flex-wrap items-center gap-2">
+								<h2 class="font-mono text-lg font-semibold">{ mod.Name }</h2>
+								<span class="badge badge-sm">{ sourceLabel(mod) }</span>
+								if mod.Enable {
+									<span class="badge badge-sm badge-success">on</span>
 								} else {
-									<span class="badge badge-ghost badge-sm">disabled</span>
+									<span class="badge badge-sm badge-ghost">off</span>
 								}
 							</div>
-							<p class="truncate font-mono text-xs text-base-content/60" title={ mod.Path }>{ mod.Path }</p>
-						</div>
-						if mod.Err != nil {
+							if mod.File != "" {
+								<p class="truncate font-mono text-xs text-base-content/60" title={ mod.Path }>{ mod.Path }</p>
+							}
 							<div class="mt-4">
-								@moduleProblem(mod)
+								@ModuleOptions(v.shown(), mod)
 							</div>
-						}
-						@ModuleOptions(v.shown(), mod)
+						</div>
 					}
 				}
 			}

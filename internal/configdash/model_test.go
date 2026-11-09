@@ -86,9 +86,10 @@ func TestLoadMissingModule(t *testing.T) {
 	problem := rep.Modules[0].Problem
 	require.NotNil(t, problem, "Problem")
 	require.Equal(t, "module file not found", problem.Summary)
-	require.Equal(t, filepath.Join(root, "modules", "missing", "modot.cue"), problem.Looked)
+	// path is relative to the workspace, which is what the loader does.
+	require.Equal(t, filepath.Join(root, "missing", "modot.cue"), problem.Looked)
 	require.Equal(t, `modules.ghost.path = "missing"`, problem.Declared)
-	require.Contains(t, problem.Hint, filepath.Join(root, "modules", "missing"))
+	require.Contains(t, problem.Hint, filepath.Join(root, "missing"))
 	require.Contains(t, problem.Hint, "modules.ghost.enable = false")
 }
 
@@ -176,4 +177,33 @@ func writeFile(root, name, body string) error {
 	}
 
 	return nil
+}
+
+// A core: module has no fragment on disk. It is not a load failure: it is
+// explained, and its options are whatever the config set.
+func TestLoadCoreModule(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	config := "package modot\n\nmodules: icons: {input: \"core:base16-icons-linux\"}\n" +
+		"\noptions: icons: input_dir: \"papirus:Papirus\"\n"
+	require.NoError(t, writeFile(root, "modot.cue", config))
+
+	rep, err := configdash.Load(t.Context(), configdash.ScopeHome, root)
+	require.NoError(t, err, "a core module is not an error")
+
+	byName := map[string]configdash.Module{}
+	for _, m := range rep.Modules {
+		byName[m.Name] = m
+	}
+	mod, ok := byName["icons"]
+	require.True(t, ok, "icons module")
+	require.Equal(t, "core", mod.Source)
+	require.Equal(t, "base16-icons-linux", mod.Ref)
+	require.False(t, mod.Unavailable, "nothing on disk to miss")
+	require.NotNil(t, mod.Problem)
+	require.Equal(t, "core", mod.Problem.Provider)
+	require.Contains(t, mod.Problem.Summary, "no fragment on disk")
+	require.Contains(t, mod.Problem.Hint, "core:base16-icons-linux")
+	require.Empty(t, mod.File)
+	require.Equal(t, map[string]any{"input_dir": "papirus:Papirus"}, mod.Merged)
 }

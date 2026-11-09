@@ -13,6 +13,27 @@ func (v View) selectedModule() (configdash.Module, bool) {
 	return selectedModule(v.shown(), v.ModuleName)
 }
 
+// sourceLabel is the module's location the way the config names it:
+// "core:base16-icons-linux" for a built-in, "self:modules/theme" for a
+// directory in this workspace.
+func sourceLabel(mod configdash.Module) string {
+	if mod.Source == "" || mod.Ref == "" {
+		return mod.Source + mod.Ref
+	}
+
+	return mod.Source + ":" + mod.Ref
+}
+
+// problemClass is the alert colour: a module that failed to load is an error,
+// a built-in module with no file here is just information.
+func problemClass(mod configdash.Module) string {
+	if mod.Unavailable || mod.Problem == nil {
+		return "alert alert-error items-start"
+	}
+
+	return "alert alert-info items-start"
+}
+
 // tabClass marks the selected module and the ones that failed to load, so a
 // broken module stands out in the list without opening it.
 func tabClass(mod configdash.Module, selected bool) string {
@@ -20,8 +41,13 @@ func tabClass(mod configdash.Module, selected bool) string {
 	if selected {
 		classes += " tab-active"
 	}
-	if mod.Problem != nil {
+	switch {
+	case mod.Unavailable:
+		// It failed to load: that is the thing to look at first.
 		classes += " text-error"
+	case mod.Problem != nil:
+		// A built-in with no fragment here; explained, not broken.
+		classes += " text-info"
 	}
 
 	return classes

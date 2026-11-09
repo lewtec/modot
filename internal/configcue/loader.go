@@ -645,6 +645,18 @@ func renderModuleLayer(decls []ast.Decl) (string, error) {
 	return string(formatted), nil
 }
 
+// ResolveModulePath is where a module's fragment is read from: resolveLocalModulePath
+// without needing the layer plumbing. ok is false when the module comes from a
+// provider that is not on disk (core:, a fetched repo).
+func ResolveModulePath(cfg *Config, moduleName string, modEntry ModuleEntry, modulesBaseDir string) (string, bool, error) {
+	return resolveLocalModulePath(cfg, moduleName, modEntry, modulesBaseDir)
+}
+
+// ModulesBaseDir is the modules directory the loader uses for discovered layers.
+func ModulesBaseDir(paths []string, discovered []Layer) string {
+	return resolveModulesBaseDir(paths, discovered)
+}
+
 func resolveLocalModulePath(cfg *Config, moduleName string, modEntry ModuleEntry, modulesBaseDir string) (string, bool, error) {
 	workspaceRoot := filepath.Dir(modulesBaseDir)
 	modulePath := strings.Trim(strings.TrimSpace(modEntry.Path), "/")

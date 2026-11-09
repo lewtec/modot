@@ -46,7 +46,7 @@ func statCards(r configdash.Report) []statCard {
 	}
 	return []statCard{
 		{Title: "Layers", Value: fmt.Sprint(len(r.Layers)), Desc: "discovered modot.cue", Accent: "text-primary"},
-		{Title: "Modules", Value: fmt.Sprint(enabled), Desc: fmt.Sprintf("%d disabled, %d not loaded", disabled, r.ProblemCount()), Accent: "text-secondary"},
+		{Title: "Modules", Value: fmt.Sprint(enabled), Desc: fmt.Sprintf("%d disabled, %d not loaded", disabled, len(problems(r))), Accent: "text-secondary"},
 		{Title: "Keys", Value: fmt.Sprint(r.Stats.Keys), Desc: "in the merged tree", Accent: "text-accent"},
 		{Title: "From modules", Value: fmt.Sprint(r.Stats.FromModules), Desc: "options.<name> and declared roots", Accent: "text-info"},
 	}
@@ -111,7 +111,7 @@ templ Overview(v View) {
 			}
 			@statsRow(statCards(v.shown()))
 			@layerStrip(v.shown())
-			if v.shown().ProblemCount() > 0 {
+			if len(problems(v.shown())) > 0 {
 				@problemCard(v.shown())
 			}
 			if v.shown().MergedErr != nil {
@@ -148,11 +148,12 @@ templ errorAlertTitled(title string, err error) {
 	</div>
 }
 
-// problems returns the modules that failed to load, sorted by name.
+// problems returns the modules that failed to load, sorted by name. A built-in
+// with no fragment here is not one of them.
 func problems(r configdash.Report) []configdash.Module {
 	out := make([]configdash.Module, 0, r.ProblemCount())
 	for _, mod := range r.Modules {
-		if mod.Problem != nil {
+		if mod.Unavailable {
 			out = append(out, mod)
 		}
 	}
@@ -168,7 +169,7 @@ templ problemCard(r configdash.Report) {
 			<div class="flex items-center justify-between">
 				<h2 class="card-title text-base text-error">
 					Modules that did not load
-					<span class="badge badge-error badge-sm">{ fmt.Sprint(r.ProblemCount()) }</span>
+					<span class="badge badge-error badge-sm">{ fmt.Sprint(len(problems(r))) }</span>
 				</h2>
 				<a class="link link-hover text-xs" href={ scopeRoute(r.Scope, pageModules) }>details</a>
 			</div>
@@ -264,8 +265,10 @@ templ moduleSummaryCard(r configdash.Report) {
 				for _, mod := range r.Modules {
 					<li class="flex items-center justify-between gap-2 rounded-lg px-2 py-1 hover:bg-base-200">
 						<a class="link link-hover font-mono" href={ scopeRoute(r.Scope, pageModules) + "?name=" + mod.Name }>{ mod.Name }</a>
-						if mod.Problem != nil {
+						if mod.Unavailable {
 							<span class="badge badge-sm badge-error" title={ mod.Problem.Summary }>not loaded</span>
+						} else if mod.Problem != nil {
+							<span class="badge badge-sm badge-info" title={ mod.Problem.Hint }>{ mod.Source }</span>
 						} else if mod.Err != nil {
 							<span class="badge badge-sm badge-error" title={ mod.Err.Error() }>error</span>
 						} else if mod.Enable {
