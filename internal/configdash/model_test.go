@@ -135,25 +135,6 @@ func TestLoadDashedInputModule(t *testing.T) {
 	require.Equal(t, filepath.Join(root, "modules", "base16-dunst"), rep.Modules[0].Path)
 	require.Equal(t, []string{"mode"}, rep.Modules[0].RootKeys)
 	require.Equal(t, 0, rep.ProblemCount())
-	require.Empty(t, rep.Unused, "the declared module is used")
-}
-
-// A directory under modules/ that nothing points at does not load; the
-// dashboard only reports it.
-func TestLoadUnusedModuleDirectory(t *testing.T) {
-	t.Parallel()
-	root := t.TempDir()
-	require.NoError(t, writeFile(root, "modot.cue",
-		"package modot\n\nmodules: theme: {input: \"self:modules/theme\", enable: true}\n"))
-	for _, dir := range []string{"theme", "spare"} {
-		require.NoError(t, os.MkdirAll(filepath.Join(root, "modules", dir), 0o750))
-		require.NoError(t, writeFile(filepath.Join(root, "modules", dir), "modot.cue",
-			"package "+dir+"\n\noptions: mode: string | *\"dark\"\n"))
-	}
-
-	rep, err := configdash.Load(t.Context(), configdash.ScopeCodebase, root)
-	require.NoError(t, err)
-	require.Equal(t, []string{filepath.Join(root, "modules", "spare")}, rep.Unused)
 }
 
 // A path with the dashes swapped is still a missing module, and the fix names

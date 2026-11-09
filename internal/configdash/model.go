@@ -24,9 +24,6 @@ var (
 	ErrModuleOptions = errors.New("module options not readable")
 )
 
-// missingFileSummary is the ModuleProblem summary for ErrModuleFile.
-const missingFileSummary = "module file not found"
-
 // Scope selects which layers get discovered.
 type Scope string
 
@@ -62,9 +59,6 @@ type Report struct {
 	// Sources maps a dotted key path to the module that owns it. A key with
 	// no entry comes from the entry layers, the schema, or the runtime.
 	Sources map[string]Source
-	// Unused are module directories on disk that no modules.<name> entry
-	// points at. The entry file decides what loads; these are just candidates.
-	Unused []string
 }
 
 // Module is one module named by the entry file.
@@ -164,7 +158,6 @@ func Load(ctx context.Context, scope Scope, cwd string) (Report, error) {
 		MergedErr: nil,
 		Stats:     Stats{Keys: 0, FromModules: 0, FromRoot: 0, Conflicted: 0},
 		Sources:   nil,
-		Unused:    nil,
 	}
 	result, err := configcue.Evaluate(ctx, opts)
 	if err != nil {
@@ -222,7 +215,6 @@ func (rep *Report) fill(result configcue.EvaluationResult) error {
 		rep.Sources[path] = source
 	}
 	rep.Stats = count(rep.Merged, rep.Sources)
-	rep.Unused = unusedModules(rep.Root, rep.Modules)
 
 	return nil
 }
@@ -340,51 +332,6 @@ func inspectModule(root, name string, entry configcue.ModuleEntry, options map[s
 	return mod
 }
 
-// unusedModules lists the module directories that exist in the module tree but
-// that no declared module resolves to. Nothing points at them, so they do not
-// load; the entry file decides what does, and the dashboard only says so.
-func unusedModules(root string, modules []Module) []string {
-	if root == "" {
-		return nil
-	}
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		return nil
-	}
-	used := usedDirs(modules)
-	unused := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		dir := filepath.Join(root, entry.Name())
-		if !used[dir] {
-			unused = append(unused, dir)
-		}
-	}
-	sort.Strings(unused)
-
-	return unused
-}
-
-// usedDirs maps the directory each module is read from. A module that is
-// missing where the loader looked still claims its path: the problem is
-// reported, not the directory.
-func usedDirs(modules []Module) map[string]bool {
-	used := make(map[string]bool, len(modules))
-	for _, mod := range modules {
-		// A module from another provider (core:, github:) has no local
-		// directory; its would-be path must not mark one as used. Anything
-		// else, even a module that failed to read, owns its directory.
-		missing := mod.Problem != nil && mod.Problem.Summary == missingFileSummary
-		if !missing {
-			used[mod.Path] = true
-		}
-	}
-
-	return used
-}
-
 // moduleDir is the directory a module is read from: the workspace joined with
 // its `self:` input (or `from` ref) when the entry names one, modules/<path>
 // when it names a path, modules/<name> otherwise. A dashed name cannot be a
@@ -447,7 +394,7 @@ func missingModuleProblem(name, file string, entry configcue.ModuleEntry) *Modul
 	}
 
 	return &ModuleProblem{
-		Summary:  missingFileSummary,
+		Summary:  "module file not found",
 		Looked:   file,
 		Declared: declared,
 		Detail:   "",
