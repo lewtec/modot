@@ -85,7 +85,7 @@ func Layers(v View) templ.Component {
 						var templ_7745c5c3_Var4 string
 						templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(i + 1))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_layers.templ`, Line: 19, Col: 138}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_layers.templ`, Line: 19, Col: 138}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 						if templ_7745c5c3_Err != nil {
@@ -98,7 +98,7 @@ func Layers(v View) templ.Component {
 						var templ_7745c5c3_Var5 string
 						templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(layer.Name)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_layers.templ`, Line: 21, Col: 55}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_layers.templ`, Line: 21, Col: 55}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 						if templ_7745c5c3_Err != nil {
@@ -111,7 +111,7 @@ func Layers(v View) templ.Component {
 						var templ_7745c5c3_Var6 string
 						templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(layer.Path)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_layers.templ`, Line: 22, Col: 91}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_layers.templ`, Line: 22, Col: 91}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 						if templ_7745c5c3_Err != nil {
@@ -124,7 +124,7 @@ func Layers(v View) templ.Component {
 						var templ_7745c5c3_Var7 string
 						templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(layer.Path)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_layers.templ`, Line: 22, Col: 106}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_layers.templ`, Line: 22, Col: 106}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 						if templ_7745c5c3_Err != nil {
@@ -142,7 +142,7 @@ func Layers(v View) templ.Component {
 					var templ_7745c5c3_Var8 string
 					templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(v.shown().Root)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `view/pages_layers.templ`, Line: 29, Col: 73}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_layers.templ`, Line: 29, Col: 73}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 					if templ_7745c5c3_Err != nil {
@@ -161,7 +161,7 @@ func Layers(v View) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Shell("Layers", "/layers", v.Theme).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Shell("Layers", pageLayers, v.Theme, v).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

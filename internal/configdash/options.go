@@ -32,5 +32,6 @@ func rootKeys(expr string) []string {
 		out = append(out, label)
 	}
 	sort.Strings(out)
+
 	return out
 }

@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/lewtec/lewkit/x/http/asset/lucide"
 	"github.com/lewtec/modot/internal/configdash"
 )
 
@@ -22,6 +23,8 @@ type View struct {
 	ModuleName string
 	// Path is the merged subtree selected on the merged page.
 	Path string
+	// Scope is the layer set this page shows.
+	Scope configdash.Scope
 }
 
 // shown is the report to render: the loaded one, else the partial one.
@@ -31,8 +34,6 @@ func (v View) shown() configdash.Report {
 	}
 	return v.Report
 }
-
-func (v View) scope() string { return string(v.shown().Scope) }
 
 func statCards(r configdash.Report) []statCard {
 	enabled, disabled := 0, 0
@@ -45,7 +46,7 @@ func statCards(r configdash.Report) []statCard {
 	}
 	return []statCard{
 		{Title: "Layers", Value: fmt.Sprint(len(r.Layers)), Desc: "discovered modot.cue", Accent: "text-primary"},
-		{Title: "Modules", Value: fmt.Sprint(enabled), Desc: fmt.Sprintf("%d disabled", disabled), Accent: "text-secondary"},
+		{Title: "Modules", Value: fmt.Sprint(enabled), Desc: fmt.Sprintf("%d disabled, %d not loaded", disabled, r.ProblemCount()), Accent: "text-secondary"},
 		{Title: "Keys", Value: fmt.Sprint(r.Stats.Keys), Desc: "in the merged tree", Accent: "text-accent"},
 		{Title: "From modules", Value: fmt.Sprint(r.Stats.FromModules), Desc: "options.<name> and declared roots", Accent: "text-info"},
 	}
@@ -102,16 +103,19 @@ func ownedLeaves(r configdash.Report, prefix string) int {
 }
 
 templ Overview(v View) {
-	@Shell("Overview", "/", v.Theme) {
+	@Shell("Overview", pageOverview, v.Theme, v) {
 		@PageHeader("Merged configuration", overviewLead(v.shown()))
 		@PageBody() {
-			if v.LoadErr != nil {
+			if v.LoadErr != nil && v.shown().MergedErr == nil {
 				@errorAlert(v.LoadErr)
 			}
 			@statsRow(statCards(v.shown()))
 			@layerStrip(v.shown())
+			if v.shown().ProblemCount() > 0 {
+				@problemCard(v.shown())
+			}
 			if v.shown().MergedErr != nil {
-				@errorAlert(v.shown().MergedErr)
+				@errorAlertTitled("Merge failed", v.shown().MergedErr)
 			}
 			<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 				@topKeysCard(v.shown())
@@ -130,11 +134,60 @@ func overviewLead(r configdash.Report) string {
 }
 
 templ errorAlert(err error) {
+	@errorAlertTitled("Load failed", err)
+}
+
+// errorAlertTitled is errorAlert with a caller-chosen heading.
+templ errorAlertTitled(title string, err error) {
 	<div class="alert alert-error items-start" role="alert">
-		@icon("M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z", "size-5")
+		@icon(lucide.NameTriangleAlert, "size-5")
 		<div class="min-w-0">
-			<p class="font-semibold">Load failed</p>
+			<p class="font-semibold">{ title }</p>
 			<pre class="max-w-full overflow-x-auto text-xs whitespace-pre-wrap">{ err.Error() }</pre>
+		</div>
+	</div>
+}
+
+// problems returns the modules that failed to load, sorted by name.
+func problems(r configdash.Report) []configdash.Module {
+	out := make([]configdash.Module, 0, r.ProblemCount())
+	for _, mod := range r.Modules {
+		if mod.Problem != nil {
+			out = append(out, mod)
+		}
+	}
+
+	return out
+}
+
+// problemCard lists the modules that did not load. Each row links to the
+// module page, which names the path that was tried and the config line to fix.
+templ problemCard(r configdash.Report) {
+	<div class="card border border-error/40 bg-base-100 shadow">
+		<div class="card-body">
+			<div class="flex items-center justify-between">
+				<h2 class="card-title text-base text-error">
+					Modules that did not load
+					<span class="badge badge-error badge-sm">{ fmt.Sprint(r.ProblemCount()) }</span>
+				</h2>
+				<a class="link link-hover text-xs" href={ scopeRoute(r.Scope, pageModules) }>details</a>
+			</div>
+			<p class="text-sm text-base-content/70">
+				Everything else in the tree still merged. Each module below is missing from <span class="font-mono">options</span>, and the config referencing it may fail to evaluate.
+			</p>
+			<ul class="divide-y divide-base-300">
+				for _, mod := range problems(r) {
+					<li class="py-2">
+						<a class="link link-hover font-mono text-sm" href={ scopeRoute(r.Scope, pageModules) + "?name=" + mod.Name }>{ mod.Name }</a>
+						if mod.Problem != nil {
+							<span class="ml-2 badge badge-sm badge-error">{ mod.Problem.Summary }</span>
+							if mod.Problem.Looked != "" {
+								<p class="mt-1 truncate font-mono text-xs text-base-content/60" title={ mod.Problem.Looked }>{ mod.Problem.Looked }</p>
+							}
+						}
+					</li>
+				}
+			</ul>
 		</div>
 	</div>
 }
@@ -155,7 +208,7 @@ templ layerStrip(r configdash.Report) {
 	<div class="rounded-box border border-base-300 bg-base-100 p-4">
 		<div class="mb-3 flex items-center justify-between">
 			<h2 class="text-sm font-semibold tracking-wide uppercase">Discovery order</h2>
-			<a class="link link-hover text-xs" href="/layers">details</a>
+			<a class="link link-hover text-xs" href={ scopeRoute(r.Scope, pageLayers) }>details</a>
 		</div>
 		<div class="flex flex-wrap items-center gap-2">
 			for i, layer := range r.Layers {
@@ -182,7 +235,7 @@ templ topKeysCard(r configdash.Report) {
 					<tbody>
 						for _, key := range topLevel(r) {
 							<tr>
-								<td><a class="link link-hover font-mono" href={ "/merged?path=" + key }>{ key }</a></td>
+								<td><a class="link link-hover font-mono" href={ scopeRoute(r.Scope, pageMerged) + "?path=" + key }>{ key }</a></td>
 								<td class="font-mono text-xs text-base-content/70">{ shortValue(r.Merged[key]) }</td>
 								<td>
 									if n := ownedLeaves(r, key); n > 0 {
@@ -205,13 +258,15 @@ templ moduleSummaryCard(r configdash.Report) {
 		<div class="card-body">
 			<div class="flex items-center justify-between">
 				<h2 class="card-title text-base">Modules</h2>
-				<a class="link link-hover text-xs" href="/modules">details</a>
+				<a class="link link-hover text-xs" href={ scopeRoute(r.Scope, pageModules) }>details</a>
 			</div>
 			<ul class="space-y-1">
 				for _, mod := range r.Modules {
 					<li class="flex items-center justify-between gap-2 rounded-lg px-2 py-1 hover:bg-base-200">
-						<a class="link link-hover font-mono" href={ "/modules?name=" + mod.Name }>{ mod.Name }</a>
-						if mod.Err != nil {
+						<a class="link link-hover font-mono" href={ scopeRoute(r.Scope, pageModules) + "?name=" + mod.Name }>{ mod.Name }</a>
+						if mod.Problem != nil {
+							<span class="badge badge-sm badge-error" title={ mod.Problem.Summary }>not loaded</span>
+						} else if mod.Err != nil {
 							<span class="badge badge-sm badge-error" title={ mod.Err.Error() }>error</span>
 						} else if mod.Enable {
 							<span class="badge badge-sm badge-success">on</span>

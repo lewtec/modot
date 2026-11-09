@@ -1,8 +1,11 @@
+// Package view renders the config dashboard pages.
 package view
 
 import (
 	"github.com/lewtec/lewkit/x/http/asset/daisyui"
+	"github.com/lewtec/lewkit/x/http/asset/lucide"
 	"github.com/lewtec/lewkit/x/http/asset/tailwindcss"
+	"github.com/lewtec/modot/internal/configdash"
 )
 
 templ BrowserAssets() {
@@ -24,18 +27,17 @@ templ Document(title, theme string) {
 	</html>
 }
 
-templ icon(d string, class string) {
+// icon draws a Lucide icon sized by a Tailwind class.
+templ icon(name lucide.Name, class string) {
 	<span class={ "inline-flex shrink-0 " + class } aria-hidden="true">
-		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-			<path d={ d }></path>
-		</svg>
+		@lucide.Icon(name)
 	</span>
 }
 
 templ Brand() {
 	<span class="inline-flex items-center gap-2">
 		<span class="grid size-8 place-items-center rounded-lg bg-primary text-primary-content">
-			@icon("M4 7h16M4 12h10M4 17h13", "size-5")
+			@icon(lucide.NameLayers, "size-5")
 		</span>
 		<span class="text-lg font-semibold tracking-tight">modot</span>
 	</span>
@@ -44,10 +46,10 @@ templ Brand() {
 templ themeToggle(theme string) {
 	<span class="join" title="Switch theme">
 		<a href="#light" class={ toggleClass("light", theme) } data-theme-set="light" aria-pressed={ boolAttr(theme == "light") }>
-			@icon("M12 3v2M12 19v2M5 12H3m18 0h-2M6 6 4.5 4.5M18 18l1.5 1.5M18 6l1.5-1.5M6 18l-1.5 1.5M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z", "size-4")
+			@icon(lucide.NameSun, "size-4")
 		</a>
 		<a href="#dark" class={ toggleClass("dark", theme) } data-theme-set="dark" aria-pressed={ boolAttr(theme == "dark") }>
-			@icon("M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z", "size-4")
+			@icon(lucide.NameMoon, "size-4")
 		</a>
 	</span>
 }
@@ -62,28 +64,50 @@ templ navItem(href, label, current string) {
 	</li>
 }
 
-templ Sidebar(current string) {
+// scopeTitle names the layer set the switcher shows.
+func scopeTitle(scope configdash.Scope) string {
+	if scope == configdash.ScopeHome {
+		return "Home"
+	}
+	return "Codebase"
+}
+
+// scopeToggle switches layer set. Each scope is its own route, so the links are
+// plain paths; the current scope carries the active style.
+templ scopeToggle(v View) {
+	<span class="join" title="Layer set">
+		<a href={ scopeRoute(configdash.ScopeHome, pageOverview) } class={ scopeClass(configdash.ScopeHome, v.Scope) } aria-pressed={ boolAttr(v.Scope == configdash.ScopeHome) }>
+			Home
+		</a>
+		<a href={ scopeRoute(configdash.ScopeCodebase, pageOverview) } class={ scopeClass(configdash.ScopeCodebase, v.Scope) } aria-pressed={ boolAttr(v.Scope == configdash.ScopeCodebase) }>
+			Codebase
+		</a>
+	</span>
+}
+
+templ Sidebar(current string, v View) {
 	<nav class="menu menu-sm w-full gap-0 p-2">
-		<li class="menu-title px-3 py-2 text-[0.65rem] tracking-wider uppercase"><span>Merged</span></li>
-		@navItem("/", "Overview", current)
-		@navItem("/layers", "Layers", current)
-		@navItem("/modules", "Modules", current)
+		<li class="menu-title px-3 py-2 text-[0.65rem] tracking-wider uppercase"><span>{ scopeTitle(v.Scope) } layers</span></li>
+		@navItem(scopeRoute(v.Scope, pageOverview), "Overview", current)
+		@navItem(scopeRoute(v.Scope, pageLayers), "Layers", current)
+		@navItem(scopeRoute(v.Scope, pageModules), "Modules", current)
 		<li class="menu-title mt-2 px-3 py-2 text-[0.65rem] tracking-wider uppercase"><span>Data</span></li>
-		@navItem("/merged", "Merged tree", current)
-		@navItem("/merged.json", "Merged JSON", current)
+		@navItem(scopeRoute(v.Scope, pageMerged), "Merged tree", current)
+		@navItem(scopeRoute(v.Scope, pageMerged)+".json", "Merged JSON", current)
 	</nav>
 }
 
 // Shell is the page frame: header, sidebar, and scrollable body.
-templ Shell(title, current, theme string) {
+templ Shell(title string, current page, theme string, v View) {
 	@Document(title, theme) {
 		<body class="h-screen min-h-screen overflow-hidden bg-base-200 text-base-content">
 			<div class="flex h-full min-h-0 flex-col">
 				<header class="navbar z-50 h-12 min-h-12 shrink-0 border-b border-base-300 bg-base-100 px-2 sm:px-4">
 					<div class="navbar-start gap-1">
-						<a href="/" class="btn btn-ghost h-10 min-h-10 px-1.5 sm:px-2" aria-label="modot — overview">
+						<a href={ scopeRoute(v.Scope, pageOverview) } class="btn btn-ghost h-10 min-h-10 px-1.5 sm:px-2" aria-label="modot — overview">
 							@Brand()
 						</a>
+						@scopeToggle(v)
 					</div>
 					<div class="navbar-end gap-2">
 						@themeToggle(theme)
@@ -91,7 +115,7 @@ templ Shell(title, current, theme string) {
 				</header>
 				<div class="relative flex min-h-0 flex-1">
 					<aside class="flex w-56 shrink-0 flex-col overflow-y-auto border-r border-base-300 bg-base-100">
-						@Sidebar(current)
+						@Sidebar(string(current), v)
 					</aside>
 					<div class="flex min-h-0 min-w-0 flex-1 flex-col">
 						<main class="min-h-0 flex-1 overflow-y-auto">
@@ -142,6 +166,13 @@ templ PageBody() {
 	<div class="w-full space-y-6">
 		{ children... }
 	</div>
+}
+
+func scopeClass(value, current configdash.Scope) string {
+	if value == current {
+		return "btn btn-sm join-item btn-primary"
+	}
+	return "btn btn-sm join-item btn-ghost"
 }
 
 func toggleClass(value, current string) string {

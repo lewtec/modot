@@ -1,6 +1,7 @@
 package configdash_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -16,6 +17,7 @@ func fixtureRoot(t *testing.T) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)
 	require.True(t, ok, "runtime.Caller")
+
 	return filepath.Join(filepath.Dir(file), "testdata", "workspace")
 }
 
@@ -79,8 +81,37 @@ func TestLoadMissingModule(t *testing.T) {
 	require.Len(t, rep.Modules, 1)
 	require.Equal(t, "ghost", rep.Modules[0].Name)
 	require.ErrorIs(t, rep.Modules[0].Err, configdash.ErrModuleFile)
+	require.Equal(t, 1, rep.ProblemCount())
+
+	problem := rep.Modules[0].Problem
+	require.NotNil(t, problem, "Problem")
+	require.Equal(t, "module file not found", problem.Summary)
+	require.Equal(t, filepath.Join(root, "modules", "missing", "modot.cue"), problem.Looked)
+	require.Equal(t, `modules.ghost.path = "missing"`, problem.Declared)
+	require.Contains(t, problem.Hint, filepath.Join(root, "modules", "missing"))
+	require.Contains(t, problem.Hint, "modules.ghost.enable = false")
+}
+
+func TestLoadBrokenModuleOptions(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	require.NoError(t, writeFile(root, "modot.cue", "package modot\n\nmodules: broken: {}\n"))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "modules", "broken"), 0o750))
+	require.NoError(t, writeFile(filepath.Join(root, "modules", "broken"), "modot.cue", "package broken\n\noptions: {\n"))
+
+	// A module that does not parse breaks the whole merge, not just itself.
+	rep, err := configdash.Load(t.Context(), configdash.ScopeCodebase, root)
+	require.Error(t, err)
+	require.ErrorIs(t, err, rep.MergedErr)
+	require.Contains(t, err.Error(), filepath.Join(root, "modules", "broken", "modot.cue"))
+	require.Contains(t, err.Error(), "expected '}'")
 }
 
 func writeFile(root, name, body string) error {
-	return os.WriteFile(filepath.Join(root, name), []byte(body), 0o600)
+	err := os.WriteFile(filepath.Join(root, name), []byte(body), 0o600)
+	if err != nil {
+		return fmt.Errorf("write %s: %w", name, err)
+	}
+
+	return nil
 }

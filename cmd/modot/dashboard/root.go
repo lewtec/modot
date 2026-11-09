@@ -3,12 +3,13 @@
 // and the merged Configuration with the file that supplied each key.
 //
 // It opens a web view when the machine has a graphical session and serves
-// HTTP otherwise. --addr always serves HTTP on that address.
+// HTTP otherwise. --addr always serves HTTP on that address. Home and codebase
+// layers are both served, each under its own path (/home, /codebase); the
+// window opens on home when that scope resolves.
 package dashboard
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -25,62 +26,111 @@ import (
 	"github.com/lewtec/modot/internal/configdash/view"
 )
 
+const (
+	// windowWidth and windowHeight are the web view's initial size.
+	windowWidth  = 1280
+	windowHeight = 860
+	// readHeaderTimeout bounds how long a client may take to send headers.
+	readHeaderTimeout = 10 * time.Second
+	// shutdownGrace lets in-flight requests finish on shutdown.
+	shutdownGrace = 2 * time.Second
+)
+
 // Command is the dashboard: a web view of any layer set, home or codebase.
+//
+//nolint:tagalign // struct tags cannot wrap.
 type Command struct {
-	Addr   cmd.StringArg  `default:""         help:"Serve HTTP on this address instead of opening a window" long:"addr"`
-	NoOpen cmd.Flag       `                  help:"Serve HTTP on a loopback port and print the URL"     long:"no-open"`
-	Open   cmd.Flag       `                  help:"Force the web view even without a graphical session" long:"open"`
-	Cwd    cmd.WorkDirArg `                  help:"Directory to start modot.cue discovery from"         long:"cwd"`
-	Scope  cmd.StringArg  `default:"codebase" enum:"home,codebase"                                        help:"Layer set to show"                          long:"scope"`
+	Addr cmd.StringArg  `default:"" help:"Serve HTTP on this address instead of opening a window" long:"addr"`
+	Cwd  cmd.WorkDirArg `help:"Directory to start modot.cue discovery from" long:"cwd"`
 }
 
+// Description names the command in help output.
 func (*Command) Description() string {
 	return "Open the config layering dashboard (web view, or HTTP with --addr)"
 }
 
 // Run serves the dashboard.
 func (c *Command) Run(ctx context.Context) error {
-	cwd := c.Cwd.Value()
-	if cwd == "" {
-		var err error
-		cwd, err = os.Getwd()
-		if err != nil {
-			return err
-		}
-	}
-	if resolved, err := filepath.Abs(cwd); err == nil {
-		cwd = resolved
+	cwd, err := workingDir(c.Cwd.Value())
+	if err != nil {
+		return err
 	}
 
-	handler := view.Handler(func(r *http.Request) view.View {
-		return loadView(r.Context(), cwd, c.Scope.Value())
-	})
+	reload := func(r *http.Request, scope configdash.Scope) view.View {
+		return loadView(r.Context(), cwd, scope)
+	}
+	handler := view.Handler(landingScope(ctx, cwd), reload)
 
 	if addr := c.Addr.Value(); addr != "" {
 		return serve(ctx, addr, handler)
 	}
-	if c.NoOpen.Value() {
-		return serve(ctx, "127.0.0.1:0", handler)
-	}
-	if c.Open.Value() || graphical() {
+	if graphical() {
 		return openWindow(ctx, handler, cwd)
 	}
+
 	return serve(ctx, "127.0.0.1:0", handler)
+}
+
+// workingDir resolves the directory discovery starts from.
+func workingDir(cwd string) (string, error) {
+	if cwd == "" {
+		resolved, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("get working directory: %w", err)
+		}
+
+		cwd = resolved
+	}
+	absolute, err := filepath.Abs(cwd)
+	if err != nil {
+		// Abs only fails when the process cannot ask for its own directory;
+		// discovery handles a relative path the same way.
+		return cwd, nil //nolint:nilerr // the relative path is still usable
+	}
+
+	return absolute, nil
+}
+
+// landingScope picks the scope "/" redirects to: home layers when discovery
+// finds them, codebase otherwise. Both routes are served either way, so this
+// only decides which one the window opens on.
+func landingScope(ctx context.Context, cwd string) configdash.Scope {
+	homeErr := discoverable(ctx, configdash.ScopeHome, cwd)
+	codebaseErr := discoverable(ctx, configdash.ScopeCodebase, cwd)
+	scope, ok := view.Landing(configdash.ScopeHome, configdash.ScopeCodebase, homeErr, codebaseErr)
+	if !ok {
+		slog.Warn("dashboard: no layers for either scope", "cwd", cwd)
+	}
+
+	return scope
+}
+
+// discoverable reports whether scope finds at least one layer.
+func discoverable(ctx context.Context, scope configdash.Scope, cwd string) error {
+	_, err := configdash.Discover(ctx, scope, cwd)
+	if err == nil {
+		return nil
+	}
+
+	return fmt.Errorf("discover %s layers: %w", scope, err)
 }
 
 // loadView reloads the config on every request so edits show up without a
 // restart. Discovery runs here because the layer set can change at any time.
-func loadView(ctx context.Context, cwd, requested string) view.View {
-	scope := configdash.Scope(requested)
-	if scope != configdash.ScopeHome && scope != configdash.ScopeCodebase {
-		scope = configdash.ScopeCodebase
-	}
+func loadView(ctx context.Context, cwd string, scope configdash.Scope) view.View {
 	rep, err := configdash.Load(ctx, scope, cwd)
 	if err != nil {
 		slog.Warn("dashboard load failed", "cwd", cwd, "scope", scope, "error", err)
-		return view.View{LoadErr: err, Partial: &rep}
+
+		return view.View{Report: configdash.Report{
+			Scope: scope, Mode: "", Root: "", Layers: nil, Modules: nil, Merged: nil,
+			MergedErr: nil, Stats: configdash.Stats{Keys: 0, FromModules: 0, FromRoot: 0, Conflicted: 0},
+			Sources: nil,
+		}, Theme: "", LoadErr: err, Partial: &rep, ModuleName: "", Path: "", Scope: scope}
 	}
-	return view.View{Report: rep}
+
+	return view.View{Report: rep, Theme: "", LoadErr: nil, Partial: nil,
+		ModuleName: "", Path: "", Scope: scope}
 }
 
 // graphical reports whether a window can open: an app host owns the surface,
@@ -93,59 +143,94 @@ func graphical() bool {
 	if os.Getenv("WAYLAND_DISPLAY") != "" {
 		return true
 	}
+
 	return os.Getenv("DISPLAY") != "" && os.Getenv("DBUS_SESSION_BUS_ADDRESS") != ""
 }
 
+// openWindow runs the dashboard in a lewkit web view.
 func openWindow(ctx context.Context, handler http.Handler, cwd string) error {
 	title := "modot config"
 	if cwd != "" {
 		title = "modot config · " + filepath.Base(cwd)
 	}
-	return entry.RunAfterView(ctx, func(runCtx context.Context) error {
-		return lewapp.App{
+
+	runErr := entry.RunAfterView(ctx, func(runCtx context.Context) error {
+		appErr := lewapp.App{
 			Title:   title,
-			Width:   1280,
-			Height:  860,
+			Width:   windowWidth,
+			Height:  windowHeight,
 			Handler: lewapp.Web(handler),
+			NoUI:    false,
 		}.Run(runCtx)
+		if appErr != nil {
+			return fmt.Errorf("run web view: %w", appErr)
+		}
+
+		return nil
 	})
+	if runErr != nil {
+		return fmt.Errorf("open web view: %w", runErr)
+	}
+
+	return nil
 }
 
 // serve listens on addr and serves handler until ctx is done.
 func serve(ctx context.Context, addr string, handler http.Handler) error {
 	var listenConfig net.ListenConfig
+
 	listener, err := listenConfig.Listen(ctx, "tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", addr, err)
 	}
+
 	url := "http://" + listener.Addr().String()
 	slog.Info("dashboard listening", "url", url)
+
 	// stdout is for pipeable records; the URL is the one record here.
-	if _, err := fmt.Fprintln(os.Stdout, url); err != nil {
-		return err
+	_, err = fmt.Fprintln(os.Stdout, url)
+	if err != nil {
+		return fmt.Errorf("print url: %w", err)
 	}
+
 	server := &http.Server{
-		Handler: handler,
+		Addr:                         "",
+		Handler:                      handler,
+		DisableGeneralOptionsHandler: false,
+		TLSConfig:                    nil,
+		ReadTimeout:                  0,
+		ReadHeaderTimeout:            readHeaderTimeout,
+		WriteTimeout:                 0,
+		IdleTimeout:                  0,
+		MaxHeaderBytes:               0,
+		MaxHeaderValueCount:          0,
+		TLSNextProto:                 nil,
+		ConnState:                    nil,
+		ErrorLog:                     nil,
 		BaseContext: func(net.Listener) context.Context {
 			return ctx
 		},
-		ReadHeaderTimeout: 10 * time.Second,
+		ConnContext:           nil,
+		HTTP2:                 nil,
+		Protocols:             nil,
+		DisableClientPriority: false,
 	}
 	serveErr := make(chan error, 1)
+
 	go func() {
 		serveErr <- server.Serve(listener)
 	}()
+
 	select {
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
 		defer cancel()
+
 		closeErr := server.Shutdown(shutdownCtx)
 		slog.Debug("dashboard stopped", "error", closeErr)
+
 		return nil
 	case err := <-serveErr:
-		if errors.Is(err, http.ErrServerClosed) {
-			return nil
-		}
-		return err
+		return fmt.Errorf("serve dashboard: %w", err)
 	}
 }

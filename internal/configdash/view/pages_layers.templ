@@ -7,7 +7,7 @@ import (
 )
 
 templ Layers(v View) {
-	@Shell("Layers", "/layers", v.Theme) {
+	@Shell("Layers", pageLayers, v.Theme, v) {
 		@PageHeader("Layers", "The modot.cue files discovered for this scope, in merge order. Later layers win where they set a concrete value.")
 			@PageBody() {
 				if v.LoadErr != nil {

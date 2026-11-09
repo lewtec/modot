@@ -19,6 +19,8 @@ var (
 	ErrNoConfig = errors.New("no modot.cue found")
 	// ErrModuleFile means a named module has no modot.cue on disk.
 	ErrModuleFile = errors.New("module file not found")
+	// ErrModuleOptions means the module's modot.cue has no readable options.
+	ErrModuleOptions = errors.New("module options not readable")
 )
 
 // Scope selects which layers get discovered.
@@ -34,9 +36,10 @@ const (
 // DiscoverOptions maps the scope onto the loader's discovery options.
 func (s Scope) DiscoverOptions(cwd string) configcue.DiscoverOptions {
 	if s == ScopeHome {
-		return configcue.DiscoverOptions{Cwd: cwd, HomeLayers: true, Mode: filespine.ModeHome}
+		return configcue.DiscoverOptions{Cwd: cwd, Mode: filespine.ModeHome, HomeLayers: true}
 	}
-	return configcue.DiscoverOptions{Cwd: cwd, Mode: filespine.ModeCodebase}
+
+	return configcue.DiscoverOptions{Cwd: cwd, Mode: filespine.ModeCodebase, HomeLayers: false}
 }
 
 // Report is one evaluated Configuration plus the modules that built it.
@@ -69,9 +72,28 @@ type Module struct {
 	// OptionsCUE is the declared options expression, formatted as CUE.
 	OptionsCUE string
 	// Merged is what options.<name> resolved to in the final Configuration.
+	// It is nil when the module's options never made it into the merge.
 	Merged map[string]any
 	// Err is set when this module's declaration could not be read.
 	Err error
+	// Problem explains an Err in terms a user can act on.
+	Problem *ModuleProblem
+}
+
+// ModuleProblem is why a module could not be read, in the order a reader
+// needs it: what was tried, why it failed, and what to change.
+type ModuleProblem struct {
+	// Summary is the one-line cause, e.g. "module file not found".
+	Summary string
+	// Looked is the path that was not there (missing files only).
+	Looked string
+	// Declared is the modules.<name> entry as the config wrote it, empty when
+	// the entry names no path.
+	Declared string
+	// Hint is the fix: which config key to edit and what to set it to.
+	Hint string
+	// Detail is the underlying error text (parse errors only).
+	Detail string
 }
 
 // Source names where a merged key came from. Module is set when a module
@@ -89,6 +111,7 @@ func (s Source) Filename() string {
 	if s.File == "" {
 		return ""
 	}
+
 	return filepath.Base(s.File)
 }
 
@@ -105,11 +128,12 @@ type Stats struct {
 func Discover(ctx context.Context, scope Scope, cwd string) ([]configcue.Layer, error) {
 	discovered, err := configcue.DiscoverLayers(ctx, scope.DiscoverOptions(cwd))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("discover %s layers: %w", scope, err)
 	}
 	if len(discovered.Layers) == 0 {
 		return nil, ErrNoConfig
 	}
+
 	return discovered.Layers, nil
 }
 
@@ -122,30 +146,53 @@ func Load(ctx context.Context, scope Scope, cwd string) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
+
 	rep := Report{
-		Scope:  scope,
-		Mode:   opts.RuntimeMode(),
-		Root:   modulesRoot(layers),
-		Layers: layers,
+		Scope:     scope,
+		Mode:      opts.RuntimeMode(),
+		Root:      modulesRoot(layers),
+		Layers:    layers,
+		Modules:   nil,
+		Merged:    nil,
+		MergedErr: nil,
+		Stats:     Stats{Keys: 0, FromModules: 0, FromRoot: 0, Conflicted: 0},
+		Sources:   nil,
 	}
 	result, err := configcue.Evaluate(ctx, opts)
 	if err != nil {
+		err = fmt.Errorf("evaluate %s layers: %w", scope, err)
 		// The layers are still worth showing next to the merge error.
 		rep.MergedErr = err
 		rep.Modules = inspectModules(rep.Root, nil, nil)
+
 		return rep, err
 	}
-	if err := rep.fill(result); err != nil {
+	err = rep.fill(result)
+	if err != nil {
 		return Report{}, err
 	}
+
 	return rep, moduleErrors(rep.Modules)
+}
+
+// ProblemCount counts the modules that could not be read.
+func (rep Report) ProblemCount() int {
+	problems := 0
+	for _, mod := range rep.Modules {
+		if mod.Problem != nil {
+			problems++
+		}
+	}
+
+	return problems
 }
 
 // fill decodes the evaluated Configuration into rep and records where each
 // merged key came from.
 func (rep *Report) fill(result configcue.EvaluationResult) error {
 	if len(result.JSON) > 0 {
-		if err := json.Unmarshal(result.JSON, &rep.Merged); err != nil {
+		err := json.Unmarshal(result.JSON, &rep.Merged)
+		if err != nil {
 			return fmt.Errorf("decode evaluated config: %w", err)
 		}
 	}
@@ -167,6 +214,7 @@ func (rep *Report) fill(result configcue.EvaluationResult) error {
 		rep.Sources[path] = source
 	}
 	rep.Stats = count(rep.Merged, rep.Sources)
+
 	return nil
 }
 
@@ -178,6 +226,7 @@ func moduleErrors(modules []Module) error {
 			err = errors.Join(err, mod.Err)
 		}
 	}
+
 	return err
 }
 
@@ -188,6 +237,7 @@ func moduleForFile(modules []Module, file string) string {
 			return mod.Name
 		}
 	}
+
 	return ""
 }
 
@@ -201,6 +251,7 @@ func modulesRoot(discovered []configcue.Layer) string {
 	if len(discovered) == 0 {
 		return ""
 	}
+
 	return filepath.Join(filepath.Dir(discovered[0].Path), "modules")
 }
 
@@ -213,7 +264,7 @@ func moduleEntries(merged map[string]any) map[string]configcue.ModuleEntry {
 		if !ok {
 			continue
 		}
-		entry := configcue.ModuleEntry{Enable: true}
+		entry := configcue.ModuleEntry{Enable: true, Input: "", Path: "", From: "", Version: ""}
 		if v, ok := obj["enable"].(bool); ok {
 			entry.Enable = v
 		}
@@ -221,6 +272,7 @@ func moduleEntries(merged map[string]any) map[string]configcue.ModuleEntry {
 		entry.Path, _ = obj["path"].(string)
 		entries[name] = entry
 	}
+
 	return entries
 }
 
@@ -239,13 +291,15 @@ func inspectModules(root string, entries map[string]configcue.ModuleEntry, optio
 	for _, name := range names {
 		out = append(out, inspectModule(root, name, entries[name], options))
 	}
+
 	return out
 }
 
 // inspectModule reads one module. It never fails: a module that cannot be read
 // carries Err so the UI can show it.
 func inspectModule(root, name string, entry configcue.ModuleEntry, options map[string]any) Module {
-	mod := Module{Name: name, Enable: entry.Enable, Path: root}
+	mod := Module{Name: name, Enable: entry.Enable, Path: root, File: "", RootKeys: nil,
+		OptionsCUE: "", Merged: nil, Err: nil, Problem: nil}
 	if entry.Path != "" {
 		mod.Path = filepath.Join(root, entry.Path)
 	} else if root != "" {
@@ -257,16 +311,49 @@ func inspectModule(root, name string, entry configcue.ModuleEntry, options map[s
 	}
 	if root == "" || !modulecue.Exists(mod.Path) {
 		mod.Err = fmt.Errorf("%w: %s", ErrModuleFile, mod.File)
+		mod.Problem = missingModuleProblem(name, mod.File, entry)
+
 		return mod
 	}
 	expr, err := modulecue.OptionsSyntaxWithRoot(mod.Path, nil)
 	if err != nil {
-		mod.Err = err
+		mod.Err = fmt.Errorf("%w: %w", ErrModuleOptions, err)
+		mod.Problem = &ModuleProblem{
+			Summary:  "module options not readable",
+			Looked:   mod.File,
+			Declared: "",
+			Detail:   err.Error(),
+			Hint: "Fix the options block in " + mod.File + "; `modot home|codebase config eval` " +
+				"shows the same error without the dashboard.",
+		}
+
 		return mod
 	}
 	mod.OptionsCUE = expr
 	mod.RootKeys = rootKeys(expr)
+
 	return mod
+}
+
+// missingModuleProblem explains a module whose file is not on disk: the
+// directory that was tried, the modules.<name> declaration it came from, and
+// the two ways to fix it.
+func missingModuleProblem(name, file string, entry configcue.ModuleEntry) *ModuleProblem {
+	declared := ""
+	if entry.Path != "" {
+		declared = fmt.Sprintf("modules.%s.path = %q", name, entry.Path)
+	}
+	dir := filepath.Dir(file)
+
+	return &ModuleProblem{
+		Summary:  "module file not found",
+		Looked:   file,
+		Declared: declared,
+		Detail:   "",
+		Hint: fmt.Sprintf("Point modules.%s.path at the module directory, the one holding "+
+			"modot.cue (tried %s), or set modules.%s.enable = false to stop loading it.",
+			name, dir, name),
+	}
 }
 
 // sources maps dotted key paths to the module that owns them. A module owns
@@ -277,8 +364,9 @@ func sources(merged map[string]any, modules []Module) map[string]Source {
 	out := map[string]Source{}
 	owners := rootOwners(modules)
 	walkLeaves(merged, func(path string) {
-		out[path] = Source{Module: ownerOf(path, owners)}
+		out[path] = Source{Module: ownerOf(path, owners), File: ""}
 	})
+
 	return out
 }
 
@@ -296,6 +384,7 @@ func rootOwners(modules []Module) map[string]string {
 			}
 		}
 	}
+
 	return owners
 }
 
@@ -305,22 +394,25 @@ func ownerOf(path string, owners map[string]string) string {
 	root, rest, _ := strings.Cut(path, ".")
 	if root == "options" && rest != "" {
 		name, _, _ := strings.Cut(rest, ".")
+
 		return name
 	}
+
 	return owners[root]
 }
 
-// walkLeaves calls fn for every scalar path in node.
-func walkLeaves(node map[string]any, fn func(path string)) {
+// walkLeaves calls visit for every scalar path in node.
+func walkLeaves(node map[string]any, visit func(path string)) {
 	var walk func(prefix string, value any)
 	walk = func(prefix string, value any) {
 		if obj, ok := value.(map[string]any); ok {
 			for key, child := range obj {
 				walk(join(prefix, key), child)
 			}
+
 			return
 		}
-		fn(prefix)
+		visit(prefix)
 	}
 	for key, value := range node {
 		walk(key, value)
@@ -328,7 +420,7 @@ func walkLeaves(node map[string]any, fn func(path string)) {
 }
 
 func count(merged map[string]any, src map[string]Source) Stats {
-	stats := Stats{}
+	stats := Stats{Keys: 0, FromModules: 0, FromRoot: 0, Conflicted: 0}
 	var walk func(prefix string, node any)
 	walk = func(prefix string, node any) {
 		if obj, ok := node.(map[string]any); ok {
@@ -338,6 +430,7 @@ func count(merged map[string]any, src map[string]Source) Stats {
 			for key, value := range obj {
 				walk(join(prefix, key), value)
 			}
+
 			return
 		}
 		stats.Keys++
@@ -350,6 +443,7 @@ func count(merged map[string]any, src map[string]Source) Stats {
 	for key, value := range merged {
 		walk(key, value)
 	}
+
 	return stats
 }
 
@@ -357,5 +451,6 @@ func join(prefix, key string) string {
 	if prefix == "" {
 		return key
 	}
+
 	return prefix + "." + key
 }

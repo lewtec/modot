@@ -7,6 +7,7 @@ import (
 
 	"github.com/a-h/templ"
 	"github.com/lewtec/lewkit/x/http/asset"
+	"github.com/lewtec/modot/internal/configdash"
 )
 
 // ThemeDefault is the palette when no theme cookie is set.
@@ -17,57 +18,121 @@ const ThemeCookie = "modot_theme"
 
 // Theme reads the theme cookie, or ThemeDefault.
 func Theme(r *http.Request) string {
-	if cookie, err := r.Cookie(ThemeCookie); err == nil && (cookie.Value == "light" || cookie.Value == "dark") {
+	cookie, err := r.Cookie(ThemeCookie)
+	if err == nil && (cookie.Value == "light" || cookie.Value == "dark") {
 		return cookie.Value
 	}
+
 	return ThemeDefault
 }
 
-// Handler serves the dashboard. reload is called on every page request so the
-// view reflects edits to the config files without restarting the process.
-func Handler(reload func(r *http.Request) View) http.Handler {
-	load := func(r *http.Request) View {
-		v := reload(r)
-		v.Theme = Theme(r)
-		return v
+// page is one dashboard screen.
+type page string
+
+const (
+	pageOverview page = ""
+	pageLayers   page = "layers"
+	pageModules  page = "modules"
+	pageMerged   page = "merged"
+)
+
+// pageNames lists every page, in sidebar order.
+func pageNames() []page {
+	return []page{pageOverview, pageLayers, pageModules, pageMerged}
+}
+
+// scopeRoute is the URL path for a page in a scope: /home/layers, /codebase.
+func scopeRoute(scope configdash.Scope, p page) string {
+	path := "/" + string(scope)
+	if p != pageOverview {
+		path += "/" + string(p)
 	}
+
+	return path
+}
+
+// Landing picks the scope / redirects to. requested wins when it has layers;
+// otherwise the other scope is tried, so `modot dashboard` in a repository
+// still shows something useful when the machine also has home layers.
+func Landing(requested, other configdash.Scope, homeErr, codebaseErr error) (configdash.Scope, bool) {
+	errFor := func(scope configdash.Scope) error {
+		if scope == configdash.ScopeHome {
+			return homeErr
+		}
+
+		return codebaseErr
+	}
+	if errFor(requested) == nil {
+		return requested, true
+	}
+	if errFor(other) == nil {
+		return other, true
+	}
+
+	return requested, false
+}
+
+// Handler serves the dashboard. reload is called on every page request for the
+// scope in the URL, so edits show up without a restart and a scope that fails
+// to load still renders its error next to the switcher.
+func Handler(requested configdash.Scope, reload func(r *http.Request, scope configdash.Scope) View) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		render(w, r, Overview(load(r)))
+		http.Redirect(w, r, scopeRoute(requested, pageOverview), http.StatusFound)
 	})
-	mux.HandleFunc("GET /layers", func(w http.ResponseWriter, r *http.Request) {
-		render(w, r, Layers(load(r)))
-	})
-	mux.HandleFunc("GET /modules", func(w http.ResponseWriter, r *http.Request) {
-		v := load(r)
-		v.ModuleName = r.URL.Query().Get("name")
-		if v.ModuleName == "" {
-			if mod, ok := selectedModule(v.Report, ""); ok {
-				v.ModuleName = mod.Name
+	for _, scope := range []configdash.Scope{configdash.ScopeHome, configdash.ScopeCodebase} {
+		for _, p := range pageNames() {
+			route := scopeRoute(scope, p)
+			mux.HandleFunc("GET "+route+"/{$}", func(writer http.ResponseWriter, req *http.Request) {
+				board := load(req, scope, reload)
+				switch p {
+				case pageOverview:
+					render(writer, req, Overview(board))
+				case pageLayers:
+					render(writer, req, Layers(board))
+				case pageModules:
+					board.ModuleName = req.URL.Query().Get("name")
+					if board.ModuleName == "" {
+						if mod, ok := selectedModule(board.shown(), ""); ok {
+							board.ModuleName = mod.Name
+						}
+					}
+					render(writer, req, Modules(board))
+				case pageMerged:
+					board.Path = req.URL.Query().Get("path")
+					render(writer, req, Merged(board))
+				}
+			})
+		}
+		mergedJSON := func(writer http.ResponseWriter, req *http.Request) {
+			board := load(req, scope, reload)
+			writer.Header().Set("Content-Type", "application/json")
+			if board.LoadErr != nil {
+				http.Error(writer, board.LoadErr.Error(), http.StatusInternalServerError)
+
+				return
 			}
+			writeJSON(writer, req, board.Report.Merged)
 		}
-		render(w, r, Modules(v))
-	})
-	mux.HandleFunc("GET /merged", func(w http.ResponseWriter, r *http.Request) {
-		v := load(r)
-		v.Path = r.URL.Query().Get("path")
-		render(w, r, Merged(v))
-	})
-	mux.HandleFunc("GET /merged.json", func(w http.ResponseWriter, r *http.Request) {
-		v := reload(r)
-		w.Header().Set("Content-Type", "application/json")
-		if v.LoadErr != nil {
-			http.Error(w, v.LoadErr.Error(), http.StatusInternalServerError)
-			return
-		}
-		writeJSON(w, r, v.Report.Merged)
-	})
+		mux.HandleFunc("GET "+scopeRoute(scope, pageMerged)+".json", mergedJSON)
+	}
+
 	return asset.Mount(mux)
+}
+
+// load renders the view for scope and adds the page furniture.
+func load(r *http.Request, scope configdash.Scope, reload func(*http.Request, configdash.Scope) View) View {
+	v := reload(r, scope)
+	v.Theme = Theme(r)
+	v.Scope = scope
+
+	return v
 }
 
 func render(w http.ResponseWriter, r *http.Request, component templ.Component) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := component.Render(r.Context(), w); err != nil {
+	err := component.Render(r.Context(), w)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -77,7 +142,8 @@ func render(w http.ResponseWriter, r *http.Request, component templ.Component) {
 func writeJSON(w http.ResponseWriter, r *http.Request, value map[string]any) {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
-	if err := enc.Encode(value); err != nil {
+	err := enc.Encode(value)
+	if err != nil {
 		slog.Error("dashboard: encode merged config", "path", r.URL.Path, "error", err)
 	}
 }

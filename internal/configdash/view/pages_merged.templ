@@ -146,7 +146,7 @@ templ ownerBadge(owner, filename string) {
 }
 
 templ Merged(v View) {
-	@Shell("Merged tree", "/merged", v.Theme) {
+	@Shell("Merged tree", pageMerged, v.Theme, v) {
 		@PageHeader("Merged tree", "The unified Configuration. Every leaf names the module that supplied it, or base when it comes from the entry layers or schema.")
 			@PageBody() {
 				if v.LoadErr != nil {
@@ -155,7 +155,7 @@ templ Merged(v View) {
 					@errorAlert(v.shown().MergedErr)
 				} else {
 					<div class="flex flex-wrap items-center gap-2">
-						<a class="btn btn-xs btn-ghost" href="/merged">root</a>
+						<a class="btn btn-xs btn-ghost" href={ scopeRoute(v.Scope, pageMerged) }>root</a>
 						if v.Path != "" {
 							<span class="font-mono text-xs text-base-content/60">{ v.Path }</span>
 						}
