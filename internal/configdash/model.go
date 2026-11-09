@@ -65,6 +65,10 @@ type Report struct {
 	// still filled so the dashboard can show them next to the error.
 	MergedErr error
 	Stats     Stats
+	// Files maps a leaf path to the file CUE recorded for the assertion
+	// that won it, for every leaf the evaluation could attribute. Sources
+	// fills the gaps (a leaf with no record still belongs to its module).
+	Files map[string]string
 	// Sources maps a dotted key path to the module that owns it. A key with
 	// no entry comes from the entry layers, the schema, or the runtime.
 	Sources map[string]Source
@@ -181,6 +185,7 @@ func Load(ctx context.Context, scope Scope, cwd string) (Report, error) {
 		MergedErr: nil,
 		Stats:     Stats{Keys: 0, FromModules: 0, FromRoot: 0, Conflicted: 0},
 		Sources:   nil,
+		Files:     nil,
 	}
 	result, err := configcue.Evaluate(ctx, opts)
 	if err != nil {
@@ -231,7 +236,8 @@ func (rep *Report) fill(result configcue.EvaluationResult) error {
 	options, _ := rep.Merged["options"].(map[string]any)
 	rep.Modules = inspectModules(cfg, rep.Root, moduleEntries(rep.Merged), options)
 	rep.Sources = sources(rep.Merged, rep.Modules)
-	for path, file := range result.Provenance().Files {
+	rep.Files = result.Provenance().Files
+	for path, file := range rep.Files {
 		source := rep.Sources[path]
 		source.File = file
 		// options.<name> belongs to the module that declared the schema even

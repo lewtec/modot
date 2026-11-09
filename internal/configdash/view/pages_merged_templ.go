@@ -10,6 +10,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -28,9 +29,12 @@ type node struct {
 	Value string
 	// Owner is the module that supplied the path, or "" for base config.
 	Owner string
-	// Filename is the file CUE recorded for the value, or "" when a
-	// generated layer set it.
+	// Filename is the file CUE recorded for the value, or "" when nothing
+	// recorded one (a computed value, or a generated layer).
 	Filename string
+	// Files are the files that set the leaves under a container, so a folded
+	// subtree still says where it came from.
+	Files []fileCount
 	// Open means the subtree renders expanded.
 	Open bool
 }
@@ -66,20 +70,81 @@ func walkNode(r configdash.Report, path string, value any, depth int, focus stri
 	for _, key := range keys {
 		childPath := joinPath(path, key)
 		owner := ""
-		filename := ""
-		if src, ok := r.Sources[childPath]; ok {
-			if src.Owned() {
-				owner = src.Module
-			}
-			filename = src.Filename()
+		if src, ok := r.Sources[childPath]; ok && src.Owned() {
+			owner = src.Module
 		}
-		row := node{Key: key, Path: childPath, Depth: depth, Owner: owner, Filename: filename, Value: shortValue(obj[key])}
+		row := node{Key: key, Path: childPath, Depth: depth, Owner: owner, Filename: filenameOf(r, childPath), Value: shortValue(obj[key])}
 		if _, isMap := obj[key].(map[string]any); isMap {
 			row.Open = focus == "" || childPath == focus || strings.HasPrefix(childPath, focus+".") || strings.HasPrefix(focus, childPath+".")
 			row.Children = walkNode(r, childPath, obj[key], depth+1, focus)
+			row.Files = leafFiles(row.Children)
 		}
 		out = append(out, row)
 	}
+	return out
+}
+
+// filenameOf is the base name of the file that set a leaf: the record CUE kept
+// for it, or the module file when the module owns the key and no record exists.
+func filenameOf(r configdash.Report, path string) string {
+	if file, ok := r.Files[path]; ok {
+		return filepath.Base(file)
+	}
+	src, ok := r.Sources[path]
+	if !ok {
+		return ""
+	}
+	if src.Owned() {
+		for _, mod := range r.Modules {
+			if mod.Name == src.Module {
+				return modotFile
+			}
+		}
+	}
+
+	return src.Filename()
+}
+
+// modotFile names every module fragment; the badge shows the directory that
+// holds it instead, through the owning module.
+const modotFile = "modot.cue"
+
+// fileCount is one file under a container and how many leaves it set.
+type fileCount struct {
+	File   string
+	Leaves int
+}
+
+// leafFiles rolls the leaves under a container up to the files that set them,
+// most leaves first, so a folded row still says where its contents came from.
+func leafFiles(rows []node) []fileCount {
+	counts := map[string]int{}
+	var walk func(rows []node)
+	walk = func(rows []node) {
+		for _, row := range rows {
+			if row.Children != nil {
+				walk(row.Children)
+
+				continue
+			}
+			if row.Filename != "" {
+				counts[row.Filename]++
+			}
+		}
+	}
+	walk(rows)
+	out := make([]fileCount, 0, len(counts))
+	for file, leaves := range counts {
+		out = append(out, fileCount{File: file, Leaves: leaves})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Leaves != out[j].Leaves {
+			return out[i].Leaves > out[j].Leaves
+		}
+
+		return out[i].File < out[j].File
+	})
+
 	return out
 }
 
@@ -149,14 +214,14 @@ func treeRows(rows []node) templ.Component {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "><summary class=\"flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-base-200\"><span class=\"font-mono text-sm font-semibold\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "><summary class=\"flex cursor-pointer flex-wrap items-center gap-2 rounded px-2 py-1 hover:bg-base-200\"><span class=\"font-mono text-sm font-semibold\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var2 string
 				templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(row.Key)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 113, Col: 61}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 178, Col: 61}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 				if templ_7745c5c3_Err != nil {
@@ -169,7 +234,7 @@ func treeRows(rows []node) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(nodeKind(row))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 114, Col: 74}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 179, Col: 74}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -187,7 +252,7 @@ func treeRows(rows []node) templ.Component {
 					var templ_7745c5c3_Var4 string
 					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(row.Owner)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 116, Col: 63}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 181, Col: 63}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 					if templ_7745c5c3_Err != nil {
@@ -197,6 +262,10 @@ func treeRows(rows []node) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
+				}
+				templ_7745c5c3_Err = fileBadges(row.Files).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
 				}
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</summary><ul class=\"ml-4 border-l border-base-300 pl-2\">")
 				if templ_7745c5c3_Err != nil {
@@ -218,7 +287,7 @@ func treeRows(rows []node) templ.Component {
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(row.Key)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 125, Col: 46}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 191, Col: 46}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
@@ -231,7 +300,7 @@ func treeRows(rows []node) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(row.Value)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 126, Col: 69}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 192, Col: 69}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -259,9 +328,9 @@ func treeRows(rows []node) templ.Component {
 	})
 }
 
-// ownerBadge marks the leaves a module supplied. Base leaves carry no badge:
-// the tree is mostly base config, and a marker on every row hides the signal.
-func ownerBadge(owner, filename string) templ.Component {
+// fileBadges lists where a folded container's leaves came from. Only the files
+// with the most leaves show, so a container fed by many modules stays readable.
+func fileBadges(files []fileCount) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -282,104 +351,230 @@ func ownerBadge(owner, filename string) templ.Component {
 			templ_7745c5c3_Var7 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		if owner == "" {
-			if filename != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<span class=\"badge badge-xs badge-ghost\" title=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
+		if len(files) > 0 {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<span class=\"flex flex-wrap items-center gap-1 text-xs text-base-content/50\" title=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var8 string
+			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(fileCountTitle(files))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 204, Col: 108}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			for i, file := range head(files, 3) {
+				if i > 0 {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<span>·</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
 				}
-				var templ_7745c5c3_Var8 string
-				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue("set by " + filename)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 139, Col: 72}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, " <span class=\"font-mono\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var9 string
-				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(filename)
+				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(file.File)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 139, Col: 85}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 209, Col: 39}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</span>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</span> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-		} else if filename != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<span class=\"badge badge-xs badge-secondary\" title=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
+			if len(files) > 3 {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<span>+")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var10 string
+				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(len(files) - 3))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 212, Col: 39}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</span>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 			}
-			var templ_7745c5c3_Var10 string
-			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue("set by module " + owner + " (" + filename + ")")
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 142, Col: 103}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var11 string
-			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(owner)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 142, Col: 113}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</span>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<span class=\"badge badge-xs badge-secondary\" title=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var12 string
-			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue("set by module " + owner)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 144, Col: 79}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var13 string
-			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(owner)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 144, Col: 89}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		return nil
 	})
+}
+
+// fileCountTitle is the full list behind the badges, one file per line.
+func fileCountTitle(files []fileCount) string {
+	lines := make([]string, 0, len(files))
+	for _, file := range files {
+		lines = append(lines, fmt.Sprintf("%s (%d leaves)", file.File, file.Leaves))
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// head returns the first n entries of files.
+func head(files []fileCount, n int) []fileCount {
+	if len(files) <= n {
+		return files
+	}
+
+	return files[:n]
+}
+
+// ownerBadge marks a leaf with the file that set it, and the module when a
+// module owns the key. "modot.cue" alone is ambiguous across 26 modules, so a
+// module leaf leads with the module; a base leaf shows the file that won it.
+func ownerBadge(owner, filename string) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var11 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var11 == nil {
+			templ_7745c5c3_Var11 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		if owner != "" && filename != "" && filename != modotFile {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<span class=\"badge badge-xs badge-secondary\" title=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var12 string
+			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(fileTitle(owner, filename))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 242, Col: 81}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var13 string
+			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(owner + "/" + filename)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 242, Col: 108}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else if owner != "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<span class=\"badge badge-xs badge-secondary\" title=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var14 string
+			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(fileTitle(owner, filename))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 244, Col: 81}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var15 string
+			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(owner)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 244, Col: 91}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else if filename != "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<span class=\"badge badge-xs badge-ghost\" title=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var16 string
+			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue("set by " + filename)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 246, Col: 71}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var17 string
+			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(filename)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 246, Col: 84}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<span class=\"badge badge-xs badge-outline\" title=\"no file recorded: set by a computed or generated layer\">computed</span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		return nil
+	})
+}
+
+// fileTitle is the full tooltip for a leaf badge.
+func fileTitle(owner, filename string) string {
+	if filename == "" {
+		return "set by module " + owner + "; no file recorded"
+	}
+
+	return "set by module " + owner + " (" + filename + ")"
 }
 
 func Merged(v View) templ.Component {
@@ -398,12 +593,12 @@ func Merged(v View) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var14 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var14 == nil {
-			templ_7745c5c3_Var14 = templ.NopComponent
+		templ_7745c5c3_Var18 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var18 == nil {
+			templ_7745c5c3_Var18 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var15 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var19 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -415,15 +610,15 @@ func Merged(v View) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = PageHeader("Merged tree", "The unified Configuration. Every leaf names the module that supplied it, or base when it comes from the entry layers or schema.").Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = PageHeader("Merged tree", "The unified Configuration. Every leaf names the file whose assertion won it, down to the value, and the module when a module owns the key.").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Var16 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_Var20 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 				if !templ_7745c5c3_IsBuffer {
@@ -446,43 +641,43 @@ func Merged(v View) templ.Component {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<div class=\"flex flex-wrap items-center gap-2\"><a class=\"btn btn-xs btn-ghost\" href=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<div class=\"flex flex-wrap items-center gap-2\"><a class=\"btn btn-xs btn-ghost\" href=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var17 templ.SafeURL
-					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinURLErrs(scopeRoute(v.Scope, pageMerged))
+					var templ_7745c5c3_Var21 templ.SafeURL
+					templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinURLErrs(scopeRoute(v.Scope, pageMerged))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 158, Col: 76}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 271, Col: 76}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\">root</a> ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\">root</a> ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if v.Path != "" {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<span class=\"font-mono text-xs text-base-content/60\">")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "<span class=\"font-mono text-xs text-base-content/60\">")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						var templ_7745c5c3_Var18 string
-						templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(v.Path)
+						var templ_7745c5c3_Var22 string
+						templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(v.Path)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 160, Col: 68}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 273, Col: 68}
 						}
-						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</span>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</span>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</div><div class=\"rounded-box border border-base-300 bg-base-100 p-3\"><ul class=\"space-y-0.5\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</div><div class=\"rounded-box border border-base-300 bg-base-100 p-3\"><ul class=\"space-y-0.5\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -490,20 +685,20 @@ func Merged(v View) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</ul></div>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "</ul></div>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = PageBody().Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = PageBody().Render(templ.WithChildren(ctx, templ_7745c5c3_Var20), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Shell("Merged tree", pageMerged, v.Theme, v).Render(templ.WithChildren(ctx, templ_7745c5c3_Var15), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Shell("Merged tree", pageMerged, v.Theme, v).Render(templ.WithChildren(ctx, templ_7745c5c3_Var19), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

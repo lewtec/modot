@@ -68,6 +68,12 @@ func TestLoadDotfilesFixture(t *testing.T) {
 	require.Equal(t, "modot.cue", rep.Sources["dashboard_demo.paper"].Filename())
 	// The runtime and generated layers are not user files and carry no file.
 	require.Empty(t, rep.Sources["runtime.hostname"].File)
+
+	// Leaf provenance points at the exact file that set each value, which is
+	// what the merged tree renders per row.
+	require.Equal(t, filepath.Join(root, "modot.cue"), rep.Files["options.theme.accent"])
+	require.Equal(t, filepath.Join(root, "modules", "theme", "modot.cue"), rep.Files["dashboard_demo.paper"])
+	require.NotContains(t, rep.Files, "runtime.hostname", "computed leaves have no file")
 }
 
 func TestLoadMissingModule(t *testing.T) {
