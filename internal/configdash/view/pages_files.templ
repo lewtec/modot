@@ -80,6 +80,15 @@ templ filesSummary(files configdash.FilesReport) {
 	}
 }
 
+// spriteIcon draws an icon from the page's sprite. The sprite is built from
+// the same catalog lewkit ships, so an unknown name still draws nothing; the
+// difference is one symbol per page instead of one inline SVG per use, which
+// matters when a tree lists a thousand files. lewkit's lucide.Icon inlines the
+// whole drawing, which is why this refers to the symbol instead.
+templ spriteIcon(name lucide.Name, class string) {
+	<svg class={ class } aria-hidden="true"><use href={ "#icon-" + name.String() }></use></svg>
+}
+
 // fileTree is the tree as a reader navigates it: a directory name once, then
 // what is under it. The nodes carry data attributes so the filter can hide a
 // branch without a round trip.

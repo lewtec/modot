@@ -16,14 +16,6 @@ var iconOpen = regexp.MustCompile(`(?s)^<svg[^>]*>`)
 // iconClose is the closing tag.
 const iconClose = "</svg>"
 
-// spriteIcon draws an icon from the page's sprite. The sprite is built from
-// the same catalog lewkit ships, so an unknown name still draws nothing; the
-// difference is one symbol per page instead of one inline SVG per use, which
-// matters when a tree lists a thousand files.
-func spriteIcon(name lucide.Name, class string) templ.Component {
-	return templ.Raw(`<svg class="` + templ.EscapeString(class) + `" aria-hidden="true"><use href="#icon-` + name.String() + `"></use></svg>`)
-}
-
 // iconSprite defines every icon a page uses, once, as a <symbol>. An icon the
 // catalog does not know is skipped; there is nothing to draw.
 func iconSprite(names []lucide.Name) templ.Component {
