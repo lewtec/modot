@@ -15,17 +15,19 @@ import (
 type Provenance struct {
 	// Files maps a dotted key path to the file that last set it.
 	Files map[string]string `json:"files"`
+	// Builtin maps a path whose winning value came from an embedded layer
+	// (schema, prelude, runtime) to that layer's file name. Such a value is a
+	// real default, which is not the same as a value CUE computed.
+	Builtin map[string]string `json:"builtin"`
 }
 
 // Provenance walks a Configuration and records the source file of every value.
-// Embedded schema, prelude, and generated layers are omitted: they carry base
-// names, not the user file paths the loader read.
 func (r EvaluationResult) Provenance() Provenance {
 	return provenanceOf(r.Value)
 }
 
 func provenanceOf(value cue.Value) Provenance {
-	out := Provenance{Files: map[string]string{}}
+	out := Provenance{Files: map[string]string{}, Builtin: map[string]string{}}
 	if !value.Exists() {
 		return out
 	}
@@ -39,10 +41,18 @@ func provenanceOf(value cue.Value) Provenance {
 		}
 		file := source.Pos().Filename()
 		path := val.Path().String()
-		if path == "" || !isUserFile(file) {
+		if path == "" || file == "" {
 			return true
 		}
-		out.Files[path] = file
+		if isUserFile(file) {
+			out.Files[path] = file
+
+			return true
+		}
+		// An embedded layer: keep the name so the dashboard can say a value is
+		// a default instead of leaving it unexplained.
+		out.Builtin[path] = file
+
 		return true
 	}, nil)
 	return out

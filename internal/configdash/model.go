@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/lewtec/modot/internal/configcue"
 	"github.com/lewtec/modot/internal/filespine"
@@ -70,6 +71,10 @@ type Report struct {
 	// that won it, for every leaf the evaluation could attribute. Sources
 	// fills the gaps (a leaf with no record still belongs to its module).
 	Files map[string]string
+	// Builtin maps a leaf path to the embedded layer that set it (schema,
+	// a prelude, the runtime). A builtin leaf still has an origin; it is a
+	// default, not a value nobody can account for.
+	Builtin map[string]string
 	// Sources maps a dotted key path to the module that owns it. A key with
 	// no entry comes from the entry layers, the schema, or the runtime.
 	Sources map[string]Source
@@ -132,6 +137,37 @@ type Source struct {
 	File   string
 }
 
+// Where names a file the way a reader recognizes it. Every config file in modot
+// is called modot.cue, so a basename says nothing: the label is the layer name
+// for an entry file, <module> for a fragment under modules/, and the path
+// relative to the workspace otherwise.
+func (rep Report) Where(file string) string {
+	if file == "" {
+		return ""
+	}
+	for _, layer := range rep.Layers {
+		if filepath.Clean(layer.Path) == filepath.Clean(file) {
+			return layer.Name
+		}
+	}
+	if rep.Root != "" {
+		modulesDir := filepath.Dir(rep.Root)
+		rel, err := filepath.Rel(modulesDir, file)
+		if err == nil && !strings.HasPrefix(rel, "..") {
+			// modules/<name>/modot.cue reads as <name>.
+			if dir, _, ok := strings.Cut(filepath.ToSlash(rel), "/"); ok {
+				return dir
+			}
+		}
+	}
+	rel, err := filepath.Rel(filepath.Dir(rep.Root), file)
+	if err == nil && !strings.HasPrefix(rel, "..") {
+		return filepath.ToSlash(rel)
+	}
+
+	return filepath.Base(file)
+}
+
 // Owned reports whether a module supplied the key.
 func (s Source) Owned() bool { return s.Module != "" }
 
@@ -187,6 +223,7 @@ func Load(ctx context.Context, scope Scope, cwd string) (Report, error) {
 		Stats:     Stats{Keys: 0, FromModules: 0, FromRoot: 0, Conflicted: 0},
 		Sources:   nil,
 		Files:     nil,
+		Builtin:   nil,
 	}
 	result, err := configcue.Evaluate(ctx, opts)
 	if err != nil {
@@ -237,7 +274,9 @@ func (rep *Report) fill(result configcue.EvaluationResult) error {
 	options, _ := rep.Merged["options"].(map[string]any)
 	rep.Modules = inspectModules(cfg, rep.Root, moduleEntries(rep.Merged), options)
 	rep.Sources = sources(rep.Merged, rep.Modules)
-	rep.Files = result.Provenance().Files
+	provenance := result.Provenance()
+	rep.Files = provenance.Files
+	rep.Builtin = provenance.Builtin
 	for path, file := range rep.Files {
 		source := rep.Sources[path]
 		source.File = file
@@ -619,7 +658,7 @@ func walkValue(prefix string, value any, visit func(path string)) {
 	switch container := value.(type) {
 	case map[string]any:
 		for key, child := range container {
-			walkValue(join(prefix, key), child, visit)
+			walkValue(joinField(prefix, key), child, visit)
 		}
 	case []any:
 		for i, child := range container {
@@ -633,6 +672,34 @@ func walkValue(prefix string, value any, visit func(path string)) {
 // indexPath is CUE's path for a list element: parent[0].
 func indexPath(prefix string, index int) string {
 	return prefix + "[" + strconv.Itoa(index) + "]"
+}
+
+// joinField appends a field the way CUE spells it: a bare identifier, or a
+// quoted label when the key is not one. Paths from CUE and paths built here are
+// compared as strings, so file.home.".agents/skills".type must get the quotes.
+func joinField(prefix, key string) string {
+	if isCUEIdent(key) {
+		return join(prefix, key)
+	}
+
+	return join(prefix, strconv.Quote(key))
+}
+
+// isCUEIdent reports whether key is a plain CUE identifier, which needs no
+// quoting in a path.
+func isCUEIdent(key string) bool {
+	if key == "" {
+		return false
+	}
+	for i, r := range key {
+		if r == '_' || unicode.IsLetter(r) || (i > 0 && unicode.IsDigit(r)) {
+			continue
+		}
+
+		return false
+	}
+
+	return true
 }
 
 func count(merged map[string]any, src map[string]Source) Stats {

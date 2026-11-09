@@ -2,7 +2,6 @@ package view
 
 import (
 	"fmt"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -138,28 +137,32 @@ func isContainer(value any) bool {
 
 // filenameOf is the base name of the file that set a leaf: the record CUE kept
 // for it, or the module file when the module owns the key and no record exists.
+// filenameOf is where a leaf came from, in the order that answers "who set
+// this": a user file first, then the embedded layer that supplied a default,
+// and otherwise a value CUE computed from expressions. Every config file here
+// is modot.cue, so a bare basename would be the same word on every row.
 func filenameOf(r configdash.Report, path string) string {
-	if file, ok := r.Files[path]; ok {
-		return filepath.Base(file)
+	if file, ok := r.Files[path]; ok && file != "" {
+		return r.Where(file)
 	}
 	src, ok := r.Sources[path]
-	if !ok {
+	if ok && src.Owned() {
+		// The badge leads with the module; the fragment adds nothing.
 		return ""
 	}
-	if src.Owned() {
-		for _, mod := range r.Modules {
-			if mod.Name == src.Module {
-				return modotFile
-			}
-		}
+	if layer, ok := r.Builtin[path]; ok && layer != "" {
+		return layer
+	}
+	if src.Filename() != "" {
+		return src.Filename()
 	}
 
-	return src.Filename()
+	return originComputed
 }
 
-// modotFile names every module fragment; the badge shows the directory that
-// holds it instead, through the owning module.
-const modotFile = "modot.cue"
+// originComputed marks a leaf no layer set: CUE derived it from references or
+// disjunctions, so no source file records it.
+const originComputed = "computed"
 
 // fileCount is one file under a container and how many leaves it set.
 type fileCount struct {
@@ -341,25 +344,25 @@ func head(files []fileCount, n int) []fileCount {
 	return files[:n]
 }
 
-// ownerBadge marks a leaf with the file that set it, and the module when a
-// module owns the key. "modot.cue" alone is ambiguous across 26 modules, so a
-// module leaf leads with the module; a base leaf shows the file that won it.
+// ownerBadge marks a leaf with where it came from: a module when a module owns
+// the key, or the layer holding the file that set it. Every config file is
+// called modot.cue, so the badge never shows that basename.
 templ ownerBadge(owner, filename string) {
-	if owner != "" && filename != "" && filename != modotFile {
+	if owner != "" && filename != "" {
 		<span class="badge badge-xs badge-secondary" title={ fileTitle(owner, filename) }>{ owner + "/" + filename }</span>
 	} else if owner != "" {
 		<span class="badge badge-xs badge-secondary" title={ fileTitle(owner, filename) }>{ owner }</span>
-	} else if filename != "" {
-		<span class="badge badge-xs badge-ghost" title={ "set by " + filename }>{ filename }</span>
+	} else if filename != "" && filename != originComputed {
+		<span class="badge badge-xs badge-ghost" title={ "default from " + filename }>{ filename }</span>
 	} else {
-		<span class="badge badge-xs badge-outline" title="no file recorded: set by a computed or generated layer">computed</span>
+		<span class="badge badge-xs badge-outline" title="no file recorded: CUE derived this value from references">computed</span>
 	}
 }
 
 // fileTitle is the full tooltip for a leaf badge.
 func fileTitle(owner, filename string) string {
 	if filename == "" {
-		return "set by module " + owner + "; no file recorded"
+		return "set by module " + owner
 	}
 
 	return "set by module " + owner + " (" + filename + ")"
@@ -367,7 +370,7 @@ func fileTitle(owner, filename string) string {
 
 templ Merged(v View) {
 	@Shell("Merged tree", pageMerged, v.Theme, v) {
-		@PageHeader("Merged tree", "The unified Configuration. Every leaf names the file whose assertion won it, down to the value, and the module when a module owns the key.")
+		@PageHeader("Merged tree", "The unified Configuration. Every leaf names where it came from: the module or layer file whose assertion won it, the schema or prelude that supplied a default, or computed when CUE derived the value from references.")
 			@PageBody() {
 				if v.LoadErr != nil {
 					@errorAlert(v.LoadErr)

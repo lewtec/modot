@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"testing"
+	"unicode"
 
 	"github.com/lewtec/modot/internal/configdash"
 	_ "github.com/lewtec/modot/internal/driver/prelude"
@@ -74,6 +76,62 @@ func TestLoadDotfilesFixture(t *testing.T) {
 	require.Equal(t, filepath.Join(root, "modot.cue"), rep.Files["options.theme.accent"])
 	require.Equal(t, filepath.Join(root, "modules", "theme", "modot.cue"), rep.Files["dashboard_demo.paper"])
 	require.NotContains(t, rep.Files, "runtime.hostname", "computed leaves have no file")
+}
+
+// CUE quotes a field whose name is not an identifier. Provenance keys use that
+// spelling, so a walker that joins with bare dots misses every file.* leaf.
+func TestLoadQuotedKeyProvenance(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	config := "package modot\n\n" +
+		"backup: git_repos: [{\"src\": \"/x\", \"dst\": \"host:x\"}]\n" +
+		"desktop: raw: dconf: \"org/gnome/x\": dark_mode: true\n"
+	require.NoError(t, writeFile(root, "modot.cue", config))
+
+	rep, err := configdash.Load(t.Context(), configdash.ScopeCodebase, root)
+	require.NoError(t, err, "Load")
+
+	entry := filepath.Join(root, "modot.cue")
+	require.Equal(t, entry, rep.Files[`desktop.raw.dconf."org/gnome/x".dark_mode`])
+
+	// Every leaf must be accounted for: a file, a module, or an embedded
+	// layer. An unquoted join silently loses all of them.
+	unexplained := 0
+	var walk func(prefix string, v any)
+	walk = func(prefix string, v any) {
+		switch c := v.(type) {
+		case map[string]any:
+			for k, child := range c {
+				walk(testPath(prefix, k), child)
+			}
+		default:
+			if rep.Files[prefix] == "" && rep.Builtin[prefix] == "" && !rep.Sources[prefix].Owned() {
+				unexplained++
+			}
+		}
+	}
+	for k, v := range rep.Merged {
+		walk(k, v)
+	}
+	// A leaf is either attributed to a file, a module, or an embedded layer,
+	// or it is one CUE derived (a disjunction default such as
+	// lazy_tools.mise.ref, which no file records). The quoted-key bug made
+	// whole subtrees fall into the second bucket, so bound it instead of
+	// demanding zero.
+	require.Less(t, unexplained, 100, "leaves with no origin: %d", unexplained)
+	require.Contains(t, rep.Files, `desktop.raw.dconf."org/gnome/x".dark_mode`)
+}
+
+// testPath spells a field the way CUE does: quoted unless it is an identifier.
+func testPath(prefix, key string) string {
+	for i, r := range key {
+		ident := r == '_' || unicode.IsLetter(r) || (i > 0 && unicode.IsDigit(r))
+		if !ident {
+			return prefix + "." + strconv.Quote(key)
+		}
+	}
+
+	return prefix + "." + key
 }
 
 // Lists are config too. Provenance, owner, and counts must reach list elements,

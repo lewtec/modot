@@ -10,7 +10,6 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"fmt"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -146,28 +145,32 @@ func isContainer(value any) bool {
 
 // filenameOf is the base name of the file that set a leaf: the record CUE kept
 // for it, or the module file when the module owns the key and no record exists.
+// filenameOf is where a leaf came from, in the order that answers "who set
+// this": a user file first, then the embedded layer that supplied a default,
+// and otherwise a value CUE computed from expressions. Every config file here
+// is modot.cue, so a bare basename would be the same word on every row.
 func filenameOf(r configdash.Report, path string) string {
-	if file, ok := r.Files[path]; ok {
-		return filepath.Base(file)
+	if file, ok := r.Files[path]; ok && file != "" {
+		return r.Where(file)
 	}
 	src, ok := r.Sources[path]
-	if !ok {
+	if ok && src.Owned() {
+		// The badge leads with the module; the fragment adds nothing.
 		return ""
 	}
-	if src.Owned() {
-		for _, mod := range r.Modules {
-			if mod.Name == src.Module {
-				return modotFile
-			}
-		}
+	if layer, ok := r.Builtin[path]; ok && layer != "" {
+		return layer
+	}
+	if src.Filename() != "" {
+		return src.Filename()
 	}
 
-	return src.Filename()
+	return originComputed
 }
 
-// modotFile names every module fragment; the badge shows the directory that
-// holds it instead, through the owning module.
-const modotFile = "modot.cue"
+// originComputed marks a leaf no layer set: CUE derived it from references or
+// disjunctions, so no source file records it.
+const originComputed = "computed"
 
 // fileCount is one file under a container and how many leaves it set.
 type fileCount struct {
@@ -328,7 +331,7 @@ func treeRows(rows []node) templ.Component {
 				var templ_7745c5c3_Var2 string
 				templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(row.Key)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 285, Col: 61}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 288, Col: 61}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 				if templ_7745c5c3_Err != nil {
@@ -341,7 +344,7 @@ func treeRows(rows []node) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(nodeKind(row))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 286, Col: 74}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 289, Col: 74}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -359,7 +362,7 @@ func treeRows(rows []node) templ.Component {
 					var templ_7745c5c3_Var4 string
 					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(row.Owner)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 288, Col: 63}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 291, Col: 63}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 					if templ_7745c5c3_Err != nil {
@@ -394,7 +397,7 @@ func treeRows(rows []node) templ.Component {
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(row.Key)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 298, Col: 46}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 301, Col: 46}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
@@ -407,7 +410,7 @@ func treeRows(rows []node) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(row.Value)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 299, Col: 69}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 302, Col: 69}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -466,7 +469,7 @@ func fileBadges(files []fileCount) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(fileCountTitle(files))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 311, Col: 108}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 314, Col: 108}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 			if templ_7745c5c3_Err != nil {
@@ -490,7 +493,7 @@ func fileBadges(files []fileCount) templ.Component {
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(file.File)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 316, Col: 39}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 319, Col: 39}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {
@@ -509,7 +512,7 @@ func fileBadges(files []fileCount) templ.Component {
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(len(files) - 3))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 319, Col: 39}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 322, Col: 39}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
@@ -548,9 +551,9 @@ func head(files []fileCount, n int) []fileCount {
 	return files[:n]
 }
 
-// ownerBadge marks a leaf with the file that set it, and the module when a
-// module owns the key. "modot.cue" alone is ambiguous across 26 modules, so a
-// module leaf leads with the module; a base leaf shows the file that won it.
+// ownerBadge marks a leaf with where it came from: a module when a module owns
+// the key, or the layer holding the file that set it. Every config file is
+// called modot.cue, so the badge never shows that basename.
 func ownerBadge(owner, filename string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -572,7 +575,7 @@ func ownerBadge(owner, filename string) templ.Component {
 			templ_7745c5c3_Var11 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		if owner != "" && filename != "" && filename != modotFile {
+		if owner != "" && filename != "" {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<span class=\"badge badge-xs badge-secondary\" title=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -580,7 +583,7 @@ func ownerBadge(owner, filename string) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(fileTitle(owner, filename))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 349, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 352, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 			if templ_7745c5c3_Err != nil {
@@ -593,7 +596,7 @@ func ownerBadge(owner, filename string) templ.Component {
 			var templ_7745c5c3_Var13 string
 			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(owner + "/" + filename)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 349, Col: 108}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 352, Col: 108}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
@@ -611,7 +614,7 @@ func ownerBadge(owner, filename string) templ.Component {
 			var templ_7745c5c3_Var14 string
 			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(fileTitle(owner, filename))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 351, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 354, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 			if templ_7745c5c3_Err != nil {
@@ -624,7 +627,7 @@ func ownerBadge(owner, filename string) templ.Component {
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(owner)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 351, Col: 91}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 354, Col: 91}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {
@@ -634,15 +637,15 @@ func ownerBadge(owner, filename string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-		} else if filename != "" {
+		} else if filename != "" && filename != originComputed {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<span class=\"badge badge-xs badge-ghost\" title=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var16 string
-			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue("set by " + filename)
+			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue("default from " + filename)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 353, Col: 71}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 356, Col: 77}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
 			if templ_7745c5c3_Err != nil {
@@ -655,7 +658,7 @@ func ownerBadge(owner, filename string) templ.Component {
 			var templ_7745c5c3_Var17 string
 			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(filename)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 353, Col: 84}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 356, Col: 90}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 			if templ_7745c5c3_Err != nil {
@@ -666,7 +669,7 @@ func ownerBadge(owner, filename string) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<span class=\"badge badge-xs badge-outline\" title=\"no file recorded: set by a computed or generated layer\">computed</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<span class=\"badge badge-xs badge-outline\" title=\"no file recorded: CUE derived this value from references\">computed</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -678,7 +681,7 @@ func ownerBadge(owner, filename string) templ.Component {
 // fileTitle is the full tooltip for a leaf badge.
 func fileTitle(owner, filename string) string {
 	if filename == "" {
-		return "set by module " + owner + "; no file recorded"
+		return "set by module " + owner
 	}
 
 	return "set by module " + owner + " (" + filename + ")"
@@ -717,7 +720,7 @@ func Merged(v View) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = PageHeader("Merged tree", "The unified Configuration. Every leaf names the file whose assertion won it, down to the value, and the module when a module owns the key.").Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = PageHeader("Merged tree", "The unified Configuration. Every leaf names where it came from: the module or layer file whose assertion won it, the schema or prelude that supplied a default, or computed when CUE derived the value from references.").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -755,7 +758,7 @@ func Merged(v View) templ.Component {
 					var templ_7745c5c3_Var21 templ.SafeURL
 					templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinURLErrs(scopeRoute(v.Scope, pageMerged))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 378, Col: 76}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 381, Col: 76}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 					if templ_7745c5c3_Err != nil {
@@ -773,7 +776,7 @@ func Merged(v View) templ.Component {
 						var templ_7745c5c3_Var22 string
 						templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(v.Path)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 380, Col: 68}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_merged.templ`, Line: 383, Col: 68}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 						if templ_7745c5c3_Err != nil {
