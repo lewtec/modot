@@ -1,6 +1,7 @@
 package selfupdate
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -18,8 +19,8 @@ func TestGoVersionAtLeast(t *testing.T) {
 		{"go2.0.0", "1.27.0", true},
 		{"go1.26.9", "1.27.0", false},
 		{"go1.27.0", "1.28.0", false},
-		{"go1.27rc1", "1.27.0", true},
-		{"go1.28rc1", "1.27.0", true},
+		{"go1.27rc1", "1.27.0", false},
+		{"go1.28rc1", "1.27.0", false},
 		{"go1.27devel", "1.27.0", true},
 	}
 	for _, tc := range cases {
@@ -44,6 +45,32 @@ func TestGoToolchainKeepsGoFlagsAfterDoubleDash(t *testing.T) {
 	require.Equal(t,
 		[]string{"list", "-e", "-deps", "-f", "{{if not .Standard}}{{.ImportPath}}{{end}}", "./cmd/modot"},
 		viaPath.listArgs())
+	require.Equal(t, []string{"env", "GOVERSION"}, viaPath.versionArgs())
+}
+
+// A mise prefix that lost its `--` would hand `-o` to mise as its own flag.
+func TestGoToolchainMisePrefixAlwaysEndsWithDoubleDash(t *testing.T) {
+	t.Parallel()
+	for _, version := range goCandidates("1.27.0") {
+		tc := goToolchain{path: "/bin/mise", prefix: []string{"exec", "go@" + version, "--"}}
+		args := tc.buildArgs("/tmp/out")
+		dash := slices.Index(args, "--")
+		require.Greater(t, dash, 0, "prefix %v has no --", args)
+		require.Equal(t, "build", args[dash+1])
+		require.NotContains(t, slices.Clone(args[:dash]), "-o")
+	}
+}
+
+func TestGoCandidatesStartWithDirectiveAndAvoidDuplicates(t *testing.T) {
+	t.Parallel()
+	candidates := goCandidates("1.27.0")
+	require.NotEmpty(t, candidates)
+	require.Equal(t, "1.27.0", candidates[0])
+	seen := map[string]bool{}
+	for _, candidate := range candidates {
+		require.False(t, seen[candidate], "duplicate candidate %s", candidate)
+		seen[candidate] = true
+	}
 }
 
 // args must not alias prefix: the builders append to it.
