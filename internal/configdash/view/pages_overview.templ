@@ -1,0 +1,226 @@
+package view
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/lewtec/modot/internal/configdash"
+)
+
+// View is one rendered page's data.
+type View struct {
+	Report configdash.Report
+	Theme  string
+	// LoadErr is set when discovery or evaluation failed. The page shows the
+	// error above whatever Partial holds.
+	LoadErr error
+	// Partial is the Report Load returned with its error: the layers and
+	// modules are known even when the merge is not.
+	Partial *configdash.Report
+	// ModuleName is the module selected on the modules page.
+	ModuleName string
+	// Path is the merged subtree selected on the merged page.
+	Path string
+}
+
+// shown is the report to render: the loaded one, else the partial one.
+func (v View) shown() configdash.Report {
+	if v.Partial != nil {
+		return *v.Partial
+	}
+	return v.Report
+}
+
+func (v View) scope() string { return string(v.shown().Scope) }
+
+func statCards(r configdash.Report) []statCard {
+	enabled, disabled := 0, 0
+	for _, mod := range r.Modules {
+		if mod.Enable {
+			enabled++
+		} else {
+			disabled++
+		}
+	}
+	return []statCard{
+		{Title: "Layers", Value: fmt.Sprint(len(r.Layers)), Desc: "discovered modot.cue", Accent: "text-primary"},
+		{Title: "Modules", Value: fmt.Sprint(enabled), Desc: fmt.Sprintf("%d disabled", disabled), Accent: "text-secondary"},
+		{Title: "Keys", Value: fmt.Sprint(r.Stats.Keys), Desc: "in the merged tree", Accent: "text-accent"},
+		{Title: "From modules", Value: fmt.Sprint(r.Stats.FromModules), Desc: "options.<name> and declared roots", Accent: "text-info"},
+	}
+}
+
+type statCard struct {
+	Title  string
+	Value  string
+	Desc   string
+	Accent string
+}
+
+// topLevel returns the merged top-level keys, sorted.
+func topLevel(r configdash.Report) []string {
+	keys := make([]string, 0, len(r.Merged))
+	for key := range r.Merged {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func shortValue(v any) string {
+	switch value := v.(type) {
+	case nil:
+		return "null"
+	case map[string]any:
+		return fmt.Sprintf("{%d fields}", len(value))
+	case []any:
+		return fmt.Sprintf("[%d items]", len(value))
+	case string:
+		if len(value) > 60 {
+			return fmt.Sprintf("%q…", value[:60])
+		}
+		return fmt.Sprintf("%q", value)
+	case bool:
+		return fmt.Sprint(value)
+	}
+	return fmt.Sprint(v)
+}
+
+// ownedLeaves counts the leaves under prefix that a module supplied.
+func ownedLeaves(r configdash.Report, prefix string) int {
+	count := 0
+	for path, src := range r.Sources {
+		if !src.Owned() {
+			continue
+		}
+		if path == prefix || strings.HasPrefix(path, prefix+".") {
+			count++
+		}
+	}
+	return count
+}
+
+templ Overview(v View) {
+	@Shell("Overview", "/", v.Theme) {
+		@PageHeader("Merged configuration", overviewLead(v.shown()))
+		@PageBody() {
+			if v.LoadErr != nil {
+				@errorAlert(v.LoadErr)
+			}
+			@statsRow(statCards(v.shown()))
+			@layerStrip(v.shown())
+			if v.shown().MergedErr != nil {
+				@errorAlert(v.shown().MergedErr)
+			}
+			<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+				@topKeysCard(v.shown())
+				@moduleSummaryCard(v.shown())
+			</div>
+		}
+	}
+}
+
+// overviewLead names the scope and mode, or says that nothing was found.
+func overviewLead(r configdash.Report) string {
+	if r.Scope == "" {
+		return "No modot.cue found for this scope."
+	}
+	return fmt.Sprintf("Scope %s · mode %s · %d layers → one Configuration.", r.Scope, r.Mode, len(r.Layers))
+}
+
+templ errorAlert(err error) {
+	<div class="alert alert-error items-start" role="alert">
+		@icon("M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z", "size-5")
+		<div class="min-w-0">
+			<p class="font-semibold">Load failed</p>
+			<pre class="max-w-full overflow-x-auto text-xs whitespace-pre-wrap">{ err.Error() }</pre>
+		</div>
+	</div>
+}
+
+templ statsRow(cards []statCard) {
+	<div class="stats w-full border border-base-300 bg-base-100 shadow">
+		for _, card := range cards {
+			<div class="stat place-items-center">
+				<div class="stat-title">{ card.Title }</div>
+				<div class={ "stat-value " + card.Accent }>{ card.Value }</div>
+				<div class="stat-desc">{ card.Desc }</div>
+			</div>
+		}
+	</div>
+}
+
+templ layerStrip(r configdash.Report) {
+	<div class="rounded-box border border-base-300 bg-base-100 p-4">
+		<div class="mb-3 flex items-center justify-between">
+			<h2 class="text-sm font-semibold tracking-wide uppercase">Discovery order</h2>
+			<a class="link link-hover text-xs" href="/layers">details</a>
+		</div>
+		<div class="flex flex-wrap items-center gap-2">
+			for i, layer := range r.Layers {
+				if i > 0 {
+					<span class="text-base-content/40">→</span>
+				}
+				<span class="badge badge-lg badge-soft badge-primary" title={ layer.Path }>{ layer.Name }</span>
+			}
+			<span class="text-base-content/40">→</span>
+			<span class="badge badge-lg badge-success">unified</span>
+		</div>
+	</div>
+}
+
+templ topKeysCard(r configdash.Report) {
+	<div class="card border border-base-300 bg-base-100 shadow">
+		<div class="card-body">
+			<h2 class="card-title text-base">Top-level keys</h2>
+			<div class="overflow-x-auto">
+				<table class="table table-sm">
+					<thead>
+						<tr><th>Key</th><th>Shape</th><th>Module leaves</th></tr>
+					</thead>
+					<tbody>
+						for _, key := range topLevel(r) {
+							<tr>
+								<td><a class="link link-hover font-mono" href={ "/merged?path=" + key }>{ key }</a></td>
+								<td class="font-mono text-xs text-base-content/70">{ shortValue(r.Merged[key]) }</td>
+								<td>
+									if n := ownedLeaves(r, key); n > 0 {
+										<span class="badge badge-sm badge-secondary">{ fmt.Sprint(n) }</span>
+									} else {
+										<span class="text-xs text-base-content/40">—</span>
+									}
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+}
+
+templ moduleSummaryCard(r configdash.Report) {
+	<div class="card border border-base-300 bg-base-100 shadow">
+		<div class="card-body">
+			<div class="flex items-center justify-between">
+				<h2 class="card-title text-base">Modules</h2>
+				<a class="link link-hover text-xs" href="/modules">details</a>
+			</div>
+			<ul class="space-y-1">
+				for _, mod := range r.Modules {
+					<li class="flex items-center justify-between gap-2 rounded-lg px-2 py-1 hover:bg-base-200">
+						<a class="link link-hover font-mono" href={ "/modules?name=" + mod.Name }>{ mod.Name }</a>
+						if mod.Err != nil {
+							<span class="badge badge-sm badge-error" title={ mod.Err.Error() }>error</span>
+						} else if mod.Enable {
+							<span class="badge badge-sm badge-success">on</span>
+						} else {
+							<span class="badge badge-sm badge-ghost">off</span>
+						}
+					</li>
+				}
+			</ul>
+		</div>
+	</div>
+}

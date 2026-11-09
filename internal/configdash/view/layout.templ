@@ -1,0 +1,159 @@
+package view
+
+import (
+	"github.com/lewtec/lewkit/x/http/asset/daisyui"
+	"github.com/lewtec/lewkit/x/http/asset/tailwindcss"
+)
+
+templ BrowserAssets() {
+	@daisyui.Load()
+	@tailwindcss.Load()
+}
+
+templ Document(title, theme string) {
+	<!DOCTYPE html>
+	<html lang="en" data-theme={ theme }>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title } · modot</title>
+			<meta name="color-scheme" content="light dark"/>
+			@BrowserAssets()
+		</head>
+		{ children... }
+	</html>
+}
+
+templ icon(d string, class string) {
+	<span class={ "inline-flex shrink-0 " + class } aria-hidden="true">
+		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+			<path d={ d }></path>
+		</svg>
+	</span>
+}
+
+templ Brand() {
+	<span class="inline-flex items-center gap-2">
+		<span class="grid size-8 place-items-center rounded-lg bg-primary text-primary-content">
+			@icon("M4 7h16M4 12h10M4 17h13", "size-5")
+		</span>
+		<span class="text-lg font-semibold tracking-tight">modot</span>
+	</span>
+}
+
+templ themeToggle(theme string) {
+	<span class="join" title="Switch theme">
+		<a href="#light" class={ toggleClass("light", theme) } data-theme-set="light" aria-pressed={ boolAttr(theme == "light") }>
+			@icon("M12 3v2M12 19v2M5 12H3m18 0h-2M6 6 4.5 4.5M18 18l1.5 1.5M18 6l1.5-1.5M6 18l-1.5 1.5M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z", "size-4")
+		</a>
+		<a href="#dark" class={ toggleClass("dark", theme) } data-theme-set="dark" aria-pressed={ boolAttr(theme == "dark") }>
+			@icon("M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z", "size-4")
+		</a>
+	</span>
+}
+
+templ navItem(href, label, current string) {
+	<li>
+		if current == href {
+			<a href={ href } class="menu-active rounded-none" aria-current="page">{ label }</a>
+		} else {
+			<a href={ href } class="rounded-none">{ label }</a>
+		}
+	</li>
+}
+
+templ Sidebar(current string) {
+	<nav class="menu menu-sm w-full gap-0 p-2">
+		<li class="menu-title px-3 py-2 text-[0.65rem] tracking-wider uppercase"><span>Merged</span></li>
+		@navItem("/", "Overview", current)
+		@navItem("/layers", "Layers", current)
+		@navItem("/modules", "Modules", current)
+		<li class="menu-title mt-2 px-3 py-2 text-[0.65rem] tracking-wider uppercase"><span>Data</span></li>
+		@navItem("/merged", "Merged tree", current)
+		@navItem("/merged.json", "Merged JSON", current)
+	</nav>
+}
+
+// Shell is the page frame: header, sidebar, and scrollable body.
+templ Shell(title, current, theme string) {
+	@Document(title, theme) {
+		<body class="h-screen min-h-screen overflow-hidden bg-base-200 text-base-content">
+			<div class="flex h-full min-h-0 flex-col">
+				<header class="navbar z-50 h-12 min-h-12 shrink-0 border-b border-base-300 bg-base-100 px-2 sm:px-4">
+					<div class="navbar-start gap-1">
+						<a href="/" class="btn btn-ghost h-10 min-h-10 px-1.5 sm:px-2" aria-label="modot — overview">
+							@Brand()
+						</a>
+					</div>
+					<div class="navbar-end gap-2">
+						@themeToggle(theme)
+					</div>
+				</header>
+				<div class="relative flex min-h-0 flex-1">
+					<aside class="flex w-56 shrink-0 flex-col overflow-y-auto border-r border-base-300 bg-base-100">
+						@Sidebar(current)
+					</aside>
+					<div class="flex min-h-0 min-w-0 flex-1 flex-col">
+						<main class="min-h-0 flex-1 overflow-y-auto">
+							<div class="w-full px-4 py-8 sm:px-6 sm:py-10 lg:px-10">
+								{ children... }
+							</div>
+						</main>
+					</div>
+				</div>
+			</div>
+			<script>
+				// The theme is a cookie so it survives navigation. daisyUI picks
+				// the palette from the data-theme attribute on <html>.
+				(function () {
+					var root = document.documentElement;
+					document.querySelectorAll("[data-theme-set]").forEach(function (el) {
+						el.addEventListener("click", function (event) {
+							event.preventDefault();
+							var next = el.getAttribute("data-theme-set");
+							root.setAttribute("data-theme", next);
+							document.cookie = "modot_theme=" + next + "; path=/; max-age=31536000; SameSite=Lax";
+							document.querySelectorAll("[data-theme-set]").forEach(function (other) {
+								var on = other.getAttribute("data-theme-set") === next;
+								other.classList.toggle("btn-primary", on);
+								other.classList.toggle("btn-ghost", !on);
+								other.setAttribute("aria-pressed", on ? "true" : "false");
+							});
+						});
+					});
+				})();
+			</script>
+		</body>
+	}
+}
+
+// PageHeader renders the title block. The page body is a separate component so
+// a page can put anything under it.
+templ PageHeader(title, lead string) {
+	<header class="mb-6 w-full space-y-2">
+		<h1 class="text-3xl font-semibold tracking-tight">{ title }</h1>
+		if lead != "" {
+			<p class="text-base-content/70">{ lead }</p>
+		}
+	</header>
+}
+
+templ PageBody() {
+	<div class="w-full space-y-6">
+		{ children... }
+	</div>
+}
+
+func toggleClass(value, current string) string {
+	if value == current {
+		return "btn btn-sm join-item btn-primary"
+	}
+	return "btn btn-sm join-item btn-ghost"
+}
+
+func boolAttr(v bool) string {
+	if v {
+		return "true"
+	}
+	return "false"
+}

@@ -7,6 +7,7 @@ import (
 	"github.com/lewtec/lewkit/x/taskgroup"
 	pkg_codebase "github.com/lewtec/modot/cmd/modot/codebase"
 	pkg_daemon "github.com/lewtec/modot/cmd/modot/daemon"
+	pkg_dashboard "github.com/lewtec/modot/cmd/modot/dashboard"
 	pkg_driver "github.com/lewtec/modot/cmd/modot/driver"
 	pkg_experiments "github.com/lewtec/modot/cmd/modot/experiments"
 	pkg_home "github.com/lewtec/modot/cmd/modot/home"
@@ -30,6 +31,7 @@ type cli struct {
 	NoCache       cmd.Flag `long:"no-cache" help:"Ignore install/module/source/shell caches; re-fetch locked tools; treat deploy noops as updates (also MODOT_NO_CACHE)" env:"MODOT_NO_CACHE" ctx:"no-cache"`
 
 	Codebase    *pkg_codebase.Command
+	Dashboard   *pkg_dashboard.Command
 	Driver      *pkg_driver.Command
 	Experiments *pkg_experiments.Command
 	History     *pkg_history.Command

@@ -1,0 +1,171 @@
+package view
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/lewtec/modot/internal/configdash"
+)
+
+// node is one row of the merged tree.
+type node struct {
+	// Key is the field label; Path is the dotted path from the root.
+	Key   string
+	Path  string
+	Depth int
+	// Children are nil for a leaf.
+	Children []node
+	// Value is the rendered scalar, or the shape summary for a container.
+	Value string
+	// Owner is the module that supplied the path, or "" for base config.
+	Owner string
+	// Filename is the file CUE recorded for the value, or "" when a
+	// generated layer set it.
+	Filename string
+	// Open means the subtree renders expanded.
+	Open bool
+}
+
+// buildTree renders nodePath of merged as rows. An empty nodePath renders the
+// whole tree. A container is expanded when it is the node itself or a prefix of
+// the node, so the selected path is always visible.
+func buildTree(r configdash.Report, nodePath string) []node {
+	var value any = r.Merged
+	base := ""
+	if nodePath != "" {
+		found, ok := lookup(r.Merged, strings.Split(nodePath, "."))
+		if !ok {
+			return nil
+		}
+		value = found
+		base = nodePath
+	}
+	return walkNode(r, base, value, 0, nodePath)
+}
+
+func walkNode(r configdash.Report, path string, value any, depth int, focus string) []node {
+	obj, ok := value.(map[string]any)
+	if !ok {
+		return nil
+	}
+	keys := make([]string, 0, len(obj))
+	for key := range obj {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	out := make([]node, 0, len(keys))
+	for _, key := range keys {
+		childPath := joinPath(path, key)
+		owner := ""
+		filename := ""
+		if src, ok := r.Sources[childPath]; ok {
+			if src.Owned() {
+				owner = src.Module
+			}
+			filename = src.Filename()
+		}
+		row := node{Key: key, Path: childPath, Depth: depth, Owner: owner, Filename: filename, Value: shortValue(obj[key])}
+		if _, isMap := obj[key].(map[string]any); isMap {
+			row.Open = focus == "" || childPath == focus || strings.HasPrefix(childPath, focus+".") || strings.HasPrefix(focus, childPath+".")
+			row.Children = walkNode(r, childPath, obj[key], depth+1, focus)
+		}
+		out = append(out, row)
+	}
+	return out
+}
+
+func lookup(root map[string]any, parts []string) (any, bool) {
+	var current any = root
+	for _, part := range parts {
+		obj, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current, ok = obj[part]
+		if !ok {
+			return nil, false
+		}
+	}
+	return current, true
+}
+
+func joinPath(prefix, key string) string {
+	if prefix == "" {
+		return key
+	}
+	return prefix + "." + key
+}
+
+func nodeKind(row node) string {
+	if row.Children != nil {
+		return fmt.Sprintf("{%d}", len(row.Children))
+	}
+	return row.Value
+}
+
+templ treeRows(rows []node) {
+	for _, row := range rows {
+		<li>
+			if row.Children != nil {
+				<details open?={ row.Open }>
+					<summary class="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-base-200">
+						<span class="font-mono text-sm font-semibold">{ row.Key }</span>
+						<span class="font-mono text-xs text-base-content/40">{ nodeKind(row) }</span>
+						if row.Owner != "" {
+							<span class="badge badge-xs badge-secondary">{ row.Owner }</span>
+						}
+					</summary>
+					<ul class="ml-4 border-l border-base-300 pl-2">
+						@treeRows(row.Children)
+					</ul>
+				</details>
+			} else {
+				<div class="flex items-center gap-2 rounded px-2 py-1 hover:bg-base-200">
+					<span class="font-mono text-sm">{ row.Key }</span>
+					<span class="font-mono text-xs text-base-content/70">{ row.Value }</span>
+					@ownerBadge(row.Owner, row.Filename)
+				</div>
+			}
+		</li>
+	}
+}
+
+// ownerBadge marks the leaves a module supplied. Base leaves carry no badge:
+// the tree is mostly base config, and a marker on every row hides the signal.
+templ ownerBadge(owner, filename string) {
+	if owner == "" {
+		if filename != "" {
+			<span class="badge badge-xs badge-ghost" title={ "set by " + filename }>{ filename }</span>
+		}
+	} else if filename != "" {
+		<span class="badge badge-xs badge-secondary" title={ "set by module " + owner + " (" + filename + ")" }>{ owner }</span>
+	} else {
+		<span class="badge badge-xs badge-secondary" title={ "set by module " + owner }>{ owner }</span>
+	}
+}
+
+templ Merged(v View) {
+	@Shell("Merged tree", "/merged", v.Theme) {
+		@PageHeader("Merged tree", "The unified Configuration. Every leaf names the module that supplied it, or base when it comes from the entry layers or schema.")
+			@PageBody() {
+				if v.LoadErr != nil {
+					@errorAlert(v.LoadErr)
+				} else if v.shown().MergedErr != nil {
+					@errorAlert(v.shown().MergedErr)
+				} else {
+					<div class="flex flex-wrap items-center gap-2">
+						<a class="btn btn-xs btn-ghost" href="/merged">root</a>
+						if v.Path != "" {
+							<span class="font-mono text-xs text-base-content/60">{ v.Path }</span>
+						}
+					</div>
+					<div class="rounded-box border border-base-300 bg-base-100 p-3">
+						<ul class="space-y-0.5">
+							@treeRows(buildTree(v.shown(), v.Path))
+						</ul>
+					</div>
+				}
+			}
+	}
+}

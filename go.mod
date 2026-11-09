@@ -4,6 +4,7 @@ go 1.27.0
 
 require (
 	cuelang.org/go v0.17.1
+	github.com/a-h/templ v0.3.1020
 	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/git-pkgs/gitignore v1.2.0
 	github.com/gokrazy/rsync v0.3.3
@@ -48,7 +49,7 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.53.0 // indirect
 	github.com/KarpelesLab/authenticode v0.1.0 // indirect
 	github.com/ProtonMail/go-crypto v1.2.0 // indirect
-	github.com/a-h/templ v0.3.1020 // indirect
+	github.com/a-h/parse v0.0.0-20250122154542-74294addb73e // indirect
 	github.com/agusibrahim/apksig-go v1.1.0 // indirect
 	github.com/anchore/go-logger v0.0.0-20251106021608-a5b0513fa9a9 // indirect
 	github.com/anchore/go-lzo v0.1.0 // indirect
@@ -90,6 +91,7 @@ require (
 	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
 	github.com/charmbracelet/x/windows v0.2.2 // indirect
+	github.com/cli/browser v1.3.0 // indirect
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cloudflare/circl v1.6.0 // indirect
@@ -115,6 +117,7 @@ require (
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fetchurl/fetchurl v0.0.0-20260714002336-2d69880d6c8b // indirect
+	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gdamore/encoding v1.0.1 // indirect
 	github.com/gdamore/tcell/v2 v2.6.0 // indirect
 	github.com/getsentry/sentry-go v0.49.0 // indirect
@@ -178,6 +181,7 @@ require (
 	github.com/modernc-tree-sitter/ccgo-tree-sitter/core v0.0.0-20260927184652-669b18df5afb // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
+	github.com/natefinch/atomic v1.0.1 // indirect
 	github.com/ncruces/go-sqlite3 v0.32.0 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/ncruces/julianday v1.0.0 // indirect
@@ -239,6 +243,7 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
+	golang.org/x/tools v0.50.0 // indirect
 	google.golang.org/api v0.287.0 // indirect
 	google.golang.org/genproto v0.0.0-20260630182238-925bb5da69e7 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260630182238-925bb5da69e7 // indirect
@@ -256,4 +261,7 @@ require (
 	software.sslmate.com/src/go-pkcs12 v0.7.3 // indirect
 )
 
-tool github.com/lewtec/lewkit/cmd/lewkit
+tool (
+	github.com/a-h/templ/cmd/templ
+	github.com/lewtec/lewkit/cmd/lewkit
+)
