@@ -1,0 +1,305 @@
+package view
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/lewtec/lewkit/x/http/asset/lucide"
+	"github.com/lewtec/modot/internal/configdash"
+)
+
+// Files renders the files the scope's apply would place. The tree is built by
+// the same pipeline apply uses, so the paths are the real ones; whether each
+// file changes is the deployer's business and is not shown here.
+templ Files(v View) {
+	@Shell("Materialized files", pageFiles, v.Theme, v) {
+		@PageHeader("Materialized files", "What `modot "+string(v.Scope)+" apply` places from this config: every file the source pipeline discovers, renders, and composes into the file profiles, with the module or config tree that produced it. Nothing is written and the state file is not read, so this is the tree, not the diff.")
+		@PageBody() {
+			if v.LoadErr != nil && v.Files.Err == nil {
+				@errorAlert(v.LoadErr)
+			} else if v.Files.Err != nil {
+				@filesError(v.Files)
+			} else if v.Files.MaterialCount() == 0 {
+				<div class="rounded-box border border-dashed border-base-300 bg-base-100 p-16 text-center text-base-content/50">
+					<p>This scope places no files.</p>
+					<p class="mt-1 text-sm">The config declares no <span class="font-mono">file.{ v.Files.Mode }</span> entries and no enabled module ships a file tree.</p>
+				</div>
+			} else {
+				@filesSummary(v.Files)
+				@fileTree(v.Scope, v.Files.FileTree())
+			}
+		}
+	}
+}
+
+// filesError explains a tree that could not be built. The usual causes are a
+// broken template and a module whose source cannot be fetched.
+templ filesError(files configdash.FilesReport) {
+	<div class="alert alert-error items-start" role="alert">
+		@icon(lucide.NameTriangleAlert, "size-5")
+		<div class="min-w-0 space-y-1">
+			<p class="font-semibold">The file tree could not be built</p>
+			<p class="text-sm">Apply would stop at this step too. The merge pages still show the configuration that loaded.</p>
+			<pre class="max-w-full overflow-x-auto text-xs whitespace-pre-wrap">{ files.Err.Error() }</pre>
+		</div>
+	</div>
+}
+
+// filesSummary is the count, the roots the tree lands under, and the kinds.
+templ filesSummary(files configdash.FilesReport) {
+	<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+		<div class="rounded-box border border-base-300 bg-base-100 p-4">
+			<p class="text-xs tracking-wider text-base-content/60 uppercase">Files</p>
+			<p class="text-2xl font-semibold">{ fmt.Sprint(files.MaterialCount()) }</p>
+			<p class="mt-1 text-xs text-base-content/60">{ fmt.Sprint(files.DirCount()) } directories</p>
+		</div>
+		<div class="rounded-box border border-base-300 bg-base-100 p-4">
+			<p class="text-xs tracking-wider text-base-content/60 uppercase">Under</p>
+			<p class="truncate font-mono text-sm" title={ files.TargetBase }>{ files.TargetBase }</p>
+			<p class="mt-1 text-xs text-base-content/60">profiles: { strings.Join(files.Profiles, ", ") }</p>
+		</div>
+		<div class="rounded-box border border-base-300 bg-base-100 p-4">
+			<p class="text-xs tracking-wider text-base-content/60 uppercase">By kind</p>
+			<div class="mt-1 flex flex-wrap gap-1">
+				for _, kind := range files.KindCounts() {
+					<span class={ kindClass(kind.Label) }>{ kind.Label + " " + fmt.Sprint(kind.Count) }</span>
+				}
+			</div>
+		</div>
+	</div>
+	if len(files.Warnings) > 0 {
+		<div class="alert alert-warning items-start" role="alert">
+			@icon(lucide.NameTriangleAlert, "size-5")
+			<div class="min-w-0 space-y-1">
+				<p class="font-semibold">Pipeline warnings</p>
+				for _, warning := range files.Warnings {
+					<p class="text-sm">{ warning }</p>
+				}
+			</div>
+		</div>
+	}
+}
+
+// spriteIcon draws an icon from the page's sprite. The sprite is built from
+// the same catalog lewkit ships, so an unknown name still draws nothing; the
+// difference is one symbol per page instead of one inline SVG per use, which
+// matters when a tree lists a thousand files. lewkit's lucide.Icon inlines the
+// whole drawing, which is why this refers to the symbol instead.
+templ spriteIcon(name lucide.Name, class string) {
+	<svg class={ class } aria-hidden="true"><use href={ "#icon-" + name.String() }></use></svg>
+}
+
+// fileTree is the tree as a reader navigates it: a directory name once, then
+// what is under it. The nodes carry data attributes so the filter can hide a
+// branch without a round trip.
+templ fileTree(scope configdash.Scope, nodes []configdash.FileNode) {
+	@iconSprite(treeIcons())
+	<div class="rounded-box border border-base-300 bg-base-100" data-file-tree>
+		<div class="flex flex-wrap items-center gap-2 border-b border-base-300 px-4 py-2">
+			<span class="text-sm font-semibold">Files</span>
+			<span class="badge badge-xs badge-ghost" data-file-count>{ fmt.Sprint(nodeFileCount(nodes)) }</span>
+			<input type="search" class="input input-sm ml-auto w-full max-w-xs font-mono" placeholder="Filter by path, source, or kind" aria-label="Filter files" data-file-filter="files"/>
+			<button type="button" class="btn btn-xs btn-ghost" data-tree-collapse-all>Collapse all</button>
+		</div>
+		<div class="max-h-[70vh] overflow-auto px-2 py-2">
+			<ul class="menu menu-xs w-full gap-0.5 p-0" role="tree">
+				for _, node := range nodes {
+					@treeNode(scope, node)
+				}
+			</ul>
+			<p class="hidden px-4 py-8 text-center text-sm text-base-content/50" data-tree-empty>No file matches the filter.</p>
+		</div>
+	</div>
+	<script>
+		// A directory node toggles what is under it. A file is a link to its
+		// content page, so the list stays a list and never carries a body.
+		(function () {
+			var tree = document.querySelector("[data-file-tree]");
+			if (!tree) {
+				return;
+			}
+			function children(li) {
+				return li.querySelector(":scope > ul");
+			}
+			tree.addEventListener("click", function (event) {
+				var toggle = event.target.closest("[data-toggle]");
+				if (!toggle) {
+					return;
+				}
+				var li = toggle.closest("li");
+				if (!li) {
+					return;
+				}
+				var open = toggle.getAttribute("aria-expanded") !== "true";
+				toggle.setAttribute("aria-expanded", open ? "true" : "false");
+				var sub = children(li);
+				if (sub) {
+					sub.classList.toggle("hidden", !open);
+				}
+			});
+			document.querySelectorAll("[data-tree-collapse-all]").forEach(function (button) {
+				button.addEventListener("click", function () {
+					tree.querySelectorAll("[data-toggle]").forEach(function (toggle) {
+						if (toggle.getAttribute("aria-expanded") === "true") {
+							toggle.click();
+						}
+					});
+				});
+			});
+			// Filtering walks the tree: a node stays when its own text or one
+			// of its descendants matches, so a match deep inside a collapsed
+			// directory still surfaces it. A clear box restores what the tree
+			// opened with.
+			var box = tree.querySelector("[data-file-filter]");
+			var empty = tree.querySelector("[data-tree-empty]");
+			var roots = Array.prototype.slice.call(tree.querySelectorAll("ul[role=tree] > li"));
+			// A row matches on what it shows: the name and the metadata
+			// beside it. Reading the text avoids a second copy of every row
+			// in an attribute, which on a tree of a thousand files is the
+			// page's weight.
+			function owns(li) {
+				var own = "";
+				li.childNodes.forEach(function (node) {
+					if (node.nodeType === 1 && node.tagName.toLowerCase() === "ul") {
+						return;
+					}
+					own += node.textContent || "";
+				});
+				return own.toLowerCase();
+			}
+			function matches(li, needle) {
+				var own = owns(li).indexOf(needle) >= 0;
+				var hit = own;
+				children(li)?.querySelectorAll(":scope > li").forEach(function (child) {
+					if (matches(child, needle)) {
+						hit = true;
+					}
+				});
+				li.style.display = hit ? "" : "none";
+				if (hit && !own) {
+					var toggle = li.querySelector(":scope > [data-toggle]");
+					var sub = children(li);
+					if (toggle && sub) {
+						toggle.setAttribute("aria-expanded", "true");
+						sub.classList.remove("hidden");
+					}
+				}
+				return hit;
+			}
+			if (box) {
+				box.addEventListener("input", function () {
+					var needle = box.value.trim().toLowerCase();
+					var shown = 0;
+					roots.forEach(function (li) {
+						var hit = needle === "" || matches(li, needle);
+						li.style.display = hit ? "" : "none";
+						if (hit) {
+							shown++;
+						}
+					});
+					empty.classList.toggle("hidden", shown > 0);
+				});
+			}
+		})();
+	</script>
+}
+
+// treeNode is one entry: a file linking to its content, or a directory with
+// what is under it. The name is the only path segment shown,
+// because the parents already named themselves.
+templ treeNode(scope configdash.Scope, node configdash.FileNode) {
+	if node.IsDir() {
+		<li>
+			<button type="button" class="group w-full" data-toggle aria-expanded="true">
+				@spriteIcon(lucide.NameChevronRight, "tree-chevron")
+				@spriteIcon(lucide.NameFolder, "tree-folder")
+				<span class="tree-name">{ node.Name }</span>
+				<span class="tree-count">{ fmt.Sprint(node.Files) }</span>
+			</button>
+			<ul role="group">
+				for _, child := range node.Children {
+					@treeNode(scope, child)
+				}
+			</ul>
+		</li>
+	} else {
+		@fileNode(scope, node.File)
+	}
+}
+
+// fileNode is one file: its name, how it lands, and a link to its content.
+// The tree is for finding a file; the content page is for reading it, so a
+// click opens a page rather than expanding a body in the list.
+templ fileNode(scope configdash.Scope, file *configdash.MaterialFile) {
+	<li>
+		<a class="group w-full" href={ fileRoute(scope, *file) } data-file-link>
+			@spriteIcon(lucide.NameChevronRight, "tree-leaf-gap")
+			@spriteIcon(fileKindIcon(file.Kind), "tree-leaf-icon")
+			<span class="tree-name">{ file.Name }</span>
+			if file.Kind != "static" {
+				<span class={ kindClass(file.Kind) }>{ file.Kind }</span>
+			}
+			<span class="tree-meta">
+				<span>{ file.Mode }</span>
+				<span>{ fileSize(file) }</span>
+				<span class="tree-meta-source">{ displaySource(file.Source) }</span>
+			</span>
+		</a>
+	</li>
+}
+
+// fileKindIcon picks the pictogram for a source kind: a template looks
+// different from a copy, which is how a reader tells them apart at a glance.
+func fileKindIcon(kind string) lucide.Name {
+	switch kind {
+	case "template", "multifile", "dotd":
+		return lucide.NameFileCode
+	case "symlink":
+		return lucide.NameFileSymlink
+	}
+
+	return lucide.NameFile
+}
+
+// nodeFileCount is how many files the whole tree holds, for the header count.
+func nodeFileCount(nodes []configdash.FileNode) int {
+	total := 0
+	for _, node := range nodes {
+		total += node.Files
+	}
+
+	return total
+}
+
+// fileSize is the number of bytes apply writes, so a reader can tell a config
+// file from a data blob before opening it.
+func fileSize(file *configdash.MaterialFile) string {
+	return configdash.HumanSize(file.Content.Size)
+}
+
+// kindClass tints a file kind: a copy is plain, a rendered template is the
+// interesting one.
+func kindClass(kind string) string {
+	if kind == "template" || kind == "multifile" || kind == "dotd" {
+		return "badge badge-xs badge-info"
+	}
+
+	return "badge badge-xs badge-ghost"
+}
+
+// displaySource names what produced a file without the pipeline's internal
+// prefix, so a reader sees the module, the place entry, or the config-tree
+// path. A copy by path alone says nothing beyond the target, so it reads as
+// the stage that made it.
+func displaySource(source string) string {
+	source = strings.TrimPrefix(source, "source:")
+	source = strings.TrimPrefix(source, "module:")
+	switch {
+	case source == "":
+		return "—"
+	case strings.HasPrefix(source, "filespine:"):
+		return "copy"
+	}
+
+	return strings.TrimPrefix(source, "mount:")
+}

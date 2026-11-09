@@ -1,0 +1,48 @@
+package view
+
+import (
+	"fmt"
+
+	"github.com/lewtec/modot/internal/configdash"
+)
+
+templ Layers(v View) {
+	@Shell("Layers", pageLayers, v.Theme, v) {
+		@PageHeader("Layers", "The modot.cue files discovered for this scope, in merge order. Later layers win where they set a concrete value.")
+			@PageBody() {
+				if v.LoadErr != nil {
+					@errorAlert(v.LoadErr)
+				} else {
+					<ol class="space-y-3">
+						for i, layer := range v.shown().Layers {
+							<li class="flex items-start gap-4 rounded-box border border-base-300 bg-base-100 p-4">
+								<span class="grid size-9 shrink-0 place-items-center rounded-full bg-base-200 font-mono text-sm font-semibold">{ fmt.Sprint(i + 1) }</span>
+								<div class="min-w-0">
+									<span class="badge badge-primary">{ layer.Name }</span>
+									<p class="mt-1 truncate font-mono text-sm text-base-content/70" title={ layer.Path }>{ layer.Path }</p>
+								</div>
+							</li>
+						}
+					</ol>
+					<div class="rounded-box border border-dashed border-base-300 bg-base-100 p-4 text-sm text-base-content/70">
+						<p>
+							Modules are resolved from <span class="font-mono">{ v.shown().Root }</span> and unified after these layers. Their <span class="font-mono">options</span> schema joins the shared tree as <span class="font-mono">options.&lt;name&gt;</span>.
+						</p>
+					</div>
+				}
+			}
+	}
+}
+
+// selectedModule is the module named by ?name=, defaulting to the first one.
+func selectedModule(r configdash.Report, name string) (configdash.Module, bool) {
+	for _, mod := range r.Modules {
+		if mod.Name == name {
+			return mod, true
+		}
+	}
+	if len(r.Modules) > 0 {
+		return r.Modules[0], true
+	}
+	return configdash.Module{}, false
+}

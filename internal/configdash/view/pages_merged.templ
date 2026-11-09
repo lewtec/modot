@@ -1,0 +1,394 @@
+package view
+
+import (
+	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+
+	"github.com/lewtec/modot/internal/configdash"
+)
+
+// node is one row of the merged tree.
+type node struct {
+	// Key is the field label; Path is the dotted path from the root.
+	Key   string
+	Path  string
+	Depth int
+	// Children are nil for a leaf.
+	Children []node
+	// Value is the rendered scalar, or the shape summary for a container.
+	Value string
+	// Owner is the module that supplied the path, or "" for base config.
+	Owner string
+	// Filename is the file CUE recorded for the value, or "" when nothing
+	// recorded one (a computed value, or a generated layer).
+	Filename string
+	// Files are the files that set the leaves under a container, so a folded
+	// subtree still says where it came from.
+	Files []fileCount
+	// Open means the subtree renders expanded.
+	Open bool
+}
+
+// buildTree renders nodePath of merged as rows. An empty nodePath renders the
+// whole tree. A container is expanded when it is the node itself or a prefix of
+// the node, so the selected path is always visible.
+func buildTree(r configdash.Report, nodePath string) []node {
+	var value any = r.Merged
+	base := ""
+	if nodePath != "" {
+		// Accept the row's own [0] form and the address-bar .0 form, then key
+		// the subtree by CUE's form so provenance and owners line up.
+		nodePath = bracketToDot(nodePath)
+		found, ok := lookup(r.Merged, strings.Split(nodePath, "."))
+		if !ok {
+			return nil
+		}
+		value = found
+		base = dotIndexToCue(nodePath)
+	}
+	return walkNode(r, base, value, 0, nodePath)
+}
+
+// dotIndexToCue rewrites dot-numeric segments back to CUE's parent[index] so
+// lookup paths and rendered paths read the same.
+func dotIndexToCue(path string) string {
+	var out strings.Builder
+	for _, part := range strings.Split(path, ".") {
+		if _, isIndex := listIndex(part); isIndex {
+			out.WriteString("[" + part + "]")
+
+			continue
+		}
+		if out.Len() > 0 {
+			out.WriteString(".")
+		}
+		out.WriteString(part)
+	}
+
+	return out.String()
+}
+
+func walkNode(r configdash.Report, path string, value any, depth int, focus string) []node {
+	switch container := value.(type) {
+	case map[string]any:
+		return walkObject(r, path, container, depth, focus)
+	case []any:
+		return walkList(r, path, container, depth, focus)
+	}
+
+	return nil
+}
+
+// walkObject renders a struct's fields.
+func walkObject(r configdash.Report, path string, obj map[string]any, depth int, focus string) []node {
+	keys := make([]string, 0, len(obj))
+	for key := range obj {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	out := make([]node, 0, len(keys))
+	for _, key := range keys {
+		childPath := joinPath(path, key)
+		out = append(out, walkRow(r, key, childPath, obj[key], depth, focus))
+	}
+
+	return out
+}
+
+// walkList renders a list as indexed rows. Lists are config too: backup
+// actions, place steps, and module arguments are all their entries, so they
+// expand like structs instead of ending at "[9 items]".
+func walkList(r configdash.Report, path string, list []any, depth int, focus string) []node {
+	out := make([]node, 0, len(list))
+	for i, item := range list {
+		out = append(out, walkRow(r, fmt.Sprintf("[%d]", i), indexPath(path, i), item, depth, focus))
+	}
+
+	return out
+}
+
+// walkRow is one key of a struct or one entry of a list.
+func walkRow(r configdash.Report, key, path string, value any, depth int, focus string) node {
+	owner := ""
+	if src, ok := r.Sources[path]; ok && src.Owned() {
+		owner = src.Module
+	}
+	row := node{Key: key, Path: path, Depth: depth, Owner: owner, Filename: filenameOf(r, path), Value: shortValue(value)}
+	if isContainer(value) {
+		row.Open = focus == "" || path == focus || strings.HasPrefix(path, focus+".") || strings.HasPrefix(focus, path+".")
+		row.Children = walkNode(r, path, value, depth+1, focus)
+		row.Files = leafFiles(row.Children)
+	}
+
+	return row
+}
+
+// isContainer reports whether value has rows beneath it.
+func isContainer(value any) bool {
+	switch value.(type) {
+	case map[string]any, []any:
+		return true
+	}
+
+	return false
+}
+
+// filenameOf is the base name of the file that set a leaf: the record CUE kept
+// for it, or the module file when the module owns the key and no record exists.
+// filenameOf is where a leaf came from, in the order that answers "who set
+// this": a user file first, then the embedded layer that supplied a default,
+// and otherwise a value CUE computed from expressions. Every config file here
+// is modot.cue, so a bare basename would be the same word on every row.
+func filenameOf(r configdash.Report, path string) string {
+	if file, ok := r.Files[path]; ok && file != "" {
+		return r.Where(file)
+	}
+	src, ok := r.Sources[path]
+	if ok && src.Owned() {
+		// The badge leads with the module; the fragment adds nothing.
+		return ""
+	}
+	if layer, ok := r.Builtin[path]; ok && layer != "" {
+		return layer
+	}
+	if src.Filename() != "" {
+		return src.Filename()
+	}
+
+	return originComputed
+}
+
+// originComputed marks a leaf no layer set: CUE derived it from references or
+// disjunctions, so no source file records it.
+const originComputed = "computed"
+
+// fileCount is one file under a container and how many leaves it set.
+type fileCount struct {
+	File  string
+	Leaves int
+}
+
+// leafFiles rolls the leaves under a container up to the files that set them,
+// most leaves first, so a folded row still says where its contents came from.
+func leafFiles(rows []node) []fileCount {
+	counts := map[string]int{}
+	var walk func(rows []node)
+	walk = func(rows []node) {
+		for _, row := range rows {
+			if row.Children != nil {
+				walk(row.Children)
+
+				continue
+			}
+			if row.Filename != "" {
+				counts[row.Filename]++
+			}
+		}
+	}
+	walk(rows)
+	out := make([]fileCount, 0, len(counts))
+	for file, leaves := range counts {
+		out = append(out, fileCount{File: file, Leaves: leaves})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Leaves != out[j].Leaves {
+			return out[i].Leaves > out[j].Leaves
+		}
+
+		return out[i].File < out[j].File
+	})
+
+	return out
+}
+
+// lookup walks a path the way the address bar writes it: actions.0.name and
+// actions[0].name both reach the first backup action.
+func lookup(root map[string]any, parts []string) (any, bool) {
+	out, ok := lookupRaw(root, parts)
+	if ok {
+		return out, true
+	}
+
+	return lookupRaw(root, splitPath(bracketToDot(strings.Join(parts, "."))))
+}
+
+// splitPath splits a dotted path into segments.
+func splitPath(path string) []string {
+	return strings.Split(path, ".")
+}
+
+// bracketToDot turns CUE's parent[index] into parent.index for lookup.
+func bracketToDot(path string) string {
+	return strings.NewReplacer("[", ".", "]", "").Replace(path)
+}
+
+// lookupRaw walks segments, treating all-digit ones as list indices.
+func lookupRaw(root any, parts []string) (any, bool) {
+	var current any = root
+	for _, part := range parts {
+		if index, isIndex := listIndex(part); isIndex {
+			list, ok := current.([]any)
+			if !ok || index < 0 || index >= len(list) {
+				return nil, false
+			}
+			current = list[index]
+
+			continue
+		}
+		obj, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current, ok = obj[part]
+		if !ok {
+			return nil, false
+		}
+	}
+	return current, true
+}
+
+// indexPath is the path a list entry is looked up by. The tree shows entries
+// as [0], but CUE keys them actions[0], so both lookups use that form.
+func indexPath(prefix string, index int) string {
+	return prefix + "[" + strconv.Itoa(index) + "]"
+}
+
+// listIndex decodes an all-digit path segment as a list index.
+func listIndex(part string) (int, bool) {
+	index, err := strconv.Atoi(part)
+	if err != nil || index < 0 || part != strconv.Itoa(index) {
+		return 0, false
+	}
+
+	return index, true
+}
+
+func joinPath(prefix, key string) string {
+	if prefix == "" {
+		return key
+	}
+	return prefix + "." + key
+}
+
+func nodeKind(row node) string {
+	if row.Children != nil {
+		return fmt.Sprintf("{%d}", len(row.Children))
+	}
+	return row.Value
+}
+
+templ treeRows(rows []node) {
+	for _, row := range rows {
+		<li>
+			if row.Children != nil {
+				<details open?={ row.Open }>
+					<summary class="flex cursor-pointer flex-wrap items-center gap-2 rounded px-2 py-1 hover:bg-base-200">
+						<span class="font-mono text-sm font-semibold">{ row.Key }</span>
+						<span class="font-mono text-xs text-base-content/40">{ nodeKind(row) }</span>
+						if row.Owner != "" {
+							<span class="badge badge-xs badge-secondary">{ row.Owner }</span>
+						}
+						@fileBadges(row.Files)
+					</summary>
+					<ul class="ml-4 border-l border-base-300 pl-2">
+						@treeRows(row.Children)
+					</ul>
+				</details>
+			} else {
+				<div class="flex items-center gap-2 rounded px-2 py-1 hover:bg-base-200">
+					<span class="font-mono text-sm">{ row.Key }</span>
+					<span class="font-mono text-xs text-base-content/70">{ row.Value }</span>
+					@ownerBadge(row.Owner, row.Filename)
+				</div>
+			}
+		</li>
+	}
+}
+
+// fileBadges lists where a folded container's leaves came from. Only the files
+// with the most leaves show, so a container fed by many modules stays readable.
+templ fileBadges(files []fileCount) {
+	if len(files) > 0 {
+		<span class="flex flex-wrap items-center gap-1 text-xs text-base-content/50" title={ fileCountTitle(files) }>
+			for i, file := range head(files, 3) {
+				if i > 0 {
+					<span>·</span>
+				}
+				<span class="font-mono">{ file.File }</span>
+			}
+			if len(files) > 3 {
+				<span>+{ fmt.Sprint(len(files) - 3) }</span>
+			}
+		</span>
+	}
+}
+
+// fileCountTitle is the full list behind the badges, one file per line.
+func fileCountTitle(files []fileCount) string {
+	lines := make([]string, 0, len(files))
+	for _, file := range files {
+		lines = append(lines, fmt.Sprintf("%s (%d leaves)", file.File, file.Leaves))
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// head returns the first n entries of files.
+func head(files []fileCount, n int) []fileCount {
+	if len(files) <= n {
+		return files
+	}
+
+	return files[:n]
+}
+
+// ownerBadge marks a leaf with where it came from: a module when a module owns
+// the key, or the layer holding the file that set it. Every config file is
+// called modot.cue, so the badge never shows that basename.
+templ ownerBadge(owner, filename string) {
+	if owner != "" && filename != "" {
+		<span class="badge badge-xs badge-secondary" title={ fileTitle(owner, filename) }>{ owner + "/" + filename }</span>
+	} else if owner != "" {
+		<span class="badge badge-xs badge-secondary" title={ fileTitle(owner, filename) }>{ owner }</span>
+	} else if filename != "" && filename != originComputed {
+		<span class="badge badge-xs badge-ghost" title={ "default from " + filename }>{ filename }</span>
+	} else {
+		<span class="badge badge-xs badge-outline" title="no file recorded: CUE derived this value from references">computed</span>
+	}
+}
+
+// fileTitle is the full tooltip for a leaf badge.
+func fileTitle(owner, filename string) string {
+	if filename == "" {
+		return "set by module " + owner
+	}
+
+	return "set by module " + owner + " (" + filename + ")"
+}
+
+templ Merged(v View) {
+	@Shell("Merged tree", pageMerged, v.Theme, v) {
+		@PageHeader("Merged tree", "The unified Configuration. Every leaf names where it came from: the module or layer file whose assertion won it, the schema or prelude that supplied a default, or computed when CUE derived the value from references.")
+			@PageBody() {
+				if v.LoadErr != nil {
+					@errorAlert(v.LoadErr)
+				} else if v.shown().MergedErr != nil {
+					@errorAlert(v.shown().MergedErr)
+				} else {
+					<div class="flex flex-wrap items-center gap-2">
+						<a class="btn btn-xs btn-ghost" href={ scopeRoute(v.Scope, pageMerged) }>root</a>
+						if v.Path != "" {
+							<span class="font-mono text-xs text-base-content/60">{ v.Path }</span>
+						}
+					</div>
+					<div class="rounded-box border border-base-300 bg-base-100 p-3">
+						<ul class="space-y-0.5">
+							@treeRows(buildTree(v.shown(), v.Path))
+						</ul>
+					</div>
+				}
+			}
+	}
+}

@@ -22,6 +22,9 @@ type mountExpand struct {
 	dest       string
 	spec       configcue.Mount
 	targetBase string
+	// source is the file profile key the place entry lives under
+	// (file.<profile>.<dest>), used to name the entry in warnings and info.
+	source string
 }
 
 // expandMount walks each source, runs place steps, and returns files rooted at targetBase.
@@ -72,7 +75,7 @@ func (job mountExpand) one(ctx context.Context, src string) ([]File, error) {
 		} else if job.dest != "" && job.dest != "." {
 			rel = job.dest + "/" + entry.Rel
 		}
-		out = append(out, mountedFile(rel, entry, job.targetBase))
+		out = append(out, mountedFile(rel, entry, job.targetBase, job.source))
 	}
 	return out, nil
 }
@@ -112,17 +115,23 @@ func mountEntries(src string, info os.FileInfo) ([]placestep.Entry, error) {
 	return entries, nil
 }
 
-func mountedFile(rel string, entry placestep.Entry, targetBase string) File {
+// mountedFile is one file a place entry contributes. source names the entry's
+// key, so the file says which mount placed it instead of only where it landed.
+func mountedFile(rel string, entry placestep.Entry, targetBase, source string) File {
 	kind := TypeStatic
 	if entry.Symlink {
 		kind = TypeSymlink
+	}
+	info := "mount:" + rel
+	if source != "" {
+		info = "place:" + source
 	}
 	return &StaticFile{
 		BasicFile: BasicFile{
 			RelPathStr:    rel,
 			TargetBaseDir: targetBase,
 			FileMode:      entry.Mode,
-			Info:          "mount:" + rel,
+			Info:          info,
 			FileType:      kind,
 		},
 		AbsPath: entry.Abs,
