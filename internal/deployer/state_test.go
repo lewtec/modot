@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	lewpath "github.com/lewtec/lewkit/x/path"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
 	"github.com/stretchr/testify/require"
 )
 
@@ -124,6 +125,26 @@ func TestRelToRootAndAbsFromRoot(t *testing.T) {
 	require.Equal(t, "/home/user/.config/foo", AbsFromRoot(".config/foo", root))
 	// Outside root stays absolute.
 	require.Equal(t, "/other/x", RelToRoot("/other/x", root))
+}
+
+// A literal "$" in a managed filename must survive state round-tripping.
+// os.ExpandEnv would treat "$inspect" as an unset variable and drop it,
+// turning ".../$inspect.md" into ".../.md" and making every plan re-create the
+// file and delete a phantom empty-named sibling.
+func TestAbsFromRootKeepsLiteralDollar(t *testing.T) {
+	root := "/home/user"
+	in := ".agents/skills/svelte/$inspect.md"
+	want := "/home/user/.agents/skills/svelte/$inspect.md"
+	require.Equal(t, want, AbsFromRoot(in, root))
+
+	t.Setenv("inspect", "EXPANDED")
+	require.Equal(t, want, AbsFromRoot(in, root), "env var must not be substituted in a state key")
+}
+
+func TestExpandTildeInLeavesDollarAlone(t *testing.T) {
+	require.Equal(t, "/data/home/.config/a/$inspect.md", envdriver.ExpandTildeIn("~/.config/a/$inspect.md", "/data/home"))
+	require.Equal(t, "rel/$inspect.md", envdriver.ExpandTildeIn("rel/$inspect.md", "/data/home"))
+	require.Equal(t, "/abs/$inspect.md", envdriver.ExpandTildeIn("/abs/$inspect.md", ""))
 }
 
 func TestPrettyPathUsesRelToRoot(t *testing.T) {
