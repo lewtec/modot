@@ -152,7 +152,7 @@ func loadView(ctx context.Context, cwd string, scope configdash.Scope) view.View
 func emptyFiles(scope configdash.Scope) configdash.FilesReport {
 	return configdash.FilesReport{
 		Mode: scope.DiscoverOptions("").RuntimeMode(), TargetBase: "", Profiles: nil,
-		Groups: nil, Files: nil, Warnings: nil, Err: nil,
+		Files: nil, Warnings: nil, Err: nil,
 	}
 }
 

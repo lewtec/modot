@@ -26,8 +26,10 @@ sets where discovery starts.
 - `/merged?path=KEY` — the merged tree. Each leaf carries a badge naming the
   module, or the file, that supplied it.
 - `/merged.json` — the merged `Configuration` as JSON.
-- `/files` — the files `modot <scope> apply` would place, with the module,
-  place entry, or config-tree path behind each one.
+- `/files` — the files `modot <scope> apply` would place, as a tree: each
+  directory is named once and lists what is under it, with the module, place
+  entry, or config-tree path behind each file.
+- `/file?path=PATH&root=ROOT` — one file's content, syntax highlighted.
 
 ## Materialized files
 
@@ -44,8 +46,31 @@ file, which a preview does not read.
 `file.<profile>.<dest>` place entries keep their key as the file's source, so
 the page can name the entry a tree of mounted files came from.
 
+The tree folds a directory chain that has only one child, so a deep module path
+shows the part that differs instead of a column of one-child directories. The
+filter matches on what a row shows, and reaching a match inside a collapsed
+directory opens the way to it.
+
 The page is separate because building the tree renders every template and can
 fetch module sources; the other pages read only the merge.
+
+### Contents
+
+`/file` shows what one file contains: the bytes apply would write, so a
+template shows its rendered output, not its source. `LoadFiles` reads every
+body while it builds the tree, because the tree is rebuilt per request and the
+`File` handles of one build are not reachable from the next. `MaterialFile`
+carries the result; `/file` picks its file out of the tree the same way the
+list does, so a path the scope does not place is explained rather than 500.
+
+Highlighting is Chroma over a class palette in `view/highlight.go`: one
+stylesheet per theme instead of an inline style per token. A binary file is
+detected from its head and says so; a file past `maxContentBytes` shows its
+beginning and says it was cut. Neither is rendered as text.
+
+The list is a tree of about 1,400 rows for a typical home config, so the icons
+come from one `<symbol>` sprite per page and the row styling lives in
+`view/sprite.go` rather than in a class attribute per cell.
 
 ## How a key gets its source
 

@@ -1,0 +1,104 @@
+package view
+
+import (
+	"fmt"
+	"net/url"
+	"strings"
+
+	"github.com/lewtec/lewkit/x/http/asset/lucide"
+	"github.com/lewtec/modot/internal/configdash"
+)
+
+// FileContent renders one file the scope's apply would place, syntax
+// highlighted. It is a page of its own because a body does not belong in a
+// list: the tree is for finding a file, this is for reading it.
+templ FileContent(v View) {
+	@Shell(v.File.Name, pageFiles, v.Theme, v) {
+		if v.FileErr != nil {
+			@PageHeader("File", "The file could not be shown.")
+			@PageBody() {
+				@errorAlert(v.FileErr)
+				<a class="btn btn-sm btn-ghost w-fit" href={ scopeRoute(v.Scope, pageFiles) }>@icon(lucide.NameArrowLeft, "size-4") Back to the tree</a>
+			}
+		} else {
+			@fileHeader(v.Scope, v.File)
+			@fileBody(v.File)
+		}
+	}
+}
+
+// fileHeader names the file, where it lands, and what produced it, so the
+// content is read in context rather than as a bare blob.
+templ fileHeader(scope configdash.Scope, file configdash.MaterialFile) {
+	<div class="space-y-3">
+		<div class="flex flex-wrap items-center gap-1 text-sm text-base-content/60">
+			<a class="link link-hover" href={ scopeRoute(scope, pageFiles) } data-back-to-tree>Materialized files</a>
+			for _, segment := range pathSegments(file) {
+				<span>/</span>
+				<span class="font-mono">{ segment }</span>
+			}
+		</div>
+		<header class="flex flex-wrap items-end justify-between gap-3">
+			<div class="min-w-0 space-y-1">
+				<h1 class="truncate font-mono text-2xl font-semibold tracking-tight">{ file.Name }</h1>
+				<p class="truncate font-mono text-sm text-base-content/60" title={ file.Target }>{ file.Target }</p>
+			</div>
+			<div class="flex flex-wrap items-center gap-1">
+				<span class="badge badge-sm badge-ghost" title="Source kind">{ file.Kind }</span>
+				<span class="badge badge-sm badge-ghost font-mono" title="Permission bits">{ file.Mode }</span>
+				<span class="badge badge-sm badge-ghost" title="Bytes apply writes">{ configdash.HumanSize(file.Content.Size) }</span>
+				if file.Source != "" {
+					<span class="badge badge-sm badge-ghost font-mono" title={ "Produced by " + file.Source }>{ displaySource(file.Source) }</span>
+				}
+			</div>
+		</header>
+		<p class="text-sm text-base-content/60">The bytes apply would write: templates are shown already rendered, so this is the file as it lands, not the template that made it.</p>
+	</div>
+}
+
+// fileBody is the content itself. A file too large to read, or one that is not
+// text, says so instead of padding the page with something unreadable.
+templ fileBody(file configdash.MaterialFile) {
+	<div class="rounded-box overflow-hidden border border-base-300 bg-base-100">
+		<div class="flex flex-wrap items-center gap-2 border-b border-base-300 px-4 py-2 text-xs text-base-content/60">
+			@highlightStyle()
+			if file.Text() {
+				<span>{ fmt.Sprint(file.Content.Lines) } lines</span>
+				<span>·</span>
+				<span>{ configdash.HumanSize(file.Content.Size) }</span>
+				if file.Content.Truncated {
+					<span class="text-warning">· { file.ContentNote() }</span>
+				}
+			} else {
+				<span>{ file.ContentNote() }</span>
+			}
+		</div>
+		if file.Text() {
+			<div class="max-h-[80vh] overflow-auto p-4 text-[13px] leading-relaxed">
+				@highlight(file.Content.Text, file.Path)
+			</div>
+		} else {
+			<p class="px-4 py-12 text-center text-sm text-base-content/50">{ file.ContentNote() }</p>
+		}
+	</div>
+}
+
+// pathSegments splits a file's path into the segments the breadcrumb shows.
+func pathSegments(file configdash.MaterialFile) []string {
+	if file.Path == "" {
+		return []string{file.Name}
+	}
+
+	return strings.Split(file.Path, "/")
+}
+
+// fileRoute is the content page of one file in a scope. The path and the root
+// travel in the query rather than the URL path, because a file path has
+// slashes and the router would read them as page segments.
+func fileRoute(scope configdash.Scope, file configdash.MaterialFile) string {
+	query := url.Values{}
+	query.Set("path", file.Path)
+	query.Set("root", file.Root)
+
+	return scopeRoute(scope, pageFile) + "?" + query.Encode()
+}

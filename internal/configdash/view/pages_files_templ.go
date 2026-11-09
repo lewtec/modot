@@ -109,7 +109,7 @@ func Files(v View) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = fileTable(v.Files.Files).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = fileTree(v.Scope, v.Files.FileTree()).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -222,9 +222,9 @@ func filesSummary(files configdash.FilesReport) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var9 string
-		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(len(files.Groups)))
+		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(files.DirCount()))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 54, Col: 79}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 54, Col: 78}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -355,9 +355,10 @@ func filesSummary(files configdash.FilesReport) templ.Component {
 	})
 }
 
-// fileTable is every file, the path relative to the apply root. The rows carry
-// data attributes so the box above can filter them without a round trip.
-func fileTable(files []configdash.MaterialFile) templ.Component {
+// fileTree is the tree as a reader navigates it: a directory name once, then
+// what is under it. The nodes carry data attributes so the filter can hide a
+// branch without a round trip.
+func fileTree(scope configdash.Scope, nodes []configdash.FileNode) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -378,130 +379,38 @@ func fileTable(files []configdash.MaterialFile) templ.Component {
 			templ_7745c5c3_Var17 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<div class=\"rounded-box border border-base-300 bg-base-100\"><div class=\"flex flex-wrap items-center gap-2 border-b border-base-300 px-4 py-2\"><span class=\"text-sm font-semibold\">Files</span> <span class=\"badge badge-xs badge-ghost\">")
+		templ_7745c5c3_Err = iconSprite(treeIcons()).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = treeStyle().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<div class=\"rounded-box border border-base-300 bg-base-100\" data-file-tree><div class=\"flex flex-wrap items-center gap-2 border-b border-base-300 px-4 py-2\"><span class=\"text-sm font-semibold\">Files</span> <span class=\"badge badge-xs badge-ghost\" data-file-count>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var18 string
-		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(len(files)))
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(nodeFileCount(nodes)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 89, Col: 68}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 92, Col: 94}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</span> <input type=\"search\" class=\"input input-sm ml-auto w-full max-w-xs font-mono\" placeholder=\"Filter by path, source, or kind\" aria-label=\"Filter files\" data-file-filter=\"files\"></div><div class=\"max-h-[70vh] overflow-auto\"><table class=\"table table-xs table-pin-rows\" id=\"files\"><thead><tr><th>Path</th><th>Kind</th><th>Mode</th><th>Source</th></tr></thead> <tbody>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</span> <input type=\"search\" class=\"input input-sm ml-auto w-full max-w-xs font-mono\" placeholder=\"Filter by path, source, or kind\" aria-label=\"Filter files\" data-file-filter=\"files\"> <button type=\"button\" class=\"btn btn-xs btn-ghost\" data-tree-collapse-all>Collapse all</button></div><div class=\"max-h-[70vh] overflow-auto px-2 py-2\"><ul class=\"menu menu-xs w-full gap-0.5 p-0\" role=\"tree\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for _, file := range files {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<tr class=\"hover:bg-base-200\" data-file-row=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var19 string
-			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(file.Path + " " + file.Source + " " + file.Kind)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 104, Col: 99}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\"><td class=\"font-mono\"><span class=\"truncate\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var20 string
-			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(displayedPath(file))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 105, Col: 73}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</span></td><td>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var21 = []any{kindClass(file.Kind)}
-			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var21...)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<span class=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var22 string
-			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var21).String())
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 1, Col: 0}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var23 string
-			templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(file.Kind)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 106, Col: 59}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</span></td><td class=\"font-mono text-base-content/60\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var24 string
-			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(file.Mode)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 107, Col: 61}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</td><td class=\"max-w-md font-mono text-xs text-base-content/60\"><span class=\"truncate\" title=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var25 string
-			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue(file.Source)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 108, Col: 109}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var26 string
-			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(displaySource(file.Source))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 108, Col: 140}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</span></td></tr>")
+		for _, node := range nodes {
+			templ_7745c5c3_Err = treeNode(scope, node).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "</tbody></table></div></div><script>\n\t\t// Filtering runs on the rows already in the page: the tree is fixed\n\t\t// for the request, so a round trip would only re-render the same rows.\n\t\t(function () {\n\t\t\tvar box = document.querySelector(\"[data-file-filter]\");\n\t\t\tif (!box) {\n\t\t\t\treturn;\n\t\t\t}\n\t\t\tvar rows = Array.prototype.slice.call(\n\t\t\t\tdocument.querySelectorAll(\"tr[data-file-row]\")\n\t\t\t);\n\t\t\tbox.addEventListener(\"input\", function () {\n\t\t\t\tvar needle = box.value.trim().toLowerCase();\n\t\t\t\trows.forEach(function (row) {\n\t\t\t\t\tvar haystack = (row.getAttribute(\"data-file-row\") || \"\").toLowerCase();\n\t\t\t\t\trow.style.display = needle === \"\" || haystack.indexOf(needle) >= 0 ? \"\" : \"none\";\n\t\t\t\t});\n\t\t\t});\n\t\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</ul><p class=\"hidden px-4 py-8 text-center text-sm text-base-content/50\" data-tree-empty>No file matches the filter.</p></div></div><script>\n\t\t// A directory node toggles what is under it. A file is a link to its\n\t\t// content page, so the list stays a list and never carries a body.\n\t\t(function () {\n\t\t\tvar tree = document.querySelector(\"[data-file-tree]\");\n\t\t\tif (!tree) {\n\t\t\t\treturn;\n\t\t\t}\n\t\t\tfunction children(li) {\n\t\t\t\treturn li.querySelector(\":scope > ul\");\n\t\t\t}\n\t\t\ttree.addEventListener(\"click\", function (event) {\n\t\t\t\tvar toggle = event.target.closest(\"[data-toggle]\");\n\t\t\t\tif (!toggle) {\n\t\t\t\t\treturn;\n\t\t\t\t}\n\t\t\t\tvar li = toggle.closest(\"li\");\n\t\t\t\tif (!li) {\n\t\t\t\t\treturn;\n\t\t\t\t}\n\t\t\t\tvar open = toggle.getAttribute(\"aria-expanded\") !== \"true\";\n\t\t\t\ttoggle.setAttribute(\"aria-expanded\", open ? \"true\" : \"false\");\n\t\t\t\tvar sub = children(li);\n\t\t\t\tif (sub) {\n\t\t\t\t\tsub.classList.toggle(\"hidden\", !open);\n\t\t\t\t}\n\t\t\t});\n\t\t\tdocument.querySelectorAll(\"[data-tree-collapse-all]\").forEach(function (button) {\n\t\t\t\tbutton.addEventListener(\"click\", function () {\n\t\t\t\t\ttree.querySelectorAll(\"[data-toggle]\").forEach(function (toggle) {\n\t\t\t\t\t\tif (toggle.getAttribute(\"aria-expanded\") === \"true\") {\n\t\t\t\t\t\t\ttoggle.click();\n\t\t\t\t\t\t}\n\t\t\t\t\t});\n\t\t\t\t});\n\t\t\t});\n\t\t\t// Filtering walks the tree: a node stays when its own text or one\n\t\t\t// of its descendants matches, so a match deep inside a collapsed\n\t\t\t// directory still surfaces it. A clear box restores what the tree\n\t\t\t// opened with.\n\t\t\tvar box = tree.querySelector(\"[data-file-filter]\");\n\t\t\tvar empty = tree.querySelector(\"[data-tree-empty]\");\n\t\t\tvar roots = Array.prototype.slice.call(tree.querySelectorAll(\"ul[role=tree] > li\"));\n\t\t\t// A row matches on what it shows: the name and the metadata\n\t\t\t// beside it. Reading the text avoids a second copy of every row\n\t\t\t// in an attribute, which on a tree of a thousand files is the\n\t\t\t// page's weight.\n\t\t\tfunction owns(li) {\n\t\t\t\tvar own = \"\";\n\t\t\t\tli.childNodes.forEach(function (node) {\n\t\t\t\t\tif (node.nodeType === 1 && node.tagName.toLowerCase() === \"ul\") {\n\t\t\t\t\t\treturn;\n\t\t\t\t\t}\n\t\t\t\t\town += node.textContent || \"\";\n\t\t\t\t});\n\t\t\t\treturn own.toLowerCase();\n\t\t\t}\n\t\t\tfunction matches(li, needle) {\n\t\t\t\tvar own = owns(li).indexOf(needle) >= 0;\n\t\t\t\tvar hit = own;\n\t\t\t\tchildren(li)?.querySelectorAll(\":scope > li\").forEach(function (child) {\n\t\t\t\t\tif (matches(child, needle)) {\n\t\t\t\t\t\thit = true;\n\t\t\t\t\t}\n\t\t\t\t});\n\t\t\t\tli.style.display = hit ? \"\" : \"none\";\n\t\t\t\tif (hit && !own) {\n\t\t\t\t\tvar toggle = li.querySelector(\":scope > [data-toggle]\");\n\t\t\t\t\tvar sub = children(li);\n\t\t\t\t\tif (toggle && sub) {\n\t\t\t\t\t\ttoggle.setAttribute(\"aria-expanded\", \"true\");\n\t\t\t\t\t\tsub.classList.remove(\"hidden\");\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t\treturn hit;\n\t\t\t}\n\t\t\tif (box) {\n\t\t\t\tbox.addEventListener(\"input\", function () {\n\t\t\t\t\tvar needle = box.value.trim().toLowerCase();\n\t\t\t\t\tvar shown = 0;\n\t\t\t\t\troots.forEach(function (li) {\n\t\t\t\t\t\tvar hit = needle === \"\" || matches(li, needle);\n\t\t\t\t\t\tli.style.display = hit ? \"\" : \"none\";\n\t\t\t\t\t\tif (hit) {\n\t\t\t\t\t\t\tshown++;\n\t\t\t\t\t\t}\n\t\t\t\t\t});\n\t\t\t\t\tempty.classList.toggle(\"hidden\", shown > 0);\n\t\t\t\t});\n\t\t\t}\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -509,15 +418,270 @@ func fileTable(files []configdash.MaterialFile) templ.Component {
 	})
 }
 
-// displayedPath is the file under its apply root, which is what reads as a
-// path: "~" for home, "/" for system (the system root's own files), and the
-// workspace for codebase.
-func displayedPath(file configdash.MaterialFile) string {
-	if file.Dir != "" {
-		return file.Path
+// treeNode is one entry: a file linking to its content, or a directory with
+// what is under it. The name is the only path segment shown,
+// because the parents already named themselves.
+func treeNode(scope configdash.Scope, node configdash.FileNode) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var19 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var19 == nil {
+			templ_7745c5c3_Var19 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		if node.IsDir() {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<li><button type=\"button\" class=\"group w-full\" data-toggle aria-expanded=\"true\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = spriteIcon(lucide.NameChevronRight, "tree-chevron").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = spriteIcon(lucide.NameFolder, "tree-folder").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<span class=\"tree-name\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var20 string
+			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(node.Name)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 208, Col: 39}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</span> <span class=\"tree-count\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var21 string
+			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(node.Files))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 209, Col: 53}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</span></button><ul role=\"group\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			for _, child := range node.Children {
+				templ_7745c5c3_Err = treeNode(scope, child).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</ul></li>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = fileNode(scope, node.File).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		return nil
+	})
+}
+
+// fileNode is one file: its name, how it lands, and a link to its content.
+// The tree is for finding a file; the content page is for reading it, so a
+// click opens a page rather than expanding a body in the list.
+func fileNode(scope configdash.Scope, file *configdash.MaterialFile) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var22 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var22 == nil {
+			templ_7745c5c3_Var22 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<li><a class=\"group w-full\" href=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var23 templ.SafeURL
+		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinURLErrs(fileRoute(scope, *file))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 227, Col: 56}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\" data-file-link>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = spriteIcon(lucide.NameChevronRight, "tree-leaf-gap").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = spriteIcon(fileKindIcon(file.Kind), "tree-leaf-icon").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<span class=\"tree-name\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var24 string
+		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(file.Name)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 230, Col: 38}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "</span> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if file.Kind != "static" {
+			var templ_7745c5c3_Var25 = []any{kindClass(file.Kind)}
+			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var25...)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<span class=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var26 string
+			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var25).String())
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 1, Col: 0}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var26)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var27 string
+			templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(file.Kind)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 232, Col: 52}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</span> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<span class=\"tree-meta\"><span>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var28 string
+		templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(file.Mode)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 235, Col: 21}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</span> <span>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var29 string
+		templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(fileSize(file))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 236, Col: 26}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "</span> <span class=\"tree-meta-source\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var30 string
+		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(displaySource(file.Source))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/configdash/view/pages_files.templ`, Line: 237, Col: 63}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "</span></span></a></li>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// fileKindIcon picks the pictogram for a source kind: a template looks
+// different from a copy, which is how a reader tells them apart at a glance.
+func fileKindIcon(kind string) lucide.Name {
+	switch kind {
+	case "template", "multifile", "dotd":
+		return lucide.NameFileCode
+	case "symlink":
+		return lucide.NameFileSymlink
 	}
 
-	return file.Name
+	return lucide.NameFile
+}
+
+// nodeFileCount is how many files the whole tree holds, for the header count.
+func nodeFileCount(nodes []configdash.FileNode) int {
+	total := 0
+	for _, node := range nodes {
+		total += node.Files
+	}
+
+	return total
+}
+
+// fileSize is the number of bytes apply writes, so a reader can tell a config
+// file from a data blob before opening it.
+func fileSize(file *configdash.MaterialFile) string {
+	return configdash.HumanSize(file.Content.Size)
 }
 
 // kindClass tints a file kind: a copy is plain, a rendered template is the

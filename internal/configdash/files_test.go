@@ -56,12 +56,6 @@ func TestLoadFilesFixture(t *testing.T) {
 	require.Equal(t, "static", byPath["from-module.txt"].Kind)
 	require.Equal(t, "0644", byPath["from-module.txt"].Mode)
 
-	// Groups are how the page lays the tree out; every file is in one.
-	grouped := 0
-	for _, group := range files.Groups {
-		grouped += len(group.Files)
-	}
-	require.Equal(t, files.MaterialCount(), grouped)
 }
 
 // A scope with no config still answers: the page shows the error next to what
@@ -85,7 +79,6 @@ func TestLoadFilesEmptyTree(t *testing.T) {
 	files, err := configdash.LoadFiles(t.Context(), configdash.ScopeCodebase, root)
 	require.NoError(t, err, "an empty tree is valid")
 	require.Zero(t, files.MaterialCount())
-	require.Empty(t, files.Groups)
 }
 
 // Home places files under the user's directory, because that is what home
@@ -103,24 +96,4 @@ func TestLoadFilesHomeTarget(t *testing.T) {
 	files, err := configdash.LoadFiles(t.Context(), configdash.ScopeHome, root)
 	require.NoError(t, err, "LoadFiles")
 	require.Equal(t, "~", files.TargetBase)
-}
-
-// Groups collect the files under their directory, deepest first, so a module
-// tree is not scattered across the page.
-func TestLoadFilesGroups(t *testing.T) {
-	t.Parallel()
-	root := filesFixtureRoot(t)
-
-	files, err := configdash.LoadFiles(t.Context(), configdash.ScopeCodebase, root)
-	require.NoError(t, err, "LoadFiles")
-
-	seen := map[string]bool{}
-	for _, group := range files.Groups {
-		require.False(t, seen[group.Dir], "group %q appears twice", group.Dir)
-		seen[group.Dir] = true
-		for _, file := range group.Files {
-			require.Equal(t, group.Dir, filepath.Join(group.Root, file.Dir))
-			require.False(t, strings.HasPrefix(file.Target, "/"), "target %q is not absolute", file.Target)
-		}
-	}
 }

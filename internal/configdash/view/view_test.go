@@ -91,12 +91,16 @@ func TestFilesPageServesTree(t *testing.T) {
 			files.Mode = "home"
 			files.TargetBase = "~"
 			files.Profiles = []string{"home"}
-			files.Files = []configdash.MaterialFile{
-				{
-					Target: "~/.bashrc", Path: ".bashrc", Dir: "", Name: ".bashrc", Root: "~",
-					Kind: "static", Source: "theme", Mode: "0644",
-				},
-			}
+			var shell configdash.MaterialFile
+			shell.Target = "~/.bashrc"
+			shell.Path = ".bashrc"
+			shell.Name = ".bashrc"
+			shell.Root = "~"
+			shell.Kind = "static"
+			shell.Source = "theme"
+			shell.Mode = "0644"
+			shell.Content = configdash.FileContent{Text: "# hi\n", Size: 5, Lines: 1}
+			files.Files = []configdash.MaterialFile{shell}
 
 			return files
 		},
@@ -111,6 +115,10 @@ func TestFilesPageServesTree(t *testing.T) {
 	require.Contains(t, body, ".bashrc")
 	require.Contains(t, body, "theme")
 	require.Contains(t, body, `href="/home/files"`)
+	// The tree links a file to its own page instead of printing its body in
+	// the list.
+	require.Contains(t, body, `data-file-link`)
+	require.Contains(t, body, `href="/home/file?`)
 }
 
 // errFakeModule stands in for a pipeline failure, which carries a module's
@@ -139,4 +147,58 @@ func TestFilesPageShowsTreeError(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Contains(t, recorder.Body.String(), "plugin module-scanner failed")
+}
+
+// filesView is a loader whose tree holds one shell file, so the content page
+// has something real to render.
+func filesView() view.Loader {
+	return view.Loader{
+		Reload: func(*http.Request, configdash.Scope) view.View {
+			return homeView()
+		},
+		Files: func(*http.Request, configdash.Scope) configdash.FilesReport {
+			var files configdash.FilesReport
+			var shell configdash.MaterialFile
+			shell.Target = "~/.bashrc"
+			shell.Path = ".bashrc"
+			shell.Name = ".bashrc"
+			shell.Root = "~"
+			shell.Kind = "template"
+			shell.Source = "theme"
+			shell.Mode = "0644"
+			shell.Content = configdash.FileContent{Text: "# hello\nexport PATH=\"$PATH\"\n", Size: 26, Lines: 2}
+			files.Files = []configdash.MaterialFile{shell}
+
+			return files
+		},
+	}
+}
+
+// The content page shows one file, highlighted, with the context that says
+// where it lands.
+func TestFileContentPage(t *testing.T) {
+	t.Parallel()
+	recorder := httptest.NewRecorder()
+	view.Handler(configdash.ScopeHome, filesView()).ServeHTTP(recorder,
+		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/home/file?path=.bashrc&root=~", nil))
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	body := recorder.Body.String()
+	require.Contains(t, body, ".bashrc")
+	require.Contains(t, body, "~/.bashrc")
+	// Chroma writes classed spans, and the palette ships with the block.
+	require.Contains(t, body, `class="chroma"`)
+	require.Contains(t, body, ".chroma .k")
+	require.Contains(t, body, "export")
+}
+
+// A file the scope does not place is explained, not a 500.
+func TestFileContentPageMissing(t *testing.T) {
+	t.Parallel()
+	recorder := httptest.NewRecorder()
+	view.Handler(configdash.ScopeHome, filesView()).ServeHTTP(recorder,
+		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/home/file?path=nope&root=~", nil))
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Body.String(), "no such file in this scope")
 }

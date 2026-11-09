@@ -63,6 +63,7 @@ const (
 	pageModules  page = "modules"
 	pageMerged   page = "merged"
 	pageFiles    page = "files"
+	pageFile     page = "file"
 )
 
 // pageNames lists every page, in sidebar order.
@@ -107,7 +108,8 @@ func Landing(requested, other configdash.Scope, homeErr, codebaseErr error) (con
 type Loader struct {
 	// Reload returns the view for scope.
 	Reload func(r *http.Request, scope configdash.Scope) View
-	// Files returns the files scope's apply would place.
+	// Files returns the files scope's apply would place. The content page
+	// uses it too, and picks the requested file out of the same tree.
 	Files func(r *http.Request, scope configdash.Scope) configdash.FilesReport
 }
 
@@ -134,6 +136,7 @@ func Handler(requested configdash.Scope, loader Loader) http.Handler {
 			writeJSON(writer, req, board.Report.Merged)
 		}
 		mux.HandleFunc("GET "+scopeRoute(scope, pageMerged)+".json", mergedJSON)
+		mux.HandleFunc("GET "+scopeRoute(scope, pageFile), fileHandler(scope, loader))
 	}
 
 	return asset.Mount(mux)
@@ -177,6 +180,27 @@ func load(r *http.Request, scope configdash.Scope, reload func(*http.Request, co
 	v.Scope = scope
 
 	return v
+}
+
+// fileHandler serves one file's content. The page is reached from the tree, so
+// it rebuilds the tree and picks the file the query names: the tree is the
+// only thing that knows what apply would write for a path.
+func fileHandler(scope configdash.Scope, loader Loader) http.HandlerFunc {
+	return func(writer http.ResponseWriter, req *http.Request) {
+		board := load(req, scope, loader.Reload)
+		report := configdash.FilesReport{}
+		if loader.Files != nil {
+			report = loader.Files(req, scope)
+		}
+		file, err := configdash.FindFile(report, req.URL.Query().Get("path"), req.URL.Query().Get("root"))
+		board.Files = report
+		if err != nil {
+			board.FileErr = err
+		} else {
+			board.File = file
+		}
+		render(writer, req, FileContent(board))
+	}
 }
 
 func render(w http.ResponseWriter, r *http.Request, component templ.Component) {

@@ -28,6 +28,12 @@ type View struct {
 	// Files is what the materialized-files page shows. It is zero except on
 	// that page: building it renders every template.
 	Files configdash.FilesReport
+	// File is the file the content page shows. It is zero except on that
+	// page, which is reached by clicking a file in the tree.
+	File configdash.MaterialFile
+	// FileErr is set when the content page could not find or read the file
+	// it was asked for.
+	FileErr error
 }
 
 // shown is the report to render: the loaded one, else the partial one.

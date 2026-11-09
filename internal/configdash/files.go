@@ -3,6 +3,7 @@ package configdash
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -28,8 +29,6 @@ type FilesReport struct {
 	// Profiles are the visible file profiles, in filespine order, e.g.
 	// home and codebase for home mode.
 	Profiles []string
-	// Groups are the files by apply directory, deepest directory first.
-	Groups []FileGroup
 	// Files is every entry in tree order. It is nil when Err is set.
 	Files []MaterialFile
 	// Warnings are the pipeline's non-fatal messages, e.g. a skipped source.
@@ -37,16 +36,6 @@ type FilesReport struct {
 	// Err is set when the tree could not be built. The page still renders
 	// what is known about the scope.
 	Err error
-}
-
-// FileGroup is the files that land in one directory under an apply root.
-type FileGroup struct {
-	// Dir is the directory, as a reader names it: ~/.config for home,
-	// /etc for system, the workspace path for codebase.
-	Dir string
-	// Root is the apply root the directory hangs from, e.g. ~ or /.
-	Root  string
-	Files []MaterialFile
 }
 
 // MaterialFile is one file apply places.
@@ -69,7 +58,19 @@ type MaterialFile struct {
 	Source string
 	// Mode is the permission bits, e.g. 0644.
 	Mode string
+	// Content is what apply would write for this file: the rendered bytes,
+	// or why there are none (binary, too large).
+	Content FileContent
 }
+
+// Text reports whether the file's content is available to show.
+func (f MaterialFile) Text() bool { return f.Content.HasText() }
+
+// ContentNote describes a body the page cannot show, empty when it can.
+func (f MaterialFile) ContentNote() string { return contentErr(f.Content) }
+
+// ContentLang is the language the body is written in, for the code block.
+func (f MaterialFile) ContentLang() string { return contentLang(f.Path) }
 
 // LoadFiles builds the file tree scope's apply would place from cwd. It renders
 // templates and resolves modules the same way apply does, but writes nothing.
@@ -82,7 +83,6 @@ func LoadFiles(ctx context.Context, scope Scope, cwd string) (FilesReport, error
 		Mode:       opts.RuntimeMode(),
 		TargetBase: "",
 		Profiles:   filespine.Visible(opts.RuntimeMode()),
-		Groups:     nil,
 		Files:      nil,
 		Warnings:   nil,
 		Err:        nil,
@@ -136,7 +136,6 @@ func LoadFiles(ctx context.Context, scope Scope, cwd string) (FilesReport, error
 	}
 	rep.Warnings = built.Warnings
 	rep.Files = materialFiles(built.Files())
-	rep.Groups = groupFiles(rep.Files)
 
 	return rep, nil
 }
@@ -212,21 +211,29 @@ func homeDir() string {
 	return home
 }
 
-// materialFiles turns the composed tree into rows.
+// materialFiles turns the composed tree into rows. The body is read here
+// because the tree is rebuilt on every request: a second request cannot reach
+// this one's File handles, so a body not read now is not available at all.
 func materialFiles(files []source.File) []MaterialFile {
 	out := make([]MaterialFile, 0, len(files))
 	for _, file := range files {
 		rel := filepath.ToSlash(file.RelPath())
 		target := filepath.Join(file.TargetBase(), file.RelPath())
+		content, contentErr := readContent(file)
+		if contentErr != nil {
+			slog.Warn("dashboard: read file", "path", rel, "error", contentErr)
+			content = FileContent{Text: "", Size: 0, Lines: 0, Truncated: false, Err: contentErr}
+		}
 		out = append(out, MaterialFile{
-			Target: displayPath(target),
-			Path:   rel,
-			Dir:    directoryOf(rel),
-			Name:   filepath.Base(rel),
-			Root:   displayPath(file.TargetBase()),
-			Kind:   file.Type().String(),
-			Source: sourceLabel(file),
-			Mode:   fmt.Sprintf("%04o", file.Mode().Perm()),
+			Target:  displayPath(target),
+			Path:    rel,
+			Dir:     directoryOf(rel),
+			Name:    filepath.Base(rel),
+			Root:    displayPath(file.TargetBase()),
+			Kind:    file.Type().String(),
+			Source:  sourceLabel(file),
+			Mode:    fmt.Sprintf("%04o", file.Mode().Perm()),
+			Content: content,
 		})
 	}
 
@@ -257,53 +264,6 @@ func directoryOf(path string) string {
 	}
 
 	return path[:index]
-}
-
-// groupFiles puts files under their directory. Groups come deepest first, so
-// a nested tree of one module reads as that module's tree before the files
-// scattered at the root.
-func groupFiles(files []MaterialFile) []FileGroup {
-	byDir := map[string]*FileGroup{}
-	order := make([]string, 0, len(files))
-	for _, file := range files {
-		group, ok := byDir[file.Dir]
-		if !ok {
-			group = &FileGroup{Dir: displayDir(file.Root, file.Dir), Root: file.Root, Files: nil}
-			byDir[file.Dir] = group
-			order = append(order, file.Dir)
-		}
-		group.Files = append(group.Files, file)
-	}
-	groups := make([]FileGroup, 0, len(order))
-	for _, dir := range order {
-		groups = append(groups, *byDir[dir])
-	}
-	sort.SliceStable(groups, func(i, j int) bool {
-		di, dj := groups[i].Dir, groups[j].Dir
-		if len(di) != len(dj) {
-			return len(di) > len(dj)
-		}
-
-		return di < dj
-	})
-
-	return groups
-}
-
-// displayDir names a directory the way a reader recognizes it: ~ joined with
-// the relative path, so the home tree does not print the whole path per group.
-func displayDir(root, dir string) string {
-	if dir == "" {
-		return root
-	}
-	if root == "~" {
-		return "~/" + dir
-	}
-	if root == "/" {
-		return "/" + dir
-	}
-
-	return root + "/" + dir
 }
 
 // displayPath abbreviates the home directory to ~, so targets read the way the
