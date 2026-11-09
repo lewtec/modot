@@ -427,6 +427,9 @@ func buildResolvedModuleLayers(configValue cue.Value, paths []string, discovered
 	}
 	modulesBaseDir := resolveModulesBaseDir(paths, discovered)
 	if modulesBaseDir == "" {
+		if len(modules) > 0 {
+			slog.Warn("module options skipped", "reason", "no config layer to derive modules/ from", "modules", len(modules))
+		}
 		return nil, nil, nil
 	}
 
@@ -440,9 +443,15 @@ func buildResolvedModuleLayers(configValue cue.Value, paths []string, discovered
 			return nil, nil, fmt.Errorf("resolve module %q for config resolution: %w", modName, err)
 		}
 		if !ok {
+			slog.Debug("module options skipped", "module", modName, "reason", "input does not resolve to a local path")
 			continue
 		}
 		if !modulecue.Exists(modulePath) {
+			// A declared, local module with no file on disk still has its
+			// schema referenced by other modules' options (and by file
+			// values). Skipping it silently turns those into
+			// "undefined field" at marshal time; say what is actually wrong.
+			slog.Warn("module options skipped", "module", modName, "path", modulePath, "reason", "module file not found")
 			continue
 		}
 		schemaText, err := modulecue.OptionsSyntaxWithRoot(modulePath, raw)
