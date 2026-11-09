@@ -48,10 +48,6 @@ func (r *Record) Run(ctx context.Context) error {
 		event.Cwd = cwd
 	}
 
-	if database, ok := db.FromContext(ctx); ok {
-		return database.RecordHistory(ctx, event)
-	}
-
 	database, err := db.OpenFromCtx(ctx)
 	if err != nil {
 		return err

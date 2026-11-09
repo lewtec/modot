@@ -12,7 +12,6 @@ import (
 	"reflect"
 
 	cueerrors "cuelang.org/go/cue/errors"
-	pkg_daemon "github.com/lewtec/modot/cmd/modot/daemon"
 	"github.com/lewtec/modot/internal/afterwait"
 	"github.com/lewtec/modot/internal/cmdctx"
 	"github.com/lewtec/modot/internal/configcue"
@@ -70,8 +69,6 @@ func main() {
 		slog.Debug("failed to load config", "error", err)
 	}
 
-	pkg_daemon.ExecuteCLI = executeCLI
-
 	if err := run(rootCtx, level); err != nil {
 		if details := cueerrors.Details(err, nil); details != "" {
 			slog.Error("error", "err", err, "details", "\n"+details)
@@ -118,14 +115,6 @@ func run(ctx context.Context, level *slog.LevelVar) error {
 		slog.Error("task group error", "err", runErr)
 	}
 	return runErr
-}
-
-func executeCLI(ctx context.Context, args []string) error {
-	app, err := cmd.Parse[cmd.App[cli]](args...)
-	if err != nil {
-		return err
-	}
-	return app.Run(ctx)
 }
 
 func setup(ctx context.Context, app cmd.App[cli]) (context.Context, *taskgroup.Session, error) {

@@ -19,19 +19,6 @@ import (
 	"github.com/lewtec/modot/internal/types"
 )
 
-type dbKey struct{}
-
-// WithDB returns a context that carries the given database connection.
-func WithDB(ctx context.Context, database *DB) context.Context {
-	return context.WithValue(ctx, dbKey{}, database)
-}
-
-// FromContext retrieves the database connection from the context.
-func FromContext(ctx context.Context) (*DB, bool) {
-	database, ok := ctx.Value(dbKey{}).(*DB)
-	return database, ok
-}
-
 type DB struct {
 	conn    *xdb.Conn[Queries]
 	Queries Queries
@@ -71,11 +58,7 @@ func OpenURL(ctx context.Context, url string) (*DB, error) {
 }
 
 // OpenFromCtx opens the --database Conn that x/cmd bound (ctx:"").
-// If a *DB is already on ctx (daemon), that store is returned instead.
 func OpenFromCtx(ctx context.Context) (*DB, error) {
-	if database, ok := FromContext(ctx); ok {
-		return database, nil
-	}
 	return openConn(ctx, cmd.Get[*xdb.Conn[Queries]](ctx, "database"))
 }
 

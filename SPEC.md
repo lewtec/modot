@@ -103,7 +103,7 @@ The CUE `package` clause has no meaning. `package picuinha` and a missing clause
 | `history`, `utils history` | History | Read rows | Store open failure |
 | `is` | none | Print a detection record | Detection failure |
 | `self-install`, `self-update` | Tool | Place this binary in the tool store | Install failure |
-| `svc`, `daemon` | none | Run the background process | Start failure |
+| `svc` | none | Run the background process | Start failure |
 | `experiments`, `utils` other than `history` | none | Run the existing utility | Command failure |
 | `home backup`, `home sync` | Profile | Run the existing backup action | Load failure |
 | `codebase lint`, `codebase format` | Profile | Run TEC-09 on the codebase root | Load failure |

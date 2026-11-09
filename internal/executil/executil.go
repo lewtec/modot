@@ -2,14 +2,10 @@ package executil
 
 import (
 	"context"
-	"crypto/sha256"
-	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
-	"time"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
 )
@@ -64,7 +60,7 @@ func Env(ctx context.Context) []string {
 // present. Otherwise stderr stays on the session live-row writer (or finished
 // lines on os.Stderr with no session), and stdout shares that writer so child
 // chatter does not inherit the process tty and walk the progress overlay.
-// Context writers still win (daemon packet streams).
+// Context writers still win.
 func InheritContextWriters(ctx context.Context, cmd *exec.Cmd) {
 	if w := Stderr(ctx); w != nil {
 		cmd.Stderr = w
@@ -104,46 +100,4 @@ func GetEnv(ctx context.Context, key string) string {
 		}
 	}
 	return os.Getenv(key)
-}
-
-// GetBinaryHash returns the SHA256 hash of the current executable
-func GetBinaryHash(ctx context.Context) (string, error) {
-	exePath, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("executable path: %w", err)
-	}
-
-	file, err := os.Open(exePath)
-	if err != nil {
-		return "", fmt.Errorf("open executable: %w", err)
-	}
-	defer func() {
-		if closer := file; closer != nil {
-			if err := closer.Close(); err != nil {
-				slog.Error("unexpected error", "op", "close", "error", err)
-			}
-		}
-	}()
-
-	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return "", fmt.Errorf("hash executable: %w", err)
-	}
-
-	return fmt.Sprintf("%x", hash.Sum(nil)), nil
-}
-
-// GetBinaryMtime returns the modification time of the current executable.
-func GetBinaryMtime() (time.Time, error) {
-	exePath, err := os.Executable()
-	if err != nil {
-		return time.Time{}, fmt.Errorf("executable path: %w", err)
-	}
-
-	info, err := os.Stat(exePath)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("stat executable: %w", err)
-	}
-
-	return info.ModTime(), nil
 }
