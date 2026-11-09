@@ -4,11 +4,9 @@ go 1.27.0
 
 require (
 	cuelang.org/go v0.17.1
-	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/git-pkgs/gitignore v1.2.0
 	github.com/gokrazy/rsync v0.3.3
 	github.com/google/go-cmp v0.7.0
-	github.com/gorilla/websocket v1.5.3
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
 	github.com/lewtec/lewkit v0.0.0-20261019201250-ac76983f7d83
 	github.com/owenrumney/go-sarif/v2 v2.3.3

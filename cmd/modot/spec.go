@@ -6,7 +6,6 @@ import (
 	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lewtec/lewkit/x/taskgroup"
 	pkg_codebase "github.com/lewtec/modot/cmd/modot/codebase"
-	pkg_daemon "github.com/lewtec/modot/cmd/modot/daemon"
 	pkg_driver "github.com/lewtec/modot/cmd/modot/driver"
 	pkg_experiments "github.com/lewtec/modot/cmd/modot/experiments"
 	pkg_home "github.com/lewtec/modot/cmd/modot/home"
@@ -44,7 +43,6 @@ type cli struct {
 	System      *pkg_system.Command
 	Tool        *pkg_tool.Command
 	Utils       *pkg_utils.Command
-	Daemon      *pkg_daemon.Command
 }
 
 func (cli) Description() string {

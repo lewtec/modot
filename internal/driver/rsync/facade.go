@@ -14,7 +14,7 @@ import (
 
 // BindStreams returns the writer for rsync stdout+stderr. Chatter stays on
 // the session live row; extraOut is an optional transcript (backup notification).
-// Context stderr (daemon packet streams) wins over a new live writer.
+// Context stderr wins over a new live writer.
 // Call the returned func after cmd.Run (safe to defer).
 func BindStreams(ctx context.Context, extraOut io.Writer) (io.Writer, func()) {
 	base := executil.Stderr(ctx)
