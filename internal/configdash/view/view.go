@@ -10,6 +10,10 @@ import (
 	"github.com/lewtec/modot/internal/configdash"
 )
 
+// templCSSPath is where templ's CSS middleware serves the css class set. The
+// dashboard mounts it on the same mux, so a page links it like any asset.
+const templCSSPath = "/styles/templ.css"
+
 // ThemeSystem means "follow the operating system preference", which only the
 // browser can see. It is the default; the page starts light and the client
 // script swaps the palette before paint.
@@ -139,7 +143,12 @@ func Handler(requested configdash.Scope, loader Loader) http.Handler {
 		mux.HandleFunc("GET "+scopeRoute(scope, pageFile), fileHandler(scope, loader))
 	}
 
-	return asset.Mount(mux)
+	// The syntax palette and the file tree are templ css classes: the
+	// middleware serves them once at /styles/templ.css and tells the pages they
+	// are already in the stylesheet, so no response carries them inline.
+	classes := append(ChromaClasses(), TreeClasses()...)
+
+	return templ.NewCSSMiddleware(asset.Mount(mux), classes...)
 }
 
 // pageHandler serves one page of one scope and fills the selection it needs

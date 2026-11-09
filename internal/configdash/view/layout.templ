@@ -11,6 +11,9 @@ import (
 templ BrowserAssets() {
 	@daisyui.Load()
 	@tailwindcss.Load()
+	// The syntax palette is a templ css class set, served once here rather
+	// than inlined into every page that shows a file.
+	<link rel="stylesheet" href={ templCSSPath }/>
 }
 
 templ Document(title, theme string) {

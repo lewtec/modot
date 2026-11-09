@@ -186,9 +186,11 @@ func TestFileContentPage(t *testing.T) {
 	body := recorder.Body.String()
 	require.Contains(t, body, ".bashrc")
 	require.Contains(t, body, "~/.bashrc")
-	// Chroma writes classed spans, and the palette ships with the block.
+	// Chroma writes classed spans; the palette is a stylesheet the page
+	// links, not CSS repeated in the response.
 	require.Contains(t, body, `class="chroma"`)
-	require.Contains(t, body, ".chroma .k")
+	require.Contains(t, body, `href="/styles/templ.css"`)
+	require.NotContains(t, body, ".chroma .k", "the palette is served once, not inlined")
 	require.Contains(t, body, "export")
 }
 
@@ -201,4 +203,45 @@ func TestFileContentPageMissing(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Contains(t, recorder.Body.String(), "no such file in this scope")
+}
+
+// The syntax palette is served as one stylesheet, so a page pays for a link
+// rather than for a copy of the rules.
+func TestSyntaxStylesheet(t *testing.T) {
+	t.Parallel()
+	recorder := httptest.NewRecorder()
+	view.Handler(configdash.ScopeHome, filesView()).ServeHTTP(recorder,
+		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/styles/templ.css", nil))
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Header().Get("Content-Type"), "text/css")
+	css := recorder.Body.String()
+	// Every token group names its Chroma class. A group says so when it has
+	// no dark twin, which is why the dark check only covers those that want
+	// the light color in both themes.
+	for _, token := range view.ChromaTokens() {
+		require.Contains(t, css, ".chroma ."+token, "token %q has no rule", token)
+	}
+	// The theme that matters most is the one a reader cannot see without it.
+	require.Contains(t, css, `[data-theme="dark"] .chroma .k`)
+	require.Contains(t, css, ".chroma{display:block;")
+	// The tree's rules are served here too, not inlined into the page that
+	// repeats them on every row.
+	require.Contains(t, css, "[data-file-tree] .menu li > a")
+	require.Contains(t, css, "[data-file-tree] .tree-count")
+}
+
+// A page that shows the tree links the stylesheet and carries no CSS of its
+// own, so a thousand rows do not pay for a thousand copies of the rules.
+func TestFileTreeCarriesNoInlineCSS(t *testing.T) {
+	t.Parallel()
+	recorder := httptest.NewRecorder()
+	view.Handler(configdash.ScopeHome, filesView()).ServeHTTP(recorder,
+		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/home/files/", nil))
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	body := recorder.Body.String()
+	require.Contains(t, body, "data-file-tree")
+	require.Contains(t, body, `href="/styles/templ.css"`)
+	require.NotContains(t, body, "<style", "the tree styles are served once")
 }

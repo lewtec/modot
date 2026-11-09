@@ -64,16 +64,21 @@ carries the result; `/file` picks its file out of the tree the same way the
 list does, so a path the scope does not place is explained rather than 500.
 
 Highlighting is Chroma over a class palette: one stylesheet per theme instead
-of an inline style per token. The rules live in a `<style>` element in
-`view/pages_file.templ`, because templ reads a `<style>` element's contents as
-raw text and does not interpolate an expression there. A binary file is
-detected from its head and says so; a file past `maxContentBytes` shows its
-beginning and says it was cut. Neither is rendered as text.
+of an inline style per token. A binary file is detected from its head and says
+so; a file past `maxContentBytes` shows its beginning and says it was cut.
+Neither is rendered as text.
 
 The list is a tree of about 1,400 rows for a typical home config, so the icons
-come from one `<symbol>` sprite per page and the row styling lives in a
-`<style>` element in `view/pages_files.templ` rather than in a class attribute
-per cell.
+come from one `<symbol>` sprite per page and the row styling is served once
+rather than repeated in a class attribute per cell.
+
+Both stylesheets are `templ.CSSClass` values built by `ChromaClasses` in
+`view/chroma_css.go` and `TreeClasses` in `view/tree_css.go`, handed to
+`templ.NewCSSMiddleware` so they are served once at `/styles/templ.css`. A page
+links that file; no response carries the rules. The rules are built with
+`templ.ComponentCSSClass` rather than `css` blocks because they select
+selectors templ cannot invent: Chroma's own token classes (`.k`, `.s2`) and
+the tree's `[data-file-tree]` descendants.
 
 ## How a key gets its source
 
