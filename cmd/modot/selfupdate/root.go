@@ -5,11 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -137,9 +139,14 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string, s *taskgroup
 
 	buildCmd, err := execdriver.Run(ctx, toolchain.path, toolchain.buildArgs(tmpPath)...)
 	if err != nil {
-		return err
+		return fmt.Errorf("build: %w", err)
 	}
+	buildCmd.Env = toolchain.env(buildCmd.Env)
 	buildCmd.Dir = srcPath
+	if s == nil {
+		// No bar to draw the packages on: stream them instead of going silent.
+		prog.echo = os.Stderr
+	}
 	buildCmd.Stdout = prog
 	buildCmd.Stderr = prog
 
@@ -348,7 +355,9 @@ func findBinary(dir string) (string, error) {
 
 // buildProgress counts `go build -v` package lines onto a Status bar.
 type buildProgress struct {
-	s     *taskgroup.Status
+	s *taskgroup.Status
+	// echo receives the lines when there is no status bar.
+	echo  io.Writer
 	mu    sync.Mutex
 	buf   []byte
 	n     int64
@@ -387,6 +396,10 @@ func (w *buildProgress) Write(p []byte) (int, error) {
 		if w.s != nil && total > 0 {
 			w.s.Progress(w.n, total)
 			w.s.Update(line)
+		} else if w.echo != nil {
+			if _, err := fmt.Fprintln(w.echo, line); err != nil {
+				return 0, err
+			}
 		}
 	}
 	return len(p), nil
@@ -425,6 +438,35 @@ type goToolchain struct {
 	path    string
 	// prefix is prepended to the `go` arguments.
 	prefix []string
+	// pin pins GOTOOLCHAIN in the child: local when PATH's go is at least the
+	// go.mod directive, auto when the directive must be fetched.
+	pin string
+}
+
+// args copies prefix before a subcommand.
+func (t goToolchain) args() []string {
+	args := make([]string, len(t.prefix), len(t.prefix)+7)
+	copy(args, t.prefix)
+	// After mise's `--` an environment entry would be run as a program, so the
+	// prefix that names mise must name `go` again.
+	if len(t.prefix) > 0 {
+		args = append(args, "go")
+	}
+	return args
+}
+
+// env returns the toolchain environment with GOTOOLCHAIN pinned, when it is.
+//
+// The exec driver leaves Cmd.Env nil, which os/exec reads as "inherit"; go
+// needs the inherited environment (HOME, GOPATH, PATH) whatever the pin.
+func (t goToolchain) env(base []string) []string {
+	if base == nil {
+		base = os.Environ()
+	}
+	if t.pin == "" {
+		return base
+	}
+	return append(slices.Clone(base), "GOTOOLCHAIN="+t.pin)
 }
 
 func (t goToolchain) buildArgs(outPath string) []string {
@@ -439,10 +481,24 @@ func (t goToolchain) versionArgs() []string {
 	return append(t.args(), "env", "GOVERSION")
 }
 
-func (t goToolchain) args() []string {
-	args := make([]string, len(t.prefix), len(t.prefix)+2)
-	copy(args, t.prefix)
-	return args
+// GOTOOLCHAIN modes a source build pins. Empty means the go's own default.
+const (
+	pinLocal = "local"
+	pinAuto  = "auto"
+)
+
+// goInPath returns PATH's `go` and its GOVERSION.
+func goInPath(ctx context.Context) (goToolchain, bool) {
+	path, err := execdriver.Which(ctx, "go")
+	if err != nil {
+		return goToolchain{}, false
+	}
+	tc := goToolchain{name: "go", path: path}
+	if got, err := goVersionArg(ctx, tc); err == nil && got != "" {
+		tc.version = got
+		return tc, true
+	}
+	return goToolchain{}, false
 }
 
 // resolveGoToolchain picks a Go toolchain for a source build.
@@ -451,19 +507,22 @@ func (t goToolchain) args() []string {
 // itself must never run as a mise option: a prefix missing its `--` turns the
 // `-o` flag into a mise flag ("a value is required for '--env <ENV>'").
 //
-// PATH's `go` comes first when it is at least as new as this module's Go
-// directive: the project's mise.toml lists only micro tools (gopls, goreleaser,
-// svu), so asking mise for go@<directive> would download a second toolchain.
-// The version this binary was built with is the last resort.
+// PATH's `go` wins when it is at least this module's Go directive; a slightly
+// older one still wins because GOTOOLCHAIN can fetch the directive. mise is
+// only a fallback: the project's mise.toml lists micro tools (gopls, goreleaser,
+// svu), not the Go toolchain.
 func resolveGoToolchain(ctx context.Context) (goToolchain, error) {
 	need := getGoVersion()
 	if need == "" {
 		return goToolchain{}, ErrGoVersionUnknown
 	}
-	if path, err := execdriver.Which(ctx, "go"); err == nil {
-		tc := goToolchain{name: "go", version: need, path: path}
-		if got, err := goVersionArg(ctx, tc); err == nil && goVersionAtLeast(got, need) {
-			tc.version = got
+	if tc, ok := goInPath(ctx); ok {
+		if goVersionAtLeast(tc.version, need) {
+			tc.pin = pinLocal
+			return tc, nil
+		}
+		if goSupportsToolchainSwitch(tc) {
+			tc.pin = pinAuto
 			return tc, nil
 		}
 	}
@@ -472,39 +531,19 @@ func resolveGoToolchain(ctx context.Context) (goToolchain, error) {
 	if err != nil {
 		return goToolchain{}, fmt.Errorf("ensure mise: %w", err)
 	}
-	for _, version := range goCandidates(need) {
-		tc := goToolchain{
-			name:    "mise",
-			version: version,
-			path:    misePath,
-			prefix:  []string{"exec", "go@" + version, "--"},
-		}
-		if got, err := goVersionArg(ctx, tc); err == nil && goVersionAtLeast(got, need) {
-			tc.version = got
-			return tc, nil
-		}
+	tc := goToolchain{
+		name:    "mise",
+		version: need,
+		path:    misePath,
+		prefix:  []string{"exec", "go@" + need, "--"},
+		pin:     pinLocal,
 	}
-	return goToolchain{}, fmt.Errorf("%w: %s", ErrGoVersionUnknown, need)
-}
-
-// goCandidates lists the Go versions to try through mise, most specific
-// first. The module's directive decides; the version this binary was built
-// with covers an install whose PATH and mise match neither.
-func goCandidates(need string) []string {
-	candidates := []string{need}
-	if built := getGoVersion(); built != "" && !contains(candidates, built) {
-		candidates = append(candidates, built)
+	got, err := goVersionArg(ctx, tc)
+	if err != nil {
+		return goToolchain{}, fmt.Errorf("mise Go %s: %w", need, err)
 	}
-	return candidates
-}
-
-func contains(list []string, value string) bool {
-	for _, item := range list {
-		if item == value {
-			return true
-		}
-	}
-	return false
+	tc.version = got
+	return tc, nil
 }
 
 // goVersionArg runs `go env GOVERSION` for a toolchain.
@@ -516,6 +555,7 @@ func goVersionArg(ctx context.Context, tc goToolchain) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	cmd.Env = tc.env(cmd.Env)
 	cmd.Stdin = nil
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -527,7 +567,26 @@ func goVersionArg(ctx context.Context, tc goToolchain) (string, error) {
 		}
 		return "", fmt.Errorf("%s %s: %w: %s", filepath.Base(tc.path), strings.Join(tc.versionArgs(), " "), err, detail)
 	}
-	return strings.TrimSpace(stdout.String()), nil
+	// Only the value counts: a GOTOOLCHAIN switch may still print a notice.
+	return lastLine(stdout.String()), nil
+}
+
+// lastLine returns the last non-empty line, trimmed.
+func lastLine(out string) string {
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if line := strings.TrimSpace(lines[i]); line != "" {
+			return line
+		}
+	}
+	return ""
+}
+
+// goSupportsToolchainSwitch reports whether a go can fetch the go.mod directive
+// through GOTOOLCHAIN (go 1.21 and newer).
+func goSupportsToolchainSwitch(tc goToolchain) bool {
+	major, minor := parseGoVersion(strings.TrimPrefix(tc.version, "go"))
+	return major > 1 || (major == 1 && minor >= 21)
 }
 
 // goVersionAtLeast reports whether a `go env GOVERSION` value (such as go1.27.0)
@@ -565,6 +624,7 @@ func countBuildPackages(ctx context.Context, toolchain goToolchain, srcPath stri
 	if err != nil {
 		return 0, err
 	}
+	cmd.Env = toolchain.env(cmd.Env)
 	var stdout, stderr bytes.Buffer
 	cmd.Dir = srcPath
 	cmd.Stdout = &stdout

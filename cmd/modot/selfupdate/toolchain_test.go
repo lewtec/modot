@@ -2,6 +2,7 @@ package selfupdate
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -35,8 +36,9 @@ func TestGoToolchainKeepsGoFlagsAfterDoubleDash(t *testing.T) {
 	t.Parallel()
 	viaMise := goToolchain{path: "/bin/mise", prefix: []string{"exec", "go@1.27.0", "--"}}
 	require.Equal(t,
-		[]string{"exec", "go@1.27.0", "--", "build", "-v", "-o", "/tmp/out", "./cmd/modot"},
+		[]string{"exec", "go@1.27.0", "--", "go", "build", "-v", "-o", "/tmp/out", "./cmd/modot"},
 		viaMise.buildArgs("/tmp/out"))
+	require.Equal(t, []string{"exec", "go@1.27.0", "--", "go", "env", "GOVERSION"}, viaMise.versionArgs())
 
 	viaPath := goToolchain{path: "/usr/local/go/bin/go"}
 	require.Equal(t,
@@ -48,35 +50,75 @@ func TestGoToolchainKeepsGoFlagsAfterDoubleDash(t *testing.T) {
 	require.Equal(t, []string{"env", "GOVERSION"}, viaPath.versionArgs())
 }
 
+// A mise prefix needs `go` named after its `--`: only a program may start
+// there, and a bare `NAME=value` would be run as a program.
+func TestGoToolchainPinnedStillRunsGo(t *testing.T) {
+	t.Parallel()
+	viaMise := goToolchain{
+		path:   "/bin/mise",
+		prefix: []string{"exec", "go@1.27.0", "--"},
+		pin:    pinLocal,
+	}
+	require.Equal(t,
+		[]string{"exec", "go@1.27.0", "--", "go", "build", "-v", "-o", "/tmp/out", "./cmd/modot"},
+		viaMise.buildArgs("/tmp/out"))
+	require.Equal(t,
+		[]string{"exec", "go@1.27.0", "--", "go", "env", "GOVERSION"},
+		viaMise.versionArgs())
+
+	viaPath := goToolchain{path: "/usr/local/go/bin/go", pin: pinAuto}
+	require.Equal(t, []string{"env", "GOVERSION"}, viaPath.versionArgs())
+	require.Equal(t, []string{"build", "-v", "-o", "/tmp/out", "./cmd/modot"}, viaPath.buildArgs("/tmp/out"))
+}
+
+// GOTOOLCHAIN travels in the environment, so it reaches mise and go alike.
+func TestGoToolchainPinsGotoolchainInEnv(t *testing.T) {
+	t.Parallel()
+	tc := goToolchain{path: "/usr/local/go/bin/go", version: "go1.25.1", pin: pinAuto}
+	base := []string{"PATH=/usr/bin"}
+	require.Equal(t, []string{"PATH=/usr/bin", "GOTOOLCHAIN=auto"}, tc.env(base))
+	require.Equal(t, []string{"PATH=/usr/bin"}, base, "env must not modify the base slice")
+	require.NotContains(t, tc.buildArgs("/tmp/out"), "GOTOOLCHAIN=auto")
+
+	unpinned := goToolchain{path: "/usr/local/go/bin/go"}
+	require.Equal(t, base, unpinned.env(base))
+}
+
+// The exec driver leaves Cmd.Env nil (inherit). Pinning must not turn that into
+// a go that has no HOME, PATH or GOPATH.
+func TestGoToolchainEnvKeepsInheritedEnvironment(t *testing.T) {
+	t.Setenv("MODOT_TEST_INHERITED", "1")
+	for _, tc := range []goToolchain{{path: "/usr/local/go/bin/go"}, {path: "/usr/local/go/bin/go", pin: pinLocal}} {
+		env := tc.env(nil)
+		require.Contains(t, env, "MODOT_TEST_INHERITED=1")
+		require.Contains(t, strings.Join(env, "\n"), "\nHOME=", "the inherited environment is gone")
+	}
+}
+
 // A mise prefix that lost its `--` would hand `-o` to mise as its own flag.
 func TestGoToolchainMisePrefixAlwaysEndsWithDoubleDash(t *testing.T) {
 	t.Parallel()
-	for _, version := range goCandidates("1.27.0") {
-		tc := goToolchain{path: "/bin/mise", prefix: []string{"exec", "go@" + version, "--"}}
+	for _, pin := range []string{"", pinLocal} {
+		tc := goToolchain{path: "/bin/mise", prefix: []string{"exec", "go@1.27.0", "--"}, pin: pin}
 		args := tc.buildArgs("/tmp/out")
 		dash := slices.Index(args, "--")
 		require.Greater(t, dash, 0, "prefix %v has no --", args)
-		require.Equal(t, "build", args[dash+1])
+		require.Contains(t, args[dash+1:], "build")
 		require.NotContains(t, slices.Clone(args[:dash]), "-o")
 	}
 }
 
-func TestGoCandidatesStartWithDirectiveAndAvoidDuplicates(t *testing.T) {
+func TestGoSupportsToolchainSwitch(t *testing.T) {
 	t.Parallel()
-	candidates := goCandidates("1.27.0")
-	require.NotEmpty(t, candidates)
-	require.Equal(t, "1.27.0", candidates[0])
-	seen := map[string]bool{}
-	for _, candidate := range candidates {
-		require.False(t, seen[candidate], "duplicate candidate %s", candidate)
-		seen[candidate] = true
-	}
+	require.True(t, goSupportsToolchainSwitch(goToolchain{version: "go1.21.0"}))
+	require.True(t, goSupportsToolchainSwitch(goToolchain{version: "go1.25.1"}))
+	require.False(t, goSupportsToolchainSwitch(goToolchain{version: "go1.20.14"}))
 }
 
 // args must not alias prefix: the builders append to it.
 func TestGoToolchainArgsDoNotAliasPrefix(t *testing.T) {
 	t.Parallel()
-	tc := goToolchain{path: "/bin/mise", prefix: []string{"exec", "go@1.27.0", "--"}}
+	tc := goToolchain{path: "/bin/mise", prefix: []string{"exec", "go@1.27.0", "--"}, pin: pinLocal}
 	_ = tc.buildArgs("/tmp/out")
 	_ = tc.listArgs()
 	require.Equal(t, []string{"exec", "go@1.27.0", "--"}, tc.prefix)
