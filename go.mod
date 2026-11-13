@@ -10,7 +10,7 @@ require (
 	github.com/gokrazy/rsync v0.3.3
 	github.com/google/go-cmp v0.7.0
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
-	github.com/lewtec/lewkit v0.0.0-20261019201250-ac76983f7d83
+	github.com/lewtec/lewkit v0.0.0-20261112210805-8584a45c4b12
 	github.com/owenrumney/go-sarif/v2 v2.3.3
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/pelletier/go-toml/v2 v2.3.1
@@ -160,7 +160,7 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jezek/xgb v1.3.1 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
-	github.com/klauspost/compress v1.18.5 // indirect
+	github.com/klauspost/compress v1.20.3 // indirect
 	github.com/ktr0731/go-ansisgr v0.1.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3 // indirect
@@ -239,7 +239,7 @@ require (
 	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
