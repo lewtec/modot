@@ -6,7 +6,7 @@ require (
 	cuelang.org/go v0.17.1
 	github.com/a-h/templ v0.3.1020
 	github.com/alecthomas/chroma/v2 v2.27.0
-	github.com/git-pkgs/gitignore v1.2.0
+	github.com/git-pkgs/gitignore v1.3.0
 	github.com/gokrazy/rsync v0.3.3
 	github.com/google/go-cmp v0.7.0
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
