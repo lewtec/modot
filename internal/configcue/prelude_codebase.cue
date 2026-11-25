@@ -38,6 +38,10 @@ lazy_tools: {
 		ref:  *"registry:patlint" | string
 		bins: *["patlint"] | [...string]
 	}
+	deslop_please_rs: {
+		ref:  *"github:deterministic-machines/deslop-please" | string
+		bins: *["deslop-please"] | [...string]
+	}
 }
 
 lint: {
@@ -116,6 +120,18 @@ lint: {
 			}
 			needs: {patlint: true}
 			cmd: ["patlint", "run", "--format", "sarif", "--", "."]
+			output: "sarif"
+		}
+		// Rust workspaces only (the -rs suffix leaves room for siblings).
+		// deslop-please reads the workspace through rust-analyzer; --sarif is a
+		// SARIF 2.1.0 document on stdout, and exit 1 still carries it while
+		// findings remain.
+		"deslop-please-rs": {
+			detect: {
+				"00-cargo-toml": {path: "Cargo.toml", enable: true}
+			}
+			needs: {deslop_please_rs: true}
+			cmd: ["deslop-please", "--sarif"]
 			output: "sarif"
 		}
 	}
