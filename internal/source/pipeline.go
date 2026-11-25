@@ -1,0 +1,137 @@
+package source
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/lewtec/modot/internal/configcue"
+	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/template"
+)
+
+// Plugin processes a list of files and returns a new list.
+type Plugin interface {
+	// Name returns the plugin name (for logging).
+	Name() string
+
+	// Process transforms a list of files.
+	// It can add, remove, or modify files.
+	Process(ctx context.Context, files []File) ([]File, error)
+}
+
+// Pipeline executes a sequence of plugins.
+type Pipeline struct {
+	plugins []Plugin
+}
+
+// NewPipeline creates a pipeline with the given plugins.
+func NewPipeline(plugins ...Plugin) *Pipeline {
+	return &Pipeline{plugins: plugins}
+}
+
+// AddPlugin appends a plugin to the end of the pipeline.
+func (p *Pipeline) AddPlugin(plugin Plugin) {
+	p.plugins = append(p.plugins, plugin)
+}
+
+// Run executes the full pipeline.
+func (p *Pipeline) Run(ctx context.Context, initial []File) ([]File, error) {
+	logger := logging.GetLogger(ctx)
+	current := initial
+
+	for i, plugin := range p.plugins {
+		logger.Debug("running plugin", "index", i, "name", plugin.Name(), "input_count", len(current))
+
+		result, err := plugin.Process(ctx, current)
+		if err != nil {
+			return nil, fmt.Errorf("plugin %s failed: %w", plugin.Name(), err)
+		}
+
+		logger.Debug("plugin completed", "name", plugin.Name(), "output_count", len(result))
+		current = result
+	}
+
+	logger.Info("pipeline completed", "total_plugins", len(p.plugins), "final_count", len(current))
+	return current, nil
+}
+
+// GetPlugins returns the list of configured plugins.
+func (p *Pipeline) GetPlugins() []Plugin {
+	return p.plugins
+}
+
+// StandardDotfilesOptions controls how to build a pipeline that
+// processes a typical dotfiles repo (direct config tree + modules).
+type StandardDotfilesOptions struct {
+	// ConfigTreeDir is the directory containing the direct file tree
+	// (usually "<dotfiles>/config"). Files here are placed according to
+	// their relative path (with .tmpl / .d.tmpl processing).
+	// If empty, this source is not used.
+	ConfigTreeDir string
+
+	// ConfigTreeTarget is the TargetBase for files coming from ConfigTreeDir.
+	ConfigTreeTarget string
+
+	// ModulesDir, if non-empty, will cause a ModuleScannerPlugin to be added
+	// (with priority 100).
+	ModulesDir string
+	// ModulesCfg is the config passed to the module scanner.
+	ModulesCfg *configcue.Config
+
+	// Extra providers run before the config tree and module scanners.
+	Extra []Plugin
+}
+
+// Builder returns the render input for this options set.
+func (opts StandardDotfilesOptions) Builder(cfg *configcue.Config) (Builder, error) {
+	providers, err := standardProviders(opts)
+	if err != nil {
+		return Builder{}, err
+	}
+	return Builder{
+		Config:     cfg,
+		TargetBase: opts.ConfigTreeTarget,
+		Providers:  providers,
+	}, nil
+}
+
+// NewStandardDotfilesPipeline is the plugin sequence behind Builder.Tree.
+func NewStandardDotfilesPipeline(
+	ctx context.Context,
+	cfg *configcue.Config,
+	opts StandardDotfilesOptions,
+) (*Pipeline, error) {
+	b, err := opts.Builder(cfg)
+	if err != nil {
+		return nil, err
+	}
+	p := NewPipeline(b.Providers...)
+	p.AddPlugin(NewTemplateExpanderPlugin(template.NewEngine(ctx), cfg))
+	p.AddPlugin(NewFileSpinePlugin(cfg, b.TargetBase))
+	return p, nil
+}
+
+func standardProviders(opts StandardDotfilesOptions) ([]Plugin, error) {
+	providers := append([]Plugin{}, opts.Extra...)
+
+	if opts.ConfigTreeDir != "" {
+		scanner, err := NewScannerPlugin(ScannerConfig{
+			Name:       "config-tree",
+			BaseDir:    opts.ConfigTreeDir,
+			TargetBase: opts.ConfigTreeTarget,
+			Priority:   50,
+		})
+		if err != nil {
+			return nil, err
+		}
+		providers = append(providers, scanner)
+	}
+
+	// Module scanner even if ModulesDir is not on disk: core:place and similar
+	// do not need a local modules/ checkout.
+	if opts.ModulesDir != "" && opts.ModulesCfg != nil {
+		providers = append(providers, NewModuleScannerPlugin(opts.ModulesDir, opts.ModulesCfg, 100))
+	}
+
+	return providers, nil
+}

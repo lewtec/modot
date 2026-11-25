@@ -1,0 +1,77 @@
+package modfile
+
+import (
+	"context"
+	"encoding/json"
+	"github.com/lewtec/modot/internal/logging"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/lewtec/modot/internal/atomicfile"
+)
+
+func IsLockableProvider(provider string) bool {
+	switch strings.TrimSpace(provider) {
+	case "self", "core":
+		return false
+	default:
+		return true
+	}
+}
+
+func BuildSourceLockEntries(modFile *ModFile) map[string]LockedSource {
+	out := map[string]LockedSource{}
+	if modFile == nil {
+		return out
+	}
+	for name, src := range modFile.Sources {
+		provider := strings.TrimSpace(src.Provider)
+		if provider == "" {
+			provider = strings.TrimSpace(name)
+		}
+		if !IsLockableProvider(provider) {
+			continue
+		}
+		if p, ok := getSourceProvider(provider); ok {
+			src = p.Normalize(src)
+		}
+		out[name] = LockedSource{
+			Provider: provider,
+			Path:     strings.TrimSpace(src.Path),
+			Repo:     strings.TrimSpace(src.Repo),
+			Ref:      strings.TrimSpace(src.Ref),
+			URL:      strings.TrimSpace(src.URL),
+		}
+	}
+	return out
+}
+
+func writeSumFile(ctx context.Context, path string, sum *SumFile) error {
+	if sum == nil {
+		sum = &SumFile{}
+	}
+	if err := normalizeDependencies(sum.Dependencies); err != nil {
+		return err
+	}
+
+	onDisk := sumFileDisk{
+		Dependencies: sum.Dependencies,
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+
+	f, err := atomicfile.Create(path, 0)
+	if err != nil {
+		return err
+	}
+	defer logging.RunCleanup(ctx, "atomicfile.Abort", f.Abort)
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(onDisk); err != nil {
+		return err
+	}
+	return f.Commit()
+}

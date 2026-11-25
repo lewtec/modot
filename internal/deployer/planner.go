@@ -1,0 +1,151 @@
+package deployer
+
+import (
+	"context"
+	"crypto/sha256"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+
+	"github.com/lewtec/lewkit/x/taskgroup"
+	"github.com/lewtec/modot/internal/cmdctx"
+	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/source"
+)
+
+// Planner compares current state with desired state and generates actions.
+type Planner struct {
+	// Ignore, if set, is true for targets that must not be adopted into state
+	// (typically gitignored paths). Content still converges; equal content is
+	// a noop instead of an adopt-update.
+	Ignore func(target string) bool
+}
+
+// NewPlanner creates a new Planner.
+func NewPlanner() *Planner {
+	return &Planner{}
+}
+
+func (p *Planner) ignored(target string) bool {
+	return p != nil && p.Ignore != nil && p.Ignore(target)
+}
+
+func calculateHash(r io.Reader) (string, error) {
+	h := sha256.New()
+	if _, err := io.Copy(h, r); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
+func planOne(ctx context.Context, target string, d DesiredState, current ManagedInfo, managed, ignored bool) (Action, error) {
+	info, err := os.Lstat(target)
+	exists := err == nil
+
+	if !exists {
+		return Action{Type: ActionCreate, Target: target, Desired: d}, nil
+	}
+
+	// --no-cache: force rewrite of every existing target (noops become updates).
+	if cmdctx.IsNoCache(ctx) {
+		logging.GetLogger(ctx).Debug("no-cache: forcing update", "target", target)
+		return Action{Type: ActionUpdate, Target: target, Desired: d, Current: current}, nil
+	}
+
+	// Bundle fast-path: if managed source fingerprint is identical, skip per-file hashing.
+	// This is used by generator modules (e.g. icons) that already encode a bundle hash in SourceInfo.
+	if managed && current.SourceInfo == d.File.SourceInfo() && strings.Contains(current.SourceInfo, "bundle:") {
+		return Action{Type: ActionNoop, Target: target, Desired: d, Current: current}, nil
+	}
+
+	needsUpdate := false
+
+	desiredIsSymlink := d.File.Type() == source.TypeSymlink
+	actualIsSymlink := info.Mode()&os.ModeSymlink != 0
+
+	if desiredIsSymlink != actualIsSymlink {
+		needsUpdate = true
+	} else if desiredIsSymlink {
+		desiredTarget, err := d.File.LinkTarget()
+		if err != nil {
+			return Action{}, fmt.Errorf("link target %s: %w", d.File.SourceInfo(), err)
+		}
+		actualTarget, err := os.Readlink(target)
+		if err != nil || desiredTarget != actualTarget {
+			needsUpdate = true
+		}
+	} else {
+		if info.Mode().Perm() != d.File.Mode().Perm() {
+			needsUpdate = true
+		} else {
+			reader, err := d.File.Reader()
+			if err != nil {
+				return Action{}, fmt.Errorf("reader %s: %w", d.File.SourceInfo(), err)
+			}
+			desiredHash, err := calculateHash(reader)
+			logging.Close(ctx, reader)
+			if err != nil {
+				return Action{}, err
+			}
+
+			targetFile, err := os.Open(target)
+			if err != nil {
+				needsUpdate = true
+			} else {
+				actualHash, err := calculateHash(targetFile)
+				logging.Close(ctx, targetFile)
+				if err != nil {
+					return Action{}, err
+				}
+				if desiredHash != actualHash {
+					needsUpdate = true
+				}
+			}
+		}
+	}
+
+	if needsUpdate {
+		return Action{Type: ActionUpdate, Target: target, Desired: d, Current: current}, nil
+	}
+	if ignored {
+		return Action{Type: ActionNoop, Target: target, Desired: d, Current: current}, nil
+	}
+	if !managed || current.SourceInfo != d.File.SourceInfo() {
+		return Action{Type: ActionUpdate, Target: target, Desired: d, Current: current}, nil
+	}
+	return Action{Type: ActionNoop, Target: target, Desired: d, Current: current}, nil
+}
+
+// Plan compares desired state with current state and returns necessary actions.
+func (p *Planner) Plan(ctx context.Context, desired []DesiredState, currentState *State) ([]Action, error) {
+	desiredMap := make(map[string]DesiredState, len(desired))
+	for _, d := range desired {
+		desiredMap[d.Target()] = d
+	}
+
+	actions, err := taskgroup.Map[DesiredState, Action]{
+		Name:     "plan",
+		Items:    desired,
+		PoolKind: taskgroup.CPU,
+		TaskName: func(_ int, ds DesiredState) string { return "plan:" + ds.Target() },
+		Fn: func(ctx context.Context, s *taskgroup.Status, ds DesiredState) (Action, error) {
+			target := ds.Target()
+			s.Update(target)
+			current, managed := currentState.Files[target]
+			return planOne(ctx, target, ds, current, managed, p.ignored(target))
+		},
+	}.Run(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Prune orphaned files.
+	for target, current := range currentState.Files {
+		if _, ok := desiredMap[target]; !ok {
+			actions = append(actions, Action{Type: ActionDelete, Target: target, Current: current})
+		}
+	}
+
+	return actions, nil
+}

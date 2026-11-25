@@ -1,0 +1,37 @@
+package wlcopy
+
+import (
+	"context"
+	"image"
+
+	"github.com/lewtec/modot/internal/driver"
+	"github.com/lewtec/modot/internal/driver/clipboard"
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
+)
+
+func init() {
+	driver.Register[clipboard.Driver](&Factory{})
+}
+
+type Factory struct{}
+
+func (f *Factory) ID() string   { return "clipboard_wlcopy" }
+func (f *Factory) Name() string { return "Wayland (wl-copy)" }
+
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
+	return execdriver.RequireEnvBinary(ctx, "WAYLAND_DISPLAY", "wl-copy")
+}
+
+func (f *Factory) New(ctx context.Context) (clipboard.Driver, error) {
+	return &Driver{}, nil
+}
+
+type Driver struct{}
+
+func (d *Driver) WriteImage(ctx context.Context, img image.Image) error {
+	return clipboard.WriteImageViaCmd(ctx, img, "wl-copy", "-t", "image/png")
+}
+
+func (d *Driver) WriteText(ctx context.Context, text string) error {
+	return clipboard.WriteTextViaCmd(ctx, text, "wl-copy")
+}

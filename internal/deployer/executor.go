@@ -1,0 +1,215 @@
+package deployer
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/lewtec/lewkit/x/taskgroup"
+	"github.com/lewtec/modot/internal/atomicfile"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/source"
+)
+
+// RelToRoot returns path relative to root when path is under root.
+// Otherwise returns path unchanged. Empty root is a no-op.
+func RelToRoot(path, root string) string {
+	path = strings.TrimSpace(path)
+	root = strings.TrimSpace(root)
+	if path == "" || root == "" {
+		return path
+	}
+	root = filepath.Clean(root)
+	path = filepath.Clean(path)
+	rel, err := filepath.Rel(root, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return path
+	}
+	return rel
+}
+
+// AbsFromRoot resolves a state/display path against root.
+// Absolute paths and "~/..." (via ExpandPath) are accepted for migration
+// and display formats; other relative paths are joined to root.
+func AbsFromRoot(path, root string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return path
+	}
+	expanded := envdriver.ExpandPath(path)
+	if filepath.IsAbs(expanded) {
+		return filepath.Clean(expanded)
+	}
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return filepath.Clean(expanded)
+	}
+	return filepath.Clean(filepath.Join(root, expanded))
+}
+
+// PrettyPath converts an absolute path to a path relative to $HOME.
+func PrettyPath(path string) string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return path
+	}
+	rel := RelToRoot(path, home)
+	if rel == path {
+		return path
+	}
+	if rel == "." {
+		return "~"
+	}
+	return "~/" + filepath.ToSlash(rel)
+}
+
+// Executor applies deployment actions.
+type Executor struct {
+	// Ignore, if set, is true for targets that must not appear in state
+	// after create/update (typically gitignored paths).
+	Ignore func(target string) bool
+}
+
+// NewExecutor creates a new Executor.
+func NewExecutor() *Executor {
+	return &Executor{}
+}
+
+func (e *Executor) skipState(target string) bool {
+	return e != nil && e.Ignore != nil && e.Ignore(target)
+}
+
+// statePatch is the pure state delta produced by applying one action's filesystem work.
+type statePatch struct {
+	delete bool
+	skip   bool // create/update of an ignored path: drop any existing key
+	target string
+	info   ManagedInfo
+}
+
+func applyPatch(state *State, p statePatch) {
+	if state == nil {
+		return
+	}
+	if p.delete || p.skip {
+		delete(state.Files, p.target)
+		return
+	}
+	state.Files[p.target] = p.info
+}
+
+// Execute applies a list of actions and updates state.
+// With a taskgroup in ctx, filesystem work is mapped in parallel; state patches
+// are reduced in input order afterward (no mutex on the live state map).
+func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) error {
+	logger := logging.GetLogger(ctx)
+	orderedActions := SortActions(actions)
+
+	work := make([]Action, 0, len(orderedActions))
+	for _, a := range orderedActions {
+		if a.Type != ActionNoop {
+			work = append(work, a)
+		}
+	}
+	if len(work) == 0 {
+		return nil
+	}
+
+	applyFS := func(ctx context.Context, action Action) (statePatch, error) {
+		switch action.Type {
+		case ActionDelete:
+			logger.Info("pruning orphaned file", "target", PrettyPath(action.Target))
+			if _, err := os.Lstat(action.Target); err == nil {
+				if err := os.Remove(action.Target); err != nil {
+					return statePatch{}, fmt.Errorf("remove orphaned file %s: %w", action.Target, err)
+				}
+			}
+			return statePatch{delete: true, target: action.Target}, nil
+
+		case ActionCreate, ActionUpdate:
+			if action.Type == ActionCreate {
+				logger.Info("creating", "target", PrettyPath(action.Target), "source", action.Desired.File.SourceInfo())
+			} else {
+				logger.Info("updating", "target", PrettyPath(action.Target), "source", action.Desired.File.SourceInfo())
+			}
+
+			if err := os.MkdirAll(filepath.Dir(action.Target), 0755); err != nil {
+				return statePatch{}, fmt.Errorf("create parent directory for %s: %w", action.Target, err)
+			}
+
+			info := ManagedInfo{SourceInfo: action.Desired.File.SourceInfo()}
+			skip := e.skipState(action.Target)
+			if action.Desired.File.Type() == source.TypeSymlink {
+				if _, err := os.Lstat(action.Target); err == nil {
+					if err := os.RemoveAll(action.Target); err != nil {
+						return statePatch{}, fmt.Errorf("remove existing target %s: %w", action.Target, err)
+					}
+				}
+				linkTarget, err := action.Desired.File.LinkTarget()
+				if err != nil {
+					return statePatch{}, fmt.Errorf("get link target for %s: %w", action.Desired.File.SourceInfo(), err)
+				}
+				if err := os.Symlink(linkTarget, action.Target); err != nil {
+					return statePatch{}, fmt.Errorf("create symlink %s -> %s: %w", action.Target, linkTarget, err)
+				}
+				return statePatch{target: action.Target, info: info, skip: skip}, nil
+			}
+
+			// Replace non-regular targets (dirs/symlinks) so rename can install a file.
+			// Leave a regular file in place: atomicfile.Write renames over it only after
+			// a full successful write, preserving the prior content on failure.
+			if fi, err := os.Lstat(action.Target); err == nil && !fi.Mode().IsRegular() {
+				if err := os.RemoveAll(action.Target); err != nil {
+					return statePatch{}, fmt.Errorf("remove existing target %s: %w", action.Target, err)
+				}
+			}
+
+			reader, err := action.Desired.File.Reader()
+			if err != nil {
+				return statePatch{}, fmt.Errorf("get reader for %s: %w", action.Desired.File.SourceInfo(), err)
+			}
+			writeErr := atomicfile.Write(action.Target, reader, action.Desired.File.Mode())
+			logging.Close(ctx, reader)
+			if writeErr != nil {
+				return statePatch{}, fmt.Errorf("write content to %s: %w", action.Target, writeErr)
+			}
+			return statePatch{target: action.Target, info: info, skip: skip}, nil
+		}
+		return statePatch{}, nil
+	}
+
+	taskName := func(_ int, a Action) string {
+		p := PrettyPath(a.Target)
+		switch a.Type {
+		case ActionCreate:
+			return "create:" + p
+		case ActionUpdate:
+			return "update:" + p
+		case ActionDelete:
+			return "delete:" + p
+		default:
+			return "apply:" + p
+		}
+	}
+
+	patches, err := taskgroup.Map[Action, statePatch]{
+		Name:     "apply",
+		Items:    work,
+		PoolKind: taskgroup.IO,
+		TaskName: taskName,
+		Fn: func(ctx context.Context, s *taskgroup.Status, a Action) (statePatch, error) {
+			s.Update(PrettyPath(a.Target))
+			return applyFS(ctx, a)
+		},
+	}.Run(ctx)
+	if err != nil {
+		return err
+	}
+	for _, p := range patches {
+		applyPatch(state, p)
+	}
+	return nil
+}

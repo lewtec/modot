@@ -1,0 +1,198 @@
+package init
+
+import (
+	"context"
+	"embed"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"github.com/lewtec/modot/internal/atomicfile"
+	"github.com/lewtec/modot/internal/constants"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	"github.com/lewtec/modot/internal/logging"
+	"io/fs"
+	"net"
+	"os"
+	"path/filepath"
+	"text/template"
+
+	"github.com/lewtec/lewkit/x/cmd"
+)
+
+//go:embed templates
+var templatesFS embed.FS
+
+type Command struct {
+	Force cmd.Flag `short:"f" long:"force" help:"Force overwrite existing config"`
+}
+
+func (Command) Description() string {
+	return "Initialize modot dotfiles"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return runInit(ctx, c.Force.Value())
+}
+
+func runInit(ctx context.Context, force bool) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("get home directory: %w", err)
+	}
+
+	// 1. Detect dotfiles root
+	dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
+	if err != nil || dotfilesRoot == "" {
+		// Use first candidate from constants (typically ~/.dotfiles)
+		dotfilesRoot = envdriver.ExpandPath(constants.DotfilesCandidates[0])
+		if dotfilesRoot == "" {
+			dotfilesRoot = filepath.Join(home, ".dotfiles") // Absolute fallback
+		}
+		fmt.Printf("📁 Creating dotfiles directory: %s\n", dotfilesRoot)
+		if err := os.MkdirAll(dotfilesRoot, 0755); err != nil {
+			return fmt.Errorf("create dotfiles directory: %w", err)
+		}
+	} else {
+		fmt.Printf("📁 Using dotfiles directory: %s\n", dotfilesRoot)
+	}
+
+	// 2. Generate config from template
+	configPath := filepath.Join(dotfilesRoot, "modot.cue")
+	if !force {
+		if _, err := os.Stat(configPath); err == nil {
+			return fmt.Errorf("config already exists at %s (use --force to overwrite)", configPath)
+		}
+	}
+
+	fmt.Printf("\n📝 Generating config from template...\n")
+	if err := generateConfig(ctx, configPath); err != nil {
+		return fmt.Errorf("generate config: %w", err)
+	}
+	fmt.Printf("   ✓ Config created: %s\n", configPath)
+
+	// 3. Copy modules
+	fmt.Printf("\n📦 Installing example module...\n")
+	modulesDir := filepath.Join(dotfilesRoot, "modules")
+	if err := copyEmbeddedModules(modulesDir); err != nil {
+		return fmt.Errorf("copy modules: %w", err)
+	}
+	fmt.Printf("   ✓ Modules installed: %s\n", modulesDir)
+
+	// 4. Success message
+	fmt.Printf("\n✅ Initialization complete!\n\n")
+	fmt.Printf("Next steps:\n")
+	fmt.Printf("  1. Edit config: %s\n", configPath)
+	fmt.Printf("  2. Review example module: %s\n", filepath.Join(modulesDir, "example"))
+	fmt.Printf("  3. Apply config: modot apply\n")
+
+	return nil
+}
+
+func generateConfig(ctx context.Context, configPath string) error {
+	// Read embedded template
+	tmplContent, err := templatesFS.ReadFile("templates/init/modot.cue.tmpl")
+	if err != nil {
+		return fmt.Errorf("read template: %w", err)
+	}
+
+	// Prepare template data
+	hostname, hErr := os.Hostname()
+	if hErr != nil || hostname == "" {
+		hostname = "localhost"
+	}
+
+	localIPs := getLocalIPs()
+
+	data := map[string]any{
+		"Hostname": hostname,
+		"LocalIPs": localIPs,
+	}
+
+	// Parse and execute template
+	tmpl, err := template.New("modot").Funcs(template.FuncMap{
+		"toJSON": func(v any) string {
+			b, err := json.Marshal(v)
+			if err != nil {
+				return "[]"
+			}
+			return string(b)
+		},
+	}).Parse(string(tmplContent))
+	if err != nil {
+		return fmt.Errorf("parse template: %w", err)
+	}
+
+	// Write via temp + rename so a failed Execute cannot leave a partial
+	// modot.cue (and, with --force, cannot destroy an existing good config).
+	tmpPath := configPath + ".tmp"
+	f, err := os.Create(tmpPath)
+	if err != nil {
+		return fmt.Errorf("create config temp file: %w", err)
+	}
+	if err := tmpl.Execute(f, data); err != nil {
+		logging.Close(ctx, f)
+		if rmErr := os.Remove(tmpPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+			err = errors.Join(err, rmErr)
+		}
+		return fmt.Errorf("execute template: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		if rmErr := os.Remove(tmpPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+			err = errors.Join(err, rmErr)
+		}
+		return fmt.Errorf("close config temp file: %w", err)
+	}
+	if err := os.Rename(tmpPath, configPath); err != nil {
+		if rmErr := os.Remove(tmpPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+			err = errors.Join(err, rmErr)
+		}
+		return fmt.Errorf("replace config file: %w", err)
+	}
+
+	return nil
+}
+
+func copyEmbeddedModules(modulesDir string) error {
+	// Walk the embedded templates/init/modules directory
+	return fs.WalkDir(templatesFS, "templates/init/modules", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Calculate relative path from templates/init/modules
+		relPath, err := filepath.Rel("templates/init/modules", path)
+		if err != nil {
+			return err
+		}
+
+		targetPath := filepath.Join(modulesDir, relPath)
+
+		if d.IsDir() {
+			return os.MkdirAll(targetPath, 0755)
+		}
+
+		content, err := templatesFS.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if err := atomicfile.WriteBytes(targetPath, content, 0o644); err != nil {
+			return fmt.Errorf("write module %s: %w", targetPath, err)
+		}
+		return nil
+	})
+}
+
+func getLocalIPs() []string {
+	var ips []string
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ips
+	}
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			ips = append(ips, ipnet.IP.String())
+		}
+	}
+	return ips
+}

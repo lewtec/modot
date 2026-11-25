@@ -1,0 +1,132 @@
+package configcue
+
+import (
+	"testing"
+
+	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
+	"github.com/stretchr/testify/require"
+)
+
+func TestFileSpineSchema(t *testing.T) {
+	t.Parallel()
+	schemaBytes, err := schemaFS.ReadFile("schema.cue")
+	require.NoError(t, err)
+	cueCtx := cuecontext.New()
+	schema := cueCtx.CompileBytes(schemaBytes, cue.Filename("schema.cue"))
+	require.NoError(t, schema.Err(), "schema")
+	schema, err = mountFileProfiles(schema)
+	require.NoError(t, err, "mount")
+
+	unify := func(t *testing.T, user string) error {
+		t.Helper()
+		u := cueCtx.CompileString(user, cue.Filename("user.cue"))
+		if err := u.Err(); err != nil {
+			return err
+		}
+		v := schema.Unify(u)
+		if err := v.Err(); err != nil {
+			return err
+		}
+		file := v.LookupPath(cue.ParsePath("file"))
+		if err := file.Err(); err != nil {
+			return err
+		}
+		_, err := file.MarshalJSON()
+		return err
+	}
+
+	t.Run("accepts structured types", func(t *testing.T) {
+		t.Parallel()
+		err := unify(t, `
+package modot
+file: home: {
+	"a.json": {type: "json", values: {port: 8080, name: "x"}}
+	"a.toml": {type: "toml", values: {port: 8080}}
+	"a.yaml": {type: "yaml", values: {nested: {a: true}}}
+	"a.ini":  {type: "ini", values: {core: {bare: true}}}
+	"a.xml":  {type: "xml", values: {cfg: {name: "x"}}}
+}
+`)
+		require.NoError(t, err, "unify")
+	})
+
+	t.Run("accepts lines text and ref", func(t *testing.T) {
+		t.Parallel()
+		err := unify(t, `
+package modot
+file: home: {
+	".bashrc": {
+		type: "lines"
+		values: {
+			a: "export PATH=1"
+			b: {kind: "text", text: "alias ll=ls"}
+		}
+	}
+	"readme": {
+		type: "text"
+		values: {content: "hi"}
+	}
+	"blob": {
+		type: "ref"
+		values: {src: {kind: "ref", ref: "blob"}}
+	}
+}
+`)
+		require.NoError(t, err, "unify")
+	})
+
+	t.Run("rejects env slot", func(t *testing.T) {
+		t.Parallel()
+		err := unify(t, `
+package modot
+file: home: "x": {
+	type: "text"
+	values: {a: {kind: "env", env: "EDITOR"}}
+}
+`)
+		require.Error(t, err, "expected schema error")
+	})
+
+	t.Run("rejects flat key", func(t *testing.T) {
+		t.Parallel()
+		err := unify(t, `
+package modot
+file: {
+	".codex/config.toml": {type: "toml", values: {model: "x"}}
+	codebase: {
+		".gitignore": {type: "text", values: {content: "bin/"}}
+	}
+}
+`)
+		require.Error(t, err, "expected schema error")
+	})
+
+	t.Run("accepts profiles", func(t *testing.T) {
+		t.Parallel()
+		err := unify(t, `
+package modot
+file: {
+	home: {
+		".codex/config.toml": {type: "toml", values: {model: "x"}}
+	}
+	codebase: {
+		".gitignore": {type: "text", values: {content: "bin/"}}
+	}
+}
+`)
+		require.NoError(t, err, "unify")
+	})
+
+	t.Run("rejects unknown file type", func(t *testing.T) {
+		t.Parallel()
+		err := unify(t, `
+package modot
+file: home: "x": {
+	type: "plist"
+	values: {a: "{}"}
+}
+`)
+		require.Error(t, err, "expected schema error")
+	})
+}

@@ -1,0 +1,211 @@
+package dotfiles
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"github.com/lewtec/modot/internal/deployer"
+	"github.com/lewtec/modot/internal/logging"
+	"github.com/lewtec/modot/internal/source"
+	"time"
+)
+
+var (
+	// ErrTreeRequired is returned when a Manager is created without a dest tree.
+	ErrTreeRequired = errors.New("tree is required")
+	// ErrStateStoreRequired is returned when a Manager is created without a state store.
+	ErrStateStoreRequired = errors.New("state store is required")
+)
+
+// Manager writes a dest Tree to disk.
+type Manager struct {
+	tree       *source.Tree
+	stateStore deployer.StateStore
+	planner    *deployer.Planner
+	executor   *deployer.Executor
+	hooks      []Hook
+	ignore     func(string) bool
+}
+
+// Config configures the Manager.
+type Config struct {
+	// Tree is dest files from templates + config. Apply does not rebuild it.
+	Tree *source.Tree
+
+	// StateStore for persistence.
+	StateStore deployer.StateStore
+
+	// Hooks (optional).
+	Hooks []Hook
+
+	// Ignore, if set, is true for targets that must not appear in managed
+	// state (typically gitignored paths under the apply root).
+	Ignore func(target string) bool
+}
+
+// NewManager creates a new Manager.
+func NewManager(cfg Config) (*Manager, error) {
+	if cfg.Tree == nil {
+		return nil, ErrTreeRequired
+	}
+
+	if cfg.StateStore == nil {
+		return nil, ErrStateStoreRequired
+	}
+
+	planner := deployer.NewPlanner()
+	planner.Ignore = cfg.Ignore
+	executor := deployer.NewExecutor()
+	executor.Ignore = cfg.Ignore
+	return &Manager{
+		tree:       cfg.Tree,
+		stateStore: cfg.StateStore,
+		planner:    planner,
+		executor:   executor,
+		hooks:      cfg.Hooks,
+		ignore:     cfg.Ignore,
+	}, nil
+}
+
+// ApplyOptions configures Apply execution.
+type ApplyOptions struct {
+	DryRun   bool // If true, only shows what would be done.
+	ShowDiff bool // If true, shows a detailed diff.
+}
+
+// ApplyResult contains the result of Apply.
+type ApplyResult struct {
+	FilesCreated int
+	FilesUpdated int
+	FilesDeleted int
+	FilesNoOp    int
+	// StateDropped is how many existing state.json keys were removed because
+	// they are gitignored. Plan reports this without writing; apply persists it.
+	StateDropped int
+	Actions      []deployer.Action
+	// Warnings are soft diagnostics from module resolve (e.g. place move).
+	Warnings []string
+	Error    error
+}
+
+// Apply runs the full deployment cycle.
+func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, error) {
+	logger := logging.GetLogger(ctx)
+	result := &ApplyResult{}
+
+	files := m.tree.Files()
+	result.Warnings = append([]string{}, m.tree.Warnings...)
+
+	logger.Info("applying dest tree", "files", len(files))
+
+	// Convert source.File to deployer.DesiredState
+	desired := make([]deployer.DesiredState, len(files))
+	for i, f := range files {
+		desired[i] = deployer.DesiredState{
+			File: f,
+		}
+	}
+
+	logger.Info("loading state", "store", m.stateStore.Path())
+	state, err := m.stateStore.Load()
+	if err != nil {
+		result.Error = err
+		return result, fmt.Errorf("load state: %w", err)
+	}
+
+	dropped := deployer.DropIgnored(state, m.ignore)
+	result.StateDropped = dropped
+	if dropped > 0 {
+		logger.Info("dropping gitignored paths from state", "count", dropped)
+	}
+
+	logger.Info("planning actions")
+	planStart := time.Now()
+	actions, err := m.planner.Plan(ctx, desired, state)
+	if err != nil {
+		result.Error = err
+		return result, fmt.Errorf("plan: %w", err)
+	}
+	logger.Info("plan calculated", "duration", time.Since(planStart).String(), "actions", len(actions))
+
+	result.Actions = actions
+
+	// Count actions
+	for _, a := range actions {
+		switch a.Type {
+		case deployer.ActionCreate:
+			result.FilesCreated++
+		case deployer.ActionUpdate:
+			result.FilesUpdated++
+		case deployer.ActionDelete:
+			result.FilesDeleted++
+		case deployer.ActionNoop:
+			result.FilesNoOp++
+		}
+	}
+
+	hasChanges := result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0
+
+	if !hasChanges {
+		logger.Info("no changes needed")
+		if dropped > 0 && !opts.DryRun {
+			if err := m.stateStore.Save(state); err != nil {
+				result.Error = err
+				return result, fmt.Errorf("save state: %w", err)
+			}
+		}
+		return result, nil
+	}
+
+	logger.Info("changes planned",
+		"create", result.FilesCreated,
+		"update", result.FilesUpdated,
+		"delete", result.FilesDeleted,
+	)
+
+	// Dry-run: stop here
+	if opts.DryRun {
+		logger.Info("dry-run: skipping execution")
+		return result, nil
+	}
+
+	// 5. Execute Before hooks
+	for _, hook := range m.hooks {
+		if err := hook.Before(ctx, actions); err != nil {
+			result.Error = err
+			return result, fmt.Errorf("hook before failed: %w", err)
+		}
+	}
+
+	// 6. Execute actions
+	logger.Info("executing actions")
+	execErr := m.executor.Execute(ctx, actions, state)
+
+	// 7. Execute After hooks (even if there was an error)
+	for _, hook := range m.hooks {
+		if err := hook.After(ctx, actions, execErr); err != nil {
+			logger.Error("hook after failed", "error", err)
+			// Continue executing other hooks
+		}
+	}
+
+	if execErr != nil {
+		result.Error = execErr
+		return result, fmt.Errorf("execute: %w", execErr)
+	}
+
+	// 8. Save state
+	logger.Info("saving state")
+	if err := m.stateStore.Save(state); err != nil {
+		result.Error = err
+		return result, fmt.Errorf("save state: %w", err)
+	}
+
+	logger.Info("apply completed successfully")
+	return result, nil
+}
+
+// GetStateStore returns the configured state store.
+func (m *Manager) GetStateStore() deployer.StateStore {
+	return m.stateStore
+}

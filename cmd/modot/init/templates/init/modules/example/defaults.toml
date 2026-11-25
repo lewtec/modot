@@ -1,0 +1,4 @@
+enable = true
+greeting = "Hello from modot!"
+show_hostname = true
+show_ips = true

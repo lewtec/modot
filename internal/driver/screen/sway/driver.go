@@ -1,0 +1,64 @@
+package sway
+
+import (
+	"context"
+	"github.com/lewtec/modot/internal/api"
+	"github.com/lewtec/modot/internal/driver"
+	envdriver "github.com/lewtec/modot/internal/driver/env"
+	execdriver "github.com/lewtec/modot/internal/driver/exec"
+	"github.com/lewtec/modot/internal/driver/screen"
+	"strings"
+)
+
+func init() {
+	driver.Register[screen.Driver](&Factory{})
+}
+
+type Factory struct{}
+
+func (f *Factory) ID() string   { return "screen_sway" }
+func (f *Factory) Name() string { return "Wayland (sway)" }
+
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
+	return execdriver.RequireEnvBinary(ctx, "WAYLAND_DISPLAY", "swaymsg")
+}
+
+func (f *Factory) New(ctx context.Context) (screen.Driver, error) {
+	return &Driver{}, nil
+}
+
+type Driver struct{}
+
+func (d *Driver) SetDPMS(ctx context.Context, on bool) error {
+	state := "off"
+	if on {
+		state = "on"
+	}
+	return execdriver.MustRun(ctx, "swaymsg", "output * dpms "+state).Run()
+}
+
+func (d *Driver) IsDPMSOn(ctx context.Context) (bool, error) {
+	out, err := execdriver.MustRun(ctx, "swaymsg", "-t", "get_outputs").Output()
+	if err != nil {
+		return false, err
+	}
+	return strings.Contains(string(out), `"dpms": true`), nil
+}
+
+func (d *Driver) Reset(ctx context.Context) error {
+	hostname, err := envdriver.GetHostname(ctx)
+	if err != nil {
+		return err
+	}
+	if hostname == "riverwood" {
+		// eDP-1 (notebook) on the LEFT (0,0), HDMI-A-1 on the RIGHT
+		if err := execdriver.MustRun(ctx, "swaymsg", "output", "eDP-1", "mode", "1366x768", "pos", "0", "0").Run(); err != nil {
+			return err
+		}
+		return execdriver.MustRun(ctx, "swaymsg", "output", "HDMI-A-1", "mode", "1366x768", "pos", "1366", "0").Run()
+	}
+	if hostname == "whiterun" {
+		return execdriver.MustRun(ctx, "swaymsg", "output", "HDMI-A-1", "mode", "1368x768").Run()
+	}
+	return api.ErrNotImplemented
+}
