@@ -4,6 +4,9 @@
     "config:recommended",
     "github>lewtec/renovate-config:base"
   ],
+  "postUpdateOptions": [
+    "gomodTidy"
+  ],
   "customManagers": [
     {
       "customType": "jsonata",
