@@ -26,6 +26,11 @@ builds:
         goarch: amd64
       - goos: android
         goarch: "386"
+      # lewkit (jni/kms) não compila em 32 bits; sem 386 até haver build 32-bit.
+      - goos: linux
+        goarch: "386"
+      - goos: windows
+        goarch: "386"
 
 archives:
   - formats: [tar.gz]
