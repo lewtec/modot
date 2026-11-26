@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/lewtec/lewkit/x/taskgroup"
@@ -90,7 +92,11 @@ func printReport(report *sarif.Report, format cmdarg.LintFormat) error {
 }
 
 func printTable(report *sarif.Report) error {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	return writeTable(os.Stdout, report)
+}
+
+func writeTable(out io.Writer, report *sarif.Report) error {
+	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
 	if _, err := fmt.Fprintln(w, "TOOL\tLEVEL\tFILE:LINE\tMESSAGE"); err != nil {
 		return err
 	}
@@ -110,7 +116,7 @@ func printTable(report *sarif.Report) error {
 			msg := ""
 
 			if res.Message.Text != nil {
-				msg = *res.Message.Text
+				msg = strings.Join(strings.Fields(*res.Message.Text), " ")
 			}
 
 			if len(res.Locations) > 0 {
