@@ -10,7 +10,7 @@ require (
 	github.com/gokrazy/rsync v0.3.3
 	github.com/google/go-cmp v0.7.0
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
-	github.com/lewtec/lewkit v0.0.0-20261124190124-d44587ca3404
+	github.com/lewtec/lewkit v0.0.0-20261126183604-afe0a0bb5b5b
 	github.com/owenrumney/go-sarif/v2 v2.3.3
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/pelletier/go-toml/v2 v2.3.1
@@ -116,7 +116,7 @@ require (
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
-	github.com/fetchurl/fetchurl v0.0.0-20260714002336-2d69880d6c8b // indirect
+	github.com/fetchurl/fetchurl v0.0.0-20261118141047-28c2ace880da // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gdamore/encoding v1.0.1 // indirect
 	github.com/gdamore/tcell/v2 v2.6.0 // indirect
@@ -171,6 +171,7 @@ require (
 	github.com/lewtec/wazero-tree-sitter/grammar v0.0.0-20260927175003-766673523e06 // indirect
 	github.com/lib/pq v1.12.3 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
+	github.com/lucasew/orvalho v0.0.0-20260720233020-b4936fd61914 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.30 // indirect
