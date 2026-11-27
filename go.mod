@@ -16,7 +16,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.3.1
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/image v0.42.0
-	golang.org/x/term v0.46.0
+	golang.org/x/term v0.48.0
 )
 
 require (
@@ -171,6 +171,7 @@ require (
 	github.com/lewtec/wazero-tree-sitter/grammar v0.0.0-20260927175003-766673523e06 // indirect
 	github.com/lib/pq v1.12.3 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
+	github.com/lucasew/orvalho v0.0.0-20260720233020-b4936fd61914 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.30 // indirect
@@ -241,7 +242,7 @@ require (
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.25.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.50.0 // indirect
